@@ -188,7 +188,6 @@ export class Weapon {
 
   private fire(): void {
     const { def } = this;
-    const m = this.player.muzzle();
     const aim = this.player.aim;
     const aimX = Math.cos(aim);
     const aimY = Math.sin(aim);
@@ -197,8 +196,9 @@ export class Weapon {
       pitch: rand(0.92, 1.08),
       volume: 0.7,
     });
-    // Recoil first so the flash spawns at the kicked-back tip it will be drawn against.
+    // Apply the visible kick before sampling the shared origin for the shot and flash.
     this.player.recoil(aimX, aimY, def.recoil, def.gunKick);
+    const m = this.player.muzzle();
     if (!def.beam) this.shots.fx.muzzleFlash(this.player);
     if (def.casing) {
       const port = this.player.ejectPort();

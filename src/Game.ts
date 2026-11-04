@@ -309,7 +309,7 @@ export class Game {
     this.horde.update(worldDt, p.x, p.y, p.radius);
     profiler.lap("horde");
     if (p.alive) {
-      this.weapon.update(playerDt, this.input.firing);
+      this.weapon.update(playerDt, this.input.consumeFire());
       this.weapon.updateShots(worldDt);
       profiler.lap("weapon");
       this.loot.update(worldDt, p);

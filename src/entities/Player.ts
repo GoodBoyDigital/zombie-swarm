@@ -165,6 +165,7 @@ export class Player {
     this.rx -= dirX * strength;
     this.ry -= dirY * strength;
     this.gunKick = gunKick;
+    this.gun.x = this.handX - this.gunKick;
   }
 
   update(dt: number, input: Input, camera: Camera, arena: Arena): void {

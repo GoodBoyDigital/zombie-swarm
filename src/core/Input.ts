@@ -17,7 +17,8 @@ export class Input {
   private readonly held = new Set<string>();
   /** Pointer position in screen pixels. */
   readonly pointer = { x: 0, y: 0 };
-  firing = false;
+  private firing = false;
+  private firePressed = false;
 
   private readonly onKeyDown = (e: KeyboardEvent) => {
     if (isTyping(e)) return;
@@ -28,6 +29,7 @@ export class Input {
   private readonly onBlur = () => {
     this.held.clear();
     this.firing = false;
+    this.firePressed = false;
   };
 
   constructor(private readonly app: Application) {
@@ -44,13 +46,23 @@ export class Input {
     app.stage.on("pointermove", track);
     app.stage.on("pointerdown", (e) => {
       track(e);
-      if (e.button === 0) this.firing = true;
+      if (e.button === 0) {
+        this.firing = true;
+        this.firePressed = true;
+      }
     });
     app.stage.on("pointerup", (e) => {
       if (e.button === 0) this.firing = false;
     });
     app.stage.on("pointerupoutside", () => (this.firing = false));
     app.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  /** Keep clicks that begin and end between frames, while still supporting held fire. */
+  consumeFire(): boolean {
+    const fire = this.firing || this.firePressed;
+    this.firePressed = false;
+    return fire;
   }
 
   /** Detach from the window and stage so a rebuilt game starts with clean input. */

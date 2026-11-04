@@ -3,7 +3,7 @@ export const ARENA = {
   width: 1280,
   height: 720,
   wallThickness: 28,
-  /** How far beyond the walls the floor texture and zombie spawn zone extend. */
+  /** How far beyond the walls the floor texture and zombie spawn zone extend. Painted black. */
   margin: 160,
   gateWidth: 220,
 } as const;

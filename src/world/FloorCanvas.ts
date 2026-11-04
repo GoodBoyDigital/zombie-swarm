@@ -1,5 +1,6 @@
 import {
   Container,
+  Graphics,
   RenderTexture,
   Sprite,
   TilingSprite,
@@ -8,6 +9,8 @@ import {
 } from "pixi.js";
 import { ARENA } from "../config/arena";
 import type { GameTextures } from "../fx/textures";
+
+const OUTSIDE_COLOR = 0x000000;
 
 /**
  * Persistent floor. Splats and corpses are rendered once into a render texture and then forgotten,
@@ -71,7 +74,8 @@ export class FloorCanvas {
   private paintBase(width: number, height: number, tex: GameTextures): void {
     const m = ARENA.margin;
     const base = new Container();
-    base.addChild(new TilingSprite({ texture: tex.tiles.dirt, width, height }));
+    // Pure black beyond the walls: the outside world is darkness zombies walk in from.
+    base.addChild(new Graphics().rect(0, 0, width, height).fill(OUTSIDE_COLOR));
     const concrete = new TilingSprite({
       texture: tex.tiles.concrete,
       width: ARENA.width,

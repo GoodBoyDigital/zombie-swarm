@@ -34,8 +34,8 @@ export interface GameTextures {
   spark: Texture;
   splats: Texture[];
   casings: Record<CasingId, Texture>;
-  /** Repeating ground and wall tiles. */
-  tiles: { concrete: Texture; dirt: Texture; wall: Texture };
+  /** Repeating floor and wall tiles. */
+  tiles: { concrete: Texture; wall: Texture };
   /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
   loot: Record<LootId, Texture>;
   crate: Texture;
@@ -48,7 +48,6 @@ export interface GameTextures {
 const SPRITES = {
   player: "/sprites/player.png",
   tileConcrete: "/sprites/tile-concrete.png",
-  tileDirt: "/sprites/tile-dirt.png",
   tileWall: "/sprites/tile-wall.png",
   crate: "/sprites/drop-crate.png",
   orb: "/sprites/powerup-orb.png",
@@ -275,7 +274,6 @@ export async function createTextures(
     casings,
     tiles: {
       concrete: sprite("tileConcrete"),
-      dirt: sprite("tileDirt"),
       wall: sprite("tileWall"),
     },
   };

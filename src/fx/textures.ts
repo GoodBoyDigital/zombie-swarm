@@ -7,6 +7,7 @@ import {
   Sprite,
   Texture,
   type Renderer,
+  type Spritesheet,
 } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
@@ -86,12 +87,13 @@ const SPRITES = {
   player: "/sprites/player.png",
   playerFlash: "/sprites/player-flash.png",
   playerCorpse: "/sprites/player-corpse.png",
-  tileConcrete: "/sprites/tile-concrete.png",
-  tileWall: "/sprites/tile-wall.png",
+  tileConcrete: "/assets/tiles/tile-concrete.png",
+  tileWall: "/assets/tiles/tile-wall.png",
 } as const;
 
 const LOOT_SPRITES: Record<LootId, string> = {
   coin: "/sprites/loot-coin.png",
+  bill: "/sprites/loot_bill.png",
   gem: "/sprites/loot-gem.png",
   bigGem: "/sprites/loot-big-gem.png",
 };
@@ -121,7 +123,7 @@ export const BLAST_TEXTURE_RADIUS = 128;
 const INK = 0x151a15;
 
 /**
- * Character, weapon, pickup and tile art is flat vector-style sprites from /public/sprites.
+ * Character, weapon and pickup art comes from the AssetPack atlas; repeating tiles load separately.
  * Effects (splats, sparks, muzzle flash, tracer, casings) are drawn here as vector shapes at
  * full resolution so they match.
  */
@@ -139,28 +141,31 @@ export async function createTextures(
       (n) => `/sprites/zombie-${art.key}-corpse-${n}.png`,
     ),
   });
-  const urls = [
-    ...Object.values(SPRITES),
-    ...weaponDefs.map((w) => w.sprite.path),
-    ...zombieArts.flatMap((art) => {
-      const paths = zombiePaths(art);
-      const pieces = Object.values(art.parts ?? {}).flatMap(
-        (part) => part.pieces ?? [],
-      );
-      return [paths.body, paths.flash, ...paths.corpses, ...pieces];
+  const tilePaths = [SPRITES.tileConcrete, SPRITES.tileWall];
+  const [sheet, tiles] = await Promise.all([
+    Assets.load<Spritesheet>({
+      src: assetUrl("/assets/sprites@2x.json"),
+      data: { textureOptions: { scaleMode: SCALE_MODE } },
     }),
-    ...Object.values(LOOT_SPRITES),
-    ...POWERUP_DEFS.flatMap((d) =>
-      "sprite" in d ? [d.icon, d.sprite] : [d.icon],
+    Promise.all(
+      tilePaths.map((src) =>
+        Assets.load<Texture>({
+          alias: src,
+          src: assetUrl(src),
+          data: { resolution: ART_RESOLUTION, scaleMode: SCALE_MODE },
+        }),
+      ),
     ),
-  ];
-  const loaded = (await Assets.load<Texture>(
-    [...new Set(urls)].map((src) => ({
-      alias: src,
-      src: assetUrl(src),
-      data: { resolution: ART_RESOLUTION, scaleMode: SCALE_MODE },
-    })),
-  )) as unknown as Record<string, Texture>;
+  ]);
+  const loaded: Record<string, Texture> = Object.fromEntries(
+    tilePaths.map((path, i) => [path, tiles[i]]),
+  );
+  // Config sprite paths are logical keys, not individual image requests.
+  for (const [name, texture] of Object.entries(sheet.textures)) {
+    const key = `/sprites/${name}`;
+    loaded[key] = texture;
+    Assets.cache.set(key, texture);
+  }
   const sprite = (key: keyof typeof SPRITES) => loaded[SPRITES[key]];
   const weapons = Object.fromEntries(
     weaponDefs.map((w) => [w.id, loaded[w.sprite.path]]),
@@ -322,7 +327,9 @@ export async function createTextures(
 
   return {
     zombies,
-    loot: packAtlas(renderer, LOOT_SPRITES, loaded),
+    loot: Object.fromEntries(
+      Object.entries(LOOT_SPRITES).map(([id, key]) => [id, loaded[key]]),
+    ) as GameTextures["loot"],
     powerupIcons: Object.fromEntries(
       POWERUP_DEFS.map((d) => [d.id, loaded[d.icon]]),
     ),
@@ -665,34 +672,4 @@ function bake(renderer: Renderer, root: Container, frame: Rectangle): Texture {
   });
   root.destroy({ children: true });
   return texture;
-}
-
-/** Lay separate images side by side in one texture and hand back a frame per key. */
-function packAtlas<K extends string>(
-  renderer: Renderer,
-  urls: Record<K, string>,
-  loaded: Record<string, Texture>,
-): Record<K, Texture> {
-  const sheet = new Container();
-  const frames = {} as Record<K, Rectangle>;
-  let x = 0;
-  for (const key of Object.keys(urls) as K[]) {
-    const s = new Sprite(loaded[urls[key]]);
-    s.x = x;
-    sheet.addChild(s);
-    frames[key] = new Rectangle(x, 0, s.width, s.height);
-    // A gap so filtering never bleeds a neighbour's edge in.
-    x += s.width + 2;
-  }
-  const atlas = renderer.generateTexture({
-    target: sheet,
-    antialias: false,
-    resolution: ART_RESOLUTION,
-    textureSourceOptions: { scaleMode: SCALE_MODE },
-  });
-  sheet.destroy({ children: true });
-  const out = {} as Record<K, Texture>;
-  for (const key of Object.keys(frames) as K[])
-    out[key] = new Texture({ source: atlas.source, frame: frames[key] });
-  return out;
 }

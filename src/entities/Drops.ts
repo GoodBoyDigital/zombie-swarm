@@ -169,6 +169,10 @@ export class Drops {
   }
 
   private spawn(def: PowerupDef, x: number, y: number): void {
+    const b = this.arena.bounds;
+    const inset = DROP_RULES.orbRadius;
+    x = Math.min(b.maxX - inset, Math.max(b.minX + inset, x));
+    y = Math.min(b.maxY - inset, Math.max(b.minY + inset, y));
     const d = this.pool.pop() ?? this.create();
     d.def = def;
     d.x = x;

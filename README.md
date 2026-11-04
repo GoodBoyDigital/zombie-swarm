@@ -7,6 +7,21 @@ npm install
 npm run dev     # opens http://localhost:8080
 ```
 
+## Sprite assets
+
+AssetPack runs automatically before Vite serves or builds the game. During development it
+watches the source artwork and repacks changes. Run `npm run assets` to pack it manually.
+
+- Edit or add sprite PNGs in `assets/sprites{tps}/`. The `{tps}` tag packs zombies, corpses,
+  detached heads, player art, weapons, pickups, power-up icons, and the plane into one atlas.
+- Repeating tiles live in `assets/tiles/` and remain separate textures. Audio stays in `public/audio/`.
+- `.assetpack.js` writes generated files to `public/assets/`. Do not edit these outputs;
+  they and the build cache are ignored by Git and regenerated for development and deployment.
+- Sprite frames retain their original dimensions and orientation at 2x resolution. Existing
+  `/sprites/<filename>.png` config values are logical atlas keys, not individual image URLs.
+- Procedural effects and dismembered zombie variants are still generated at startup. Loot uses
+  the shared atlas directly instead of creating another texture at runtime.
+
 Play online: https://goodboydigital.github.io/zombie-swarm/ (rebuilt from `main` on every push by `.github/workflows/pages.yml`).
 
 ## Controls
@@ -50,7 +65,7 @@ Play online: https://goodboydigital.github.io/zombie-swarm/ (rebuilt from `main`
 | Tuning    | `src/debug/TuningPanel.ts`    | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`.                                                                                                                              |
 | Effects   | `src/fx/Effects.ts`           | Pooled muzzle flash, tracer, blood sparks.                                                                                                                                                                          |
 | Camera    | `src/fx/Camera.ts`            | Eased follow, clamped `CAMERA.edgeReveal` past the arena edge so a strip of wall shows. Zoom and rates in `src/config/camera.ts`.                                                                                   |
-| Art       | `src/fx/textures.ts`          | Loads the flat vector sprites from `public/sprites` at `1 / ART_SCALE` resolution and draws the effects (splats, sparks, muzzle flash, tracer, casings) as vector shapes at full resolution. Linear filtering by default; add `?filter=nearest` to the URL to compare.                                            |
+| Art       | `src/fx/textures.ts`          | Loads flat vector sprites from the AssetPack atlas at `1 / ART_SCALE` resolution and draws the effects (splats, sparks, muzzle flash, tracer, casings) as vector shapes at full resolution. Linear filtering by default; add `?filter=nearest` to the URL to compare.                                            |
 
 ## Art pipeline
 
@@ -63,14 +78,14 @@ pointing right. If the generator returns a side profile with a hanging grip, cro
 view would show (see `weapon-*-topdown.png`).
 
 Full-size keyed sources live in `concepts/vector/` (raw generations in `concepts/vector/raw/`). The game
-loads copies from `public/sprites` authored at **2x world size**: textures load at resolution
+loads the atlas built from `assets/sprites{tps}/`, authored at **2x world size**: textures load at resolution
 `1 / ART_SCALE` (`src/fx/textures.ts`), so `texture.width` is already in world px and every anchor, hand
 point, grip and muzzle stays a plain fraction of the sprite. `concepts/vector/ship.sh` does the whole trip:
 
 ```sh
 concepts/vector/ship.sh key  concepts/vector/raw/foo.png concepts/vector/foo.png   # key magenta, trim
-concepts/vector/ship.sh ship concepts/vector/foo.png public/sprites/foo.png 40 2.5 0.7
-concepts/vector/ship.sh flash public/sprites/zombie-foo.png public/sprites/zombie-foo-flash.png
+concepts/vector/ship.sh ship concepts/vector/foo.png "assets/sprites{tps}/foo.png" 40 2.5 0.7
+concepts/vector/ship.sh flash "assets/sprites{tps}/zombie-foo.png" "assets/sprites{tps}/zombie-foo-flash.png"
 ```
 
 `ship` takes the art width in world px, then the outline it adds around the silhouette and the extra weight

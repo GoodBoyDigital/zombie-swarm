@@ -17,6 +17,7 @@ const ALTITUDE = 34;
 const SHADOW_X = 26;
 const SHADOW_Y = 22;
 const SHADOW_ALPHA = 0.28;
+const PLANE_SCALE = 1.5;
 /** Motion stretch along the flight line, and the faint trailing copies behind the plane. */
 const STRETCH = 1.12;
 const GHOSTS = [
@@ -92,7 +93,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     const tex = Assets.get<Texture>(def.sprite);
     const view = visibleView(ctx);
     const y = strikeLine(ctx, view);
-    const length = tex.width * STRETCH;
+    const length = tex.width * STRETCH * PLANE_SCALE;
     const x0 = view.left - length;
     const x1 = view.right + length;
     const enter = def.warningSeconds;
@@ -152,7 +153,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     );
     const shadow = new Sprite({ texture: tex, anchor: 0.5, tint: 0x000000 });
     shadow.alpha = SHADOW_ALPHA;
-    shadow.scale.set(STRETCH * 0.92, 0.92);
+    shadow.scale.set(STRETCH * 0.92 * PLANE_SCALE, 0.92 * PLANE_SCALE);
     const plane = new Container({ label: "airstrikePlane" });
     for (const g of [...GHOSTS].reverse()) {
       const ghost = new Sprite({ texture: tex, anchor: 0.5 });
@@ -161,7 +162,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
       plane.addChild(ghost);
     }
     plane.addChild(new Sprite({ texture: tex, anchor: 0.5 }));
-    plane.scale.set(STRETCH, 1 / STRETCH ** 0.5);
+    plane.scale.set(STRETCH * PLANE_SCALE, PLANE_SCALE / STRETCH ** 0.5);
     plane.visible = shadow.visible = false;
     root.addChild(warning, shadow, plane);
     ctx.world.addChild(root);

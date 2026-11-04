@@ -7,13 +7,15 @@
     "start": "npm run dev",
     "build": "npm run lint && tsc && vite build",
     "lint": "eslint .",
-    "dev": "vite"
+    "dev": "vite",
+    "assets": "assetpack"
   },
   "dependencies": {
     "pixi.js": "^8.8.1",
     "tweakpane": "^4.0.5"
   },
   "devDependencies": {
+    "@assetpack/core": "^1.7.0",
     "@eslint/js": "^9.21.0",
     "@tweakpane/core": "^2.0.5",
     "eslint": "^9.21.0",

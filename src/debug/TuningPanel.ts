@@ -43,6 +43,7 @@ const LOOT_RANGES: Ranges = {
   maxItems: { min: 100, max: 10000, step: 100 },
   magnetRadius: { min: 0, max: 400, step: 5 },
   magnetPull: { min: 0, max: 3000, step: 10 },
+  magnetMaxSpeed: { min: 10, max: 600, step: 10 },
   collectRadius: { min: 0, max: 60, step: 1 },
   weaponChanceOnBackup: { min: 0, max: 1, step: 0.005 },
   weaponChanceArmed: { min: 0, max: 1, step: 0.001 },

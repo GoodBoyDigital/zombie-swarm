@@ -1,5 +1,6 @@
 import { Particle, ParticleContainer } from "pixi.js";
 import type { Audio } from "../audio/Audio";
+import { ARENA } from "../config/arena";
 import {
   LOOT_DEFS,
   LOOT_RULES,
@@ -27,6 +28,7 @@ const COMBO_PITCH_STEP = 0.05;
 const COMBO_MAX = 14;
 const SPARKLE: Record<LootId, number> = {
   coin: 0xffd84a,
+  bill: 0xa5d985,
   gem: 0x7cf7a0,
   bigGem: 0xe08cff,
 };
@@ -43,10 +45,11 @@ interface LootItem {
   vy: number;
   vz: number;
   life: number;
+  attracted: boolean;
 }
 
 /**
- * Coins and gems on the floor. One ParticleContainer draws everything in a single call; items
+ * Coins, bills and gems on the floor. One ParticleContainer draws everything in a single call; items
  * are plain objects over pooled Particles, swap-removed, and parked at alpha 0 rather than
  * removed from the container so the per-frame loop never allocates or splices.
  *
@@ -102,8 +105,9 @@ export class Loot {
     while (this.live.length >= LOOT_RULES.maxItems) this.release(this.oldest());
     const item = this.pool.pop() ?? this.create();
     item.def = def;
-    item.x = x;
-    item.y = y;
+    const inset = def.size / 2;
+    item.x = Math.min(ARENA.width - inset, Math.max(inset, x));
+    item.y = Math.min(ARENA.height - inset, Math.max(inset, y));
     item.z = 0;
     const a = rand(0, Math.PI * 2);
     const speed = rand(LOOT_RULES.scatterMin, LOOT_RULES.scatterMax);
@@ -111,6 +115,7 @@ export class Loot {
     item.vy = vy + Math.sin(a) * speed;
     item.vz = rand(LOOT_RULES.hopMin, LOOT_RULES.hopMax);
     item.life = LOOT_RULES.lifetime;
+    item.attracted = false;
     item.index = this.live.length;
     this.live.push(item);
     const p = item.particle;
@@ -130,14 +135,18 @@ export class Loot {
     for (let i = this.live.length - 1; i >= 0; i--) {
       const it = this.live[i];
       it.life -= dt;
-      if (it.life <= 0) {
+      if (it.life <= 0 && !it.attracted) {
         this.release(i);
         continue;
       }
-      it.x += it.vx * dt;
-      it.y += it.vy * dt;
-      it.vx *= drag;
-      it.vy *= drag;
+      const inset = it.def.size / 2;
+      const x = it.x + it.vx * dt;
+      const y = it.y + it.vy * dt;
+      it.x = Math.min(ARENA.width - inset, Math.max(inset, x));
+      it.y = Math.min(ARENA.height - inset, Math.max(inset, y));
+      // Stop outward scatter at the wall without changing motion along it.
+      it.vx = it.x === x ? it.vx * drag : 0;
+      it.vy = it.y === y ? it.vy * drag : 0;
       if (it.z > 0 || it.vz > 0) {
         it.vz -= GRAVITY * dt;
         it.z += it.vz * dt;
@@ -149,7 +158,7 @@ export class Loot {
       this.hash.insert(it);
     }
 
-    this.attract(player);
+    this.attract(player, dt);
 
     const { lifetime, blinkSeconds } = LOOT_RULES;
     for (const it of this.live) {
@@ -160,12 +169,14 @@ export class Loot {
       const s =
         (age < POP_IN ? age / POP_IN : 1) * (it.def.size / p.texture.width);
       p.scaleX = p.scaleY = s;
-      if (it.life < blinkSeconds) p.alpha = (it.life * 10) % 2 < 1 ? 1 : 0.25;
+      if (it.attracted) p.alpha = 1;
+      else if (it.life < blinkSeconds)
+        p.alpha = (it.life * 10) % 2 < 1 ? 1 : 0.25;
     }
   }
 
   /** Items near the player drift in; items touching the player are collected. */
-  private attract(player: Player): void {
+  private attract(player: Player, dt: number): void {
     const px = player.x;
     const py = player.y;
     const radius = PLAYER.magnetRadius * player.magnetRadiusScale;
@@ -180,18 +191,30 @@ export class Loot {
         const dx = px - it.x;
         const dy = py - it.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < collect * collect) {
-          this.collect(it);
-          return;
-        }
-        if (d2 >= radius * radius) return;
-        const d = Math.sqrt(d2);
-        // Strongest at the player's feet, nothing at the edge, so items ease in rather than snap.
-        const f = ((1 - d / radius) * pull) / d;
-        it.vx += dx * f;
-        it.vy += dy * f;
+        if (d2 < radius * radius) it.attracted = true;
       },
     );
+    const minSpeed = player.moveSpeed + 60;
+    const maxSpeed = Math.max(PLAYER.magnetMaxSpeed, minSpeed);
+    // Once caught, keep homing even if the player runs beyond the pickup radius.
+    for (let i = this.live.length - 1; i >= 0; i--) {
+      const it = this.live[i];
+      if (!it.attracted) continue;
+      const dx = px - it.x;
+      const dy = py - it.y;
+      const d = Math.hypot(dx, dy);
+      if (d < collect) {
+        this.collect(it);
+        continue;
+      }
+      const speed = Math.min(
+        maxSpeed,
+        Math.max(minSpeed, Math.hypot(it.vx, it.vy) + pull * dt),
+        d / dt,
+      );
+      it.vx = (dx / d) * speed;
+      it.vy = (dy / d) * speed;
+    }
   }
 
   private collect(it: LootItem): void {
@@ -243,6 +266,7 @@ export class Loot {
       vy: 0,
       vz: 0,
       life: 0,
+      attracted: false,
     };
   }
 }

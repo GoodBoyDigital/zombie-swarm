@@ -57,6 +57,7 @@ export type ZombieAiOverrides = Partial<
     typeof ZOMBIE_AI,
     | "aggroRadius"
     | "loseRadius"
+    | "maxTurnRate"
     | "wanderSpeedScale"
     | "reactionDelayMin"
     | "reactionDelayMax"
@@ -189,6 +190,8 @@ export const ZOMBIES = {
     ai: {
       aggroRadius: 420,
       loseRadius: 600,
+      // Commit to a charge: even up close, a missed pass needs a wide, slow turn.
+      maxTurnRate: 0.5,
       wanderSpeedScale: 0.4,
       reactionDelayMin: 0.02,
       reactionDelayMax: 0.08,

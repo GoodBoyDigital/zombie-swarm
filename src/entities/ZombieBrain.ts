@@ -143,7 +143,17 @@ export class ZombieBrain {
         this.sinceContact = 0;
         this.pickLeg(z, z.facing + rand(-RESUME_SPREAD, RESUME_SPREAD));
       } else {
-        turnToward(z, px, py, ai.chaseTurnRate, faceCap(playerDist2), dt);
+        turnToward(
+          z,
+          px,
+          py,
+          ai.chaseTurnRate,
+          Math.min(
+            this.def.ai.maxTurnRate ?? ai.maxTurnRate,
+            faceCap(playerDist2),
+          ),
+          dt,
+        );
         // Slow to a stop when touching the player instead of overlapping them.
         const stopAt = z.def.radius + playerRadius;
         return playerDist2 > stopAt * stopAt ? z.speed : 0;

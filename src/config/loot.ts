@@ -13,7 +13,8 @@ export interface LootDef {
 }
 
 export const LOOT = {
-  coin: { id: "coin", counter: "coins", value: 1, size: 19, weight: 70 },
+  coin: { id: "coin", counter: "coins", value: 1, size: 19, weight: 45 },
+  bill: { id: "bill", counter: "coins", value: 1, size: 24, weight: 25 },
   gem: { id: "gem", counter: "gems", value: 5, size: 24, weight: 25 },
   bigGem: { id: "bigGem", counter: "gems", value: 25, size: 32, weight: 5 },
 } as const satisfies Record<string, LootDef>;

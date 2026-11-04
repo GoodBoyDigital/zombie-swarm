@@ -3,9 +3,9 @@ export const PLAYER = {
   maxHealth: 100,
   /**
    * Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`.
-   * Kept low on purpose: one zombie is a nuisance you can ignore for most of a minute.
+   * A lone zombie chips away at health; crowds multiply the danger through crowdPower.
    */
-  contactDamage: 1.8,
+  contactDamage: 3.6,
   /**
    * Exponent on the number of zombies in contact (summed damageScale). Above 1 a crowd hurts more
    * than its headcount, so the threat is the pack that built up unnoticed: 8 walkers at 1.5 ≈ 23x.
@@ -19,9 +19,11 @@ export const PLAYER = {
   regenPerSecond: 0,
   regenDelay: 4,
   /** Loot inside this radius drifts toward the player. */
-  magnetRadius: 70,
-  /** Acceleration at the player's feet in px/s², fading to zero at the radius edge. */
+  magnetRadius: 49,
+  /** Acceleration of attracted loot toward its incoming speed, px/s². */
   magnetPull: 400,
+  /** Incoming loot speed in px/s; raised when needed to stay ahead of the player's run speed. */
+  magnetMaxSpeed: 330,
   /** Added to the body radius for the overlap that collects loot. */
   collectRadius: 6,
 };

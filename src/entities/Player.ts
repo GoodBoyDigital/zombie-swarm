@@ -108,6 +108,10 @@ export class Player {
     return this.health > 0;
   }
 
+  get moveSpeed(): number {
+    return MOVE_SPEED * this.speedScale;
+  }
+
   /** Take a hit. Returns false while immune or already down, so feedback only fires on real hits. */
   hurt(amount: number): boolean {
     if (this.invuln > 0 || !this.alive) return false;
@@ -143,7 +147,7 @@ export class Player {
 
     const axis = input.moveAxis();
     const blend = 1 - Math.exp(-dt * ACCEL);
-    const speed = MOVE_SPEED * this.speedScale;
+    const speed = this.moveSpeed;
     this.vx += (axis.x * speed - this.vx) * blend;
     this.vy += (axis.y * speed - this.vy) * blend;
     this.x += (this.vx + this.rx) * dt;

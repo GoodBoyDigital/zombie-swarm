@@ -1,10 +1,17 @@
-import { Container, Graphics, Sprite, Text } from "pixi.js";
+import { Container, Graphics, Text } from "pixi.js";
 import type { Weapon } from "../combat/Weapon";
 import type { Input } from "../core/Input";
-import type { GameTextures } from "../fx/textures";
 
 /** Crosshair width on screen in px. The ring and timer scale with it. */
 export const RETICLE_SIZE = 72;
+const CROSS_COLOR = 0xff2a2a;
+const CROSS_OUTLINE = 0x140808;
+const CROSS_RADIUS = RETICLE_SIZE * 0.26;
+const CROSS_LINE = RETICLE_SIZE * 0.045;
+/** Ticks run from just inside the circle to well outside it, leaving the centre open. */
+const TICK_INNER = CROSS_RADIUS * 0.55;
+const TICK_OUTER = RETICLE_SIZE * 0.5;
+const DOT_RADIUS = RETICLE_SIZE * 0.035;
 const RING_RADIUS = RETICLE_SIZE * 0.65;
 const RING_WIDTH = RETICLE_SIZE * 0.1;
 const TIMER_FONT = RETICLE_SIZE * 0.33;
@@ -27,13 +34,8 @@ export class Reticle {
   private wasReloading = false;
   private flash = 0;
 
-  constructor(
-    tex: GameTextures,
-    private readonly input: Input,
-  ) {
-    const cross = new Sprite(tex.crosshair);
-    cross.anchor.set(0.5);
-    cross.scale.set(RETICLE_SIZE / tex.crosshair.width);
+  constructor(private readonly input: Input) {
+    const cross = drawCrosshair();
     this.timer = new Text({
       text: "",
       style: {
@@ -94,4 +96,30 @@ export class Reticle {
       .arc(0, 0, RING_RADIUS, start, start + Math.PI * 2 * progress)
       .stroke({ width: RING_WIDTH, color });
   }
+}
+
+/**
+ * Vector crosshair: drawn once, antialiased at device resolution, so it stays smooth at any size.
+ * A dark underlay a little wider than each red stroke keeps it readable over the horde and the floor.
+ */
+function drawCrosshair(): Graphics {
+  const g = new Graphics();
+  const shape = (width: number, color: number) => {
+    g.circle(0, 0, CROSS_RADIUS).stroke({ width, color, cap: "round" });
+    for (const [x, y] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      g.moveTo(x * TICK_INNER, y * TICK_INNER)
+        .lineTo(x * TICK_OUTER, y * TICK_OUTER)
+        .stroke({ width, color, cap: "round" });
+    }
+  };
+  shape(CROSS_LINE + 3, CROSS_OUTLINE);
+  shape(CROSS_LINE, CROSS_COLOR);
+  g.circle(0, 0, DOT_RADIUS + 1.5).fill(CROSS_OUTLINE);
+  g.circle(0, 0, DOT_RADIUS).fill(CROSS_COLOR);
+  return g;
 }

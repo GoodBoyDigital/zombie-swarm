@@ -119,7 +119,7 @@ export class Game {
       },
     });
     this.hud.position.set(12, 10);
-    this.reticle = new Reticle(tex, this.input);
+    this.reticle = new Reticle(this.input);
     app.stage.addChild(this.world, this.hud, this.reticle.view);
 
     app.ticker.add((ticker) =>

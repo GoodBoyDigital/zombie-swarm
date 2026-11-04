@@ -29,6 +29,10 @@ export class Zombie {
   /** Step cycle, radians. Advances with distance walked; drives the lurch, sway and squash. */
   private phase = 0;
   private stepSin = 0;
+  /** Per-zombie multipliers rolled at spawn so no two of a type share a cadence, sway or size. */
+  private stepScale = 1;
+  private swayScale = 1;
+  private sizeScale = 1;
   tint = 0xffffff;
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
@@ -61,6 +65,9 @@ export class Zombie {
     this.y = gate.spawn.y + (horizontal ? rand(-30, 30) : along);
     this.facing = Math.atan2(gate.entry.y - this.y, gate.entry.x - this.x);
     this.phase = rand(0, TWO_PI);
+    this.stepScale = jitter(ZOMBIE_AI.stepLengthJitter);
+    this.swayScale = jitter(ZOMBIE_AI.swayJitter);
+    this.sizeScale = jitter(ZOMBIE_AI.sizeJitter);
     this.tint = shade(def.color, rand(0.8, 1));
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
@@ -94,7 +101,9 @@ export class Zombie {
     const ai = this.def.ai;
     if (move > 0)
       this.phase +=
-        (move / (ai.stepLength ?? ZOMBIE_AI.stepLength)) * TWO_PI * dt;
+        (move / ((ai.stepLength ?? ZOMBIE_AI.stepLength) * this.stepScale)) *
+        TWO_PI *
+        dt;
     this.stepSin = Math.sin(this.phase);
     const pulse = this.stepSin > 0 ? Math.sqrt(this.stepSin) : 0;
     const gait =
@@ -125,12 +134,14 @@ export class Zombie {
     const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
     this.sprite.rotation =
-      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway);
-    const base = this.def.radius / this.def.art.radius;
+      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale;
+    const base = (this.def.radius / this.def.art.radius) * this.sizeScale;
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));
   }
 }
+
+const jitter = (amount: number): number => 1 + rand(-amount, amount);
 
 function shade(color: number, factor: number): number {
   const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor));

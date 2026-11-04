@@ -78,8 +78,9 @@ export const ZOMBIES = {
     art: {
       key: "runner",
       corpses: [1, 2, 3],
-      radius: 10,
-      anchor: { x: 0.62, y: 0.5 },
+      // Skinny top-down art: head centred 18% across, about 9 px radius including outline.
+      radius: 9,
+      anchor: { x: 0.18, y: 0.5 },
     },
     radius: 10,
     speed: 170,
@@ -205,4 +206,11 @@ export const ZOMBIE_AI = {
   sway: 0.06,
   /** Scale squash along the facing with each step, as a fraction. Visual only. */
   squash: 0.04,
+  /**
+   * Per-zombie variation rolled at spawn, as +/- fractions of the type's value, so a crowd of one
+   * type never moves in lockstep: step cadence, sway amount and drawn size.
+   */
+  stepLengthJitter: 0.25,
+  swayJitter: 0.5,
+  sizeJitter: 0.07,
 } satisfies Record<string, number>;

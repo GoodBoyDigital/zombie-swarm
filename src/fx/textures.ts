@@ -41,7 +41,6 @@ export interface GameTextures {
   /** Glowing orb that carries a power-up, with an icon per kind. */
   orb: Texture;
   powerupIcons: Record<PowerupId, Texture>;
-  crosshair: Texture;
 }
 
 const SPRITES = {
@@ -52,7 +51,6 @@ const SPRITES = {
   tileWall: "/sprites/tile-wall.png",
   crate: "/sprites/drop-crate.png",
   orb: "/sprites/powerup-orb.png",
-  crosshair: "/sprites/ui-crosshair.png",
 } as const;
 
 const LOOT_SPRITES: Record<LootId, string> = {
@@ -80,6 +78,15 @@ const ICON_SPRITES: Record<WeaponId, string> = {
 
 /** Procedural art is rendered at this fraction of world resolution so it reads as chunky pixels. */
 const PIXEL_SCALE = 0.25;
+
+/**
+ * Texture filtering for all game art. Nearest keeps hard pixel edges; linear smooths edges when
+ * sprites rotate or scale by non-integer amounts. Compare with ?filter=linear in the URL.
+ */
+const SCALE_MODE: "nearest" | "linear" =
+  new URLSearchParams(location.search).get("filter") === "linear"
+    ? "linear"
+    : "nearest";
 
 /**
  * Character art is 8-bit pixel sprites from /public/sprites. Everything else is still generated
@@ -139,7 +146,7 @@ export async function createTextures(
       target: g,
       antialias: false,
       resolution: PIXEL_SCALE,
-      textureSourceOptions: { scaleMode: "nearest" },
+      textureSourceOptions: { scaleMode: SCALE_MODE },
     });
     g.destroy();
     return pixelate(texture);
@@ -160,7 +167,7 @@ export async function createTextures(
         target: g,
         antialias: false,
         resolution: 1,
-        textureSourceOptions: { scaleMode: "nearest" },
+        textureSourceOptions: { scaleMode: SCALE_MODE },
       });
       g.destroy();
       return [id, texture];
@@ -195,7 +202,6 @@ export async function createTextures(
         pixelate(loaded[url]),
       ]),
     ) as Record<PowerupId, Texture>,
-    crosshair: sprite("crosshair"),
     weaponIcons: icons,
     player: sprite("player"),
     weapons,
@@ -232,7 +238,7 @@ function packAtlas<K extends string>(
     target: sheet,
     antialias: false,
     resolution: 1,
-    textureSourceOptions: { scaleMode: "nearest" },
+    textureSourceOptions: { scaleMode: SCALE_MODE },
   });
   sheet.destroy({ children: true });
   const out = {} as Record<K, Texture>;
@@ -242,6 +248,6 @@ function packAtlas<K extends string>(
 }
 
 function pixelate(texture: Texture): Texture {
-  texture.source.scaleMode = "nearest";
+  texture.source.scaleMode = SCALE_MODE;
   return texture;
 }

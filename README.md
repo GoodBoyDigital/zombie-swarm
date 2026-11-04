@@ -41,7 +41,7 @@ npm run dev     # opens http://localhost:8080
 | Tuning    | `src/debug/TuningPanel.ts`    | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`.                                                                                                                              |
 | Effects   | `src/fx/Effects.ts`           | Pooled muzzle flash, tracer, blood sparks.                                                                                                                                                                          |
 | Camera    | `src/fx/Camera.ts`            | Fit-to-window, trauma shake, directional kick.                                                                                                                                                                      |
-| Art       | `src/fx/textures.ts`          | Loads the pixel sprites from `public/sprites` and generates the rest (splats, flash, sparks) at low resolution with nearest filtering.                                                                              |
+| Art       | `src/fx/textures.ts`          | Loads the pixel sprites from `public/sprites` and generates the rest (splats, flash, sparks) at low resolution. Nearest filtering by default; add `?filter=linear` to the URL to compare smoothed sampling.                                                                              |
 
 ## Art pipeline
 

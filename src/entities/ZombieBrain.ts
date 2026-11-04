@@ -57,9 +57,9 @@ export class ZombieBrain {
     this.loseAfter =
       ZOMBIE_AI.loseInterestSeconds +
       rand(-ZOMBIE_AI.loseInterestJitter, ZOMBIE_AI.loseInterestJitter);
-    this.drift = 0;
-    this.driftTarget = 0;
-    this.driftIn = 0;
+    this.drift = rand(-ZOMBIE_AI.turnNoise, ZOMBIE_AI.turnNoise);
+    this.driftTarget = this.drift;
+    this.driftIn = rand(0, DRIFT_RETARGET_MAX);
     this.clearHerd();
   }
 

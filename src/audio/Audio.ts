@@ -6,6 +6,8 @@ const SFX = {
   shotShotgun: "/audio/sfx/shot-shotgun.mp3",
   shotRailgun: "/audio/sfx/shot-railgun.mp3",
   shotMinigun: "/audio/sfx/shot-minigun.mp3",
+  shotMagnum: "/audio/sfx/shot-magnum.mp3",
+  shotUzi: "/audio/sfx/shot-uzi.mp3",
   reload: "/audio/sfx/reload.mp3",
   pickupCoin: "/audio/sfx/pickup-coin.mp3",
   pickupGem: "/audio/sfx/pickup-gem.mp3",

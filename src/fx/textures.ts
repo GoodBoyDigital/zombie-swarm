@@ -58,6 +58,8 @@ const ICON_SPRITES: Record<WeaponId, string> = {
   shotgun: "/sprites/icon-shotgun.png",
   railgun: "/sprites/icon-railgun.png",
   minigun: "/sprites/icon-minigun.png",
+  magnum: "/sprites/icon-magnum.png",
+  uzi: "/sprites/icon-uzi.png",
 };
 
 /** Procedural art is rendered at this fraction of world resolution so it reads as chunky pixels. */

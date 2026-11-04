@@ -12,7 +12,7 @@ npm run dev     # opens http://localhost:8080
 - Arrow keys or WASD: move
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
-- 1-5: swap weapon (pistol, rifle, shotgun, railgun, minigun); R: reload early
+- 1-7: swap weapon (pistol, rifle, shotgun, railgun, minigun, magnum, uzi); R: reload early
 - F1-F3: music theme, F4: music off
 - Walk over a crate to equip its weapon. Coins and gems drift to you when close and count in the HUD.
 - Backtick: tuning panel. Edits apply instantly; "Copy ... as source" puts the table on the clipboard in the
@@ -70,7 +70,7 @@ magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35
 ## Adding things
 
 - **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts`, then pick it in `Horde.spawnWave`. Behaviour variations go in `ZombieBrain.steer`; the numbers live in `ZOMBIE_AI`.
-- **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies.
+- **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies. `spread` is the base miss angle; `spreadBloom` grows it per second of held trigger up to `spreadMax`.
 - **Shot type** (rocket, grenade, flame): add the name to `ShotType` and a handler to `SHOT_HANDLERS` in `src/combat/shots.ts`. `fire` launches one pellet; projectile types move and detonate in the optional `update`, then call `ctx.applyHit` for each zombie found with `horde.hash.queryBox` around the impact.
 - **Loot kind**: add an entry to `LOOT` in `src/config/loot.ts` with a `counter`, `value` and `weight`, plus its sprite in `LOOT_SPRITES` (`src/fx/textures.ts`); all loot is packed into one atlas at load.
 - **Drop kind**: `DROPS` in `src/config/drops.ts`. The `powerup` kind exists in the type only; `Game.collectDrop` is where it will be applied.

@@ -5,7 +5,12 @@ import { EXPLOSIONS } from "../config/explosions";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
-import { POWERUP_CATEGORIES, POWERUPS } from "../config/powerups";
+import {
+  POWERUP_CATEGORIES,
+  POWERUP_DEFS,
+  POWERUPS,
+  type PowerupDef,
+} from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { SPAWN, ZOMBIE_AI } from "../config/zombies";
 
@@ -245,6 +250,24 @@ export class TuningPanel {
     folder
       .addBinding(proxy, "count", { label: key, min: 1, max: 20, step: 1 })
       .on("change", apply);
+  }
+
+  /**
+   * A folder at the top with a button per power-up that drops its orb ahead of the player, plus the
+   * airstrike's settings and its bomb blast (the same live objects as POWERUPS and EXPLOSIONS).
+   */
+  addDrops(drop: (def: PowerupDef) => void): void {
+    const folder = this.pane.addFolder({ title: "Drop power-up", index: 0 });
+    for (const def of POWERUP_DEFS)
+      folder.addButton({ title: def.name }).on("click", () => drop(def));
+    const strike = this.pane.addFolder({
+      title: "Airstrike",
+      expanded: false,
+      index: 1,
+    });
+    this.bindNumbers(strike, POWERUPS.airstrike, POWERUP_RANGES);
+    const bomb = strike.addFolder({ title: "bomb blast", expanded: false });
+    this.bindNumbers(bomb, EXPLOSIONS.airstrikeBomb, EXPLOSION_RANGES);
   }
 
   private async copy(table: Table): Promise<void> {

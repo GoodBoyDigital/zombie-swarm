@@ -1,6 +1,7 @@
 import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
+import { GRADES } from "./config/grade";
 import { PLAYER } from "./config/player";
 import { POWERUP_DEFS, type PowerupDef } from "./config/powerups";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
@@ -15,7 +16,9 @@ import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
 import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
+import { ColorGrade } from "./fx/ColorGrade";
 import { Effects } from "./fx/Effects";
+import { ColorMask } from "./fx/ColorMask";
 import type { GameTextures } from "./fx/textures";
 import { GameOver } from "./ui/GameOver";
 import { HealthBar } from "./ui/HealthBar";
@@ -56,6 +59,9 @@ export const isTyping = (e: KeyboardEvent): boolean =>
 
 export class Game {
   private readonly world = new Container();
+  /** One colour-grade pass over the world, under the HUD. */
+  private readonly grade: ColorGrade;
+  private readonly colorMask: ColorMask;
   /** Power-up visuals: world-space over the horde, and screen-space under the HUD. */
   private readonly powerupWorld = new Container({ label: "powerupWorld" });
   private readonly powerupGround = new Container({ label: "powerupGround" });
@@ -96,6 +102,9 @@ export class Game {
     private readonly onRestart: () => void,
   ) {
     this.input = new Input(app);
+    this.grade = new ColorGrade(app.screen);
+    this.grade.view.addChild(this.world);
+    this.colorMask = new ColorMask(app.renderer, app.screen);
     this.camera = new Camera(app, this.world);
     this.arena = new Arena(tex);
     this.floor = new FloorCanvas(app.renderer, tex);
@@ -141,6 +150,7 @@ export class Game {
         this.powerupGround,
         this.powerupScreen,
         app.screen,
+        this.grade,
       ),
     );
     this.audio.duckMusic(1);
@@ -199,7 +209,7 @@ export class Game {
     this.gameOver = new GameOver(app, onRestart);
     this.reticle = new Reticle(this.input);
     app.stage.addChild(
-      this.world,
+      this.grade.view,
       this.vignette.view,
       this.powerupScreen,
       this.healthBar.view,
@@ -223,8 +233,9 @@ export class Game {
     this.powerups.endAll();
     this.input.destroy();
     this.floor.destroy();
+    this.grade.destroy();
+    this.colorMask.destroy();
     for (const child of [
-      this.world,
       this.vignette.view,
       this.powerupScreen,
       this.healthBar.view,
@@ -269,10 +280,18 @@ export class Game {
     );
   }
 
+  /**
+   * `dt` is real time: the camera, the HUD and power-up timers run on it. Slow-mo scales two clocks
+   * off it: the world (horde, gore, loot, projectiles) and, by less, the player and his gun.
+   */
   private step(dt: number): void {
     profiler.beginFrame();
+    this.grade.begin();
     if (this.player.alive) this.powerups.update(dt);
     const mods = this.powerups.ctx.modifiers;
+    const worldDt = dt * mods.timeScale;
+    const playerDt = dt * mods.playerTimeScale;
+    this.powerups.ctx.timeScale = mods.timeScale;
     this.player.speedScale = mods.moveSpeed;
     this.player.magnetRadiusScale = mods.magnetRadius;
     this.player.magnetPullScale = mods.magnetPull;
@@ -284,29 +303,41 @@ export class Game {
     const p = this.player;
     if (p.alive) {
       this.elapsed += dt;
-      p.update(dt, this.input, this.camera, this.arena);
+      p.update(playerDt, this.input, this.camera, this.arena);
     }
     profiler.lap("player");
-    this.horde.update(dt, p.x, p.y, p.radius);
+    this.horde.update(worldDt, p.x, p.y, p.radius);
     profiler.lap("horde");
     if (p.alive) {
-      this.weapon.update(dt, this.input.firing);
+      this.weapon.update(playerDt, this.input.firing);
+      this.weapon.updateShots(worldDt);
       profiler.lap("weapon");
-      this.loot.update(dt, p);
+      this.loot.update(worldDt, p);
       profiler.lap("loot");
-      this.drops.update(dt, p);
-      this.takeContactDamage();
+      this.drops.update(worldDt, p);
+      this.takeContactDamage(mods.timeScale / mods.playerTimeScale);
     }
-    this.fx.update(dt);
+    this.fx.update(worldDt);
     profiler.lap("fx");
-    this.casings.update(dt);
+    this.casings.update(worldDt);
     profiler.lap("casings");
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
+    this.grade.add(GRADES.lowHealth, this.vignette.lowHealth);
+    if (this.grade.sparing)
+      this.colorMask.render(
+        this.world,
+        p,
+        this.powerupGround,
+        this.horde,
+        this.drops.view,
+        this.fx,
+      );
+    this.grade.apply(this.colorMask);
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.pills.update(this.powerups.active);
     this.reticle.update(dt, this.weapon);
-    this.groan(dt);
+    this.groan(worldDt);
     profiler.lap("misc");
     profiler.endFrame();
     this.hudTimer -= dt;
@@ -330,8 +361,12 @@ export class Game {
       `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
   }
 
-  /** Zombies in contact bite as one lump per immunity window, so the feedback reads as discrete hits. */
-  private takeContactDamage(): void {
+  /**
+   * Zombies in contact bite as one lump per immunity window, so the feedback reads as discrete hits.
+   * The window runs on the player's clock, so `zombieRate` (world clock over player clock) shrinks
+   * each bite to keep damage per second in step with the slowed zombies.
+   */
+  private takeContactDamage(zombieRate: number): void {
     const p = this.player;
     const scale = this.horde.contact(p.x, p.y, p.radius, PLAYER.contactMargin);
     if (scale <= 0) return;
@@ -339,7 +374,8 @@ export class Game {
     const bite =
       PLAYER.contactDamage *
       Math.pow(scale, PLAYER.crowdPower) *
-      PLAYER.invulnSeconds;
+      PLAYER.invulnSeconds *
+      zombieRate;
     if (!p.hurt(bite)) return;
     this.audio.play("playerHurt", { pitch: rand(0.9, 1.1), volume: 0.9 });
     this.camera.addTrauma(HURT_TRAUMA);

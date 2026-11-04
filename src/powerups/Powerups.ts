@@ -65,5 +65,6 @@ export class Powerups {
   endAll(): void {
     for (const a of this.active) effectOf(a.def).end?.(this.ctx, a.def, a);
     this.active.length = 0;
+    this.ctx.resetModifiers();
   }
 }

@@ -71,6 +71,14 @@ export class Audio {
   private readonly buffers = new Map<string, AudioBuffer>();
   private music: AudioBufferSourceNode | null = null;
   private musicName: MusicName | null = null;
+  /** Playback rate on top of each sound's own pitch, e.g. pitched down in slow motion. */
+  private sfxRate = 1;
+  private musicRate = 1;
+  /** Every sound playing and the pitch it asked for, so a rate change reaches sounds already going. */
+  private readonly playing = new Map<
+    AudioBufferSourceNode,
+    { pitch: number; music: boolean }
+  >();
 
   constructor() {
     this.sfxBus.gain.value = 0.8;
@@ -127,6 +135,15 @@ export class Audio {
     );
   }
 
+  /** Slow (below 1) or speed up every sound and the music, including what is already playing. */
+  setRate(sfx: number, music: number): void {
+    if (sfx === this.sfxRate && music === this.musicRate) return;
+    this.sfxRate = sfx;
+    this.musicRate = music;
+    for (const [source, s] of this.playing)
+      source.playbackRate.value = s.pitch * (s.music ? music : sfx);
+  }
+
   stopMusic(): void {
     this.music?.stop();
     this.music = null;
@@ -144,7 +161,11 @@ export class Audio {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = loop;
-    source.playbackRate.value = opts.pitch ?? 1;
+    const pitch = opts.pitch ?? 1;
+    const music = bus === this.musicBus;
+    source.playbackRate.value = pitch * (music ? this.musicRate : this.sfxRate);
+    this.playing.set(source, { pitch, music });
+    source.onended = () => this.playing.delete(source);
     const gain = this.ctx.createGain();
     gain.gain.value = opts.volume ?? 1;
     source.connect(gain);

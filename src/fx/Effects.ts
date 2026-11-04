@@ -91,6 +91,11 @@ export class Effects {
     p.sprite.alpha = 1;
   }
 
+  /** Visit every muzzle flash alive now, e.g. for the colour grade to keep them in colour. */
+  forEachFlash(visit: (sprite: Sprite) => void): void {
+    for (const p of this.live) if (p.kind === "flash") visit(p.sprite);
+  }
+
   /**
    * Hitscan streak. `power` above 1 (power mode) makes it thicker, linger longer and run hot
    * orange with a white core laid over it.

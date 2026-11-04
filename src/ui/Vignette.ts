@@ -24,6 +24,11 @@ export class Vignette {
     app.renderer.on("resize", () => this.fit());
   }
 
+  /** The low-health throb, 0 (healthy) to 1 (at its peak). */
+  get lowHealth(): number {
+    return this.low / LOW_ALPHA;
+  }
+
   hit(): void {
     this.flash = FLASH_ALPHA;
   }

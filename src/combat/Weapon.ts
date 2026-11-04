@@ -126,9 +126,14 @@ export class Weapon {
     this.audio.play("reload", { pitch: rand(0.95, 1.05), volume: 0.6 });
   }
 
-  update(dt: number, triggerHeld: boolean): void {
+  /** Projectiles in flight. Called on world time, so rockets slow down with the world. */
+  updateShots(dt: number): void {
     for (const handler of Object.values(SHOT_HANDLERS))
       handler.update?.(this.shots, dt);
+  }
+
+  /** Fire timing and reloads, on real time. */
+  update(dt: number, triggerHeld: boolean): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
     const firing = triggerHeld && !this.reloading && this.rounds > 0;
     const { spreadBloom, spreadMax, spread } = this.def;

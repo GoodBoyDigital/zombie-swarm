@@ -1,5 +1,6 @@
 import type { SfxName } from "../audio/Audio";
 import type { ExplosionId } from "./explosions";
+import type { GradeDef } from "./grade";
 import { PLAYER } from "./player";
 import type { WeaponId } from "./weapons";
 import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
@@ -32,6 +33,10 @@ export interface Modifiers {
   magnetRadius: number;
   magnetPull: number;
   spread: number;
+  /** World clock: the horde, gore, loot and projectiles. Power-up timers always keep real time. */
+  timeScale: number;
+  /** Player clock: his movement, fire rate and reload. Aiming stays instant. */
+  playerTimeScale: number;
 }
 
 interface PowerupBase {
@@ -83,6 +88,23 @@ export type PowerupDef = PowerupBase &
         auraRadius: number;
         auraSpin: number;
         auraColor: number;
+      })
+    | (Timed & {
+        effect: "slowMo";
+        /** World clock while fully slowed. */
+        timeScale: number;
+        /**
+         * The player's clock while fully slowed (movement, fire rate, reload): slowed by less than
+         * the world so he still has the edge, dodging through it. Aiming stays instant.
+         */
+        playerTimeScale: number;
+        /** Seconds to ease both clocks into slow motion on pickup, and back out as it runs out. */
+        easeSeconds: number;
+        /** Playback rate of sound effects and of the music while fully slowed. */
+        sfxRate: number;
+        musicRate: number;
+        /** Colour grade over the world while slowed. The player is spared it and stays in colour. */
+        grade: GradeDef;
       })
     | (Instant & { effect: "equip"; weapon: WeaponId })
     | (Instant & { effect: "heal"; heal: number })
@@ -212,6 +234,27 @@ export const POWERUPS = {
     trailColor: 0x7fd8ff,
     icon: "/sprites/icon-powerup-speed.png",
     weight: 2,
+  },
+  slowMo: {
+    id: "slowMo",
+    name: "Slow-mo",
+    category: "support",
+    mode: "timed",
+    seconds: 10,
+    effect: "slowMo",
+    timeScale: 0.35,
+    playerTimeScale: 0.6,
+    easeSeconds: 0.3,
+    sfxRate: 0.6,
+    musicRate: 0.75,
+    grade: {
+      saturation: 0,
+      contrast: 1.15,
+      brightness: 0.95,
+      tint: { r: 1, g: 1, b: 1.04 },
+    },
+    icon: "/sprites/icon-powerup-slowmo.png",
+    weight: 1.2,
   },
   shield: {
     id: "shield",

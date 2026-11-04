@@ -24,3 +24,10 @@ public/assets/
 *.njsproj
 *.sln
 *.sw?
+
+# Raw local profiling captures. Summaries are committed under perf/results.
+perf/traces/
+perf/results/*-samples.json
+perf/results/*.png
+perf/results/fixture.json
+perf/results/exploratory-*.json

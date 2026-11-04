@@ -24,6 +24,11 @@ export default defineConfig(({ command }) => {
     server: {
       port: 8080,
       open: true,
+      // Opt-in dev-only sampling for the performance worktree. No production headers.
+      headers:
+        process.env.VITE_BUILD_LABEL === "perf"
+          ? { "Document-Policy": "js-profiling" }
+          : undefined,
     },
   };
 });

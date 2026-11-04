@@ -83,7 +83,7 @@ export const WEAPONS = {
     spread: 0.04,
     spreadBloom: 0,
     spreadMax: 0.04,
-    fireInterval: 0.18,
+    fireInterval: 0.36,
     magazine: 12,
     magazines: Infinity,
     reloadSeconds: 0.63,

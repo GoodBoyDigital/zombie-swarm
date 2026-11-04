@@ -18,6 +18,10 @@ const HAZARD_DARK = 0x2b2a26;
 /** Length of each hazard stripe along a barricade, px. */
 const STRIPE = 14;
 const POST = 0x8a8f8c;
+/** Lit stone lip along a wall's inner edge, and the shadow it throws on the floor, px. */
+const LIP = 0x6f6a62;
+const LIP_DEPTH = 4;
+const SHADOW_DEPTH = 10;
 const POST_RADIUS = 8;
 
 /** Static walls and gates. Also owns the player-clamp rectangle. */
@@ -86,45 +90,60 @@ export class Arena {
     const open = new Set(GATES);
     const half = gateWidth / 2;
 
-    // Each wall run is a block tile strip with a light bevel just inside a heavy ink outline,
-    // so the top edge reads as raised above the floor.
-    const segment = (x: number, y: number, sw: number, sh: number) => {
+    // The camera only ever shows a wall's inner strip with darkness behind it, so each run is a
+    // block strip whose inner edge carries the detail: a lit stone lip, a heavy ink line, and a
+    // soft two-step shadow falling onto the floor.
+    const segment = (
+      x: number,
+      y: number,
+      sw: number,
+      sh: number,
+      inner: Side,
+    ) => {
+      const vertical = inner === "left" || inner === "right";
       const blocks = new TilingSprite({
         texture: tex.tiles.wall,
         width: sw,
         height: sh,
       });
+      // Courses run along the wall, so vertical runs turn the tile a quarter.
+      if (vertical) blocks.tileRotation = Math.PI / 2;
       blocks.position.set(x, y);
       walls.addChild(blocks);
-      g.rect(x + 3, y + 3, sw - 6, sh - 6).stroke({
-        width: 2,
-        color: 0xffffff,
-        alpha: 0.18,
-      });
-      g.rect(x, y, sw, sh).stroke({ width: 4, color: INK });
+      const band = (depth: number, offset: number) => {
+        if (inner === "bottom") return [x, y + sh + offset, sw, depth] as const;
+        if (inner === "top") return [x, y - offset - depth, sw, depth] as const;
+        if (inner === "right") return [x + sw + offset, y, depth, sh] as const;
+        return [x - offset - depth, y, depth, sh] as const;
+      };
+      g.rect(...band(SHADOW_DEPTH, 0)).fill({ color: INK, alpha: 0.18 });
+      g.rect(...band(SHADOW_DEPTH / 2, 0)).fill({ color: INK, alpha: 0.22 });
+      g.rect(...band(LIP_DEPTH, -LIP_DEPTH)).fill(LIP);
+      g.rect(x, y, sw, sh).stroke({ width: 3, color: INK });
+      g.rect(...band(3, -1.5)).fill(INK);
     };
 
     // Horizontal walls (top / bottom), split around a gate if one is open.
-    for (const [y, side] of [
-      [-t, "top"],
-      [h, "bottom"],
+    for (const [y, side, inner] of [
+      [-t, "top", "bottom"],
+      [h, "bottom", "top"],
     ] as const) {
       if (open.has(side)) {
-        segment(-t, y, w / 2 - half + t, t);
-        segment(w / 2 + half, y, w / 2 - half + t, t);
+        segment(-t, y, w / 2 - half + t, t, inner);
+        segment(w / 2 + half, y, w / 2 - half + t, t, inner);
       } else {
-        segment(-t, y, w + t * 2, t);
+        segment(-t, y, w + t * 2, t, inner);
       }
     }
-    for (const [x, side] of [
-      [-t, "left"],
-      [w, "right"],
+    for (const [x, side, inner] of [
+      [-t, "left", "right"],
+      [w, "right", "left"],
     ] as const) {
       if (open.has(side)) {
-        segment(x, 0, t, h / 2 - half);
-        segment(x, h / 2 + half, t, h / 2 - half);
+        segment(x, 0, t, h / 2 - half, inner);
+        segment(x, h / 2 + half, t, h / 2 - half, inner);
       } else {
-        segment(x, 0, t, h);
+        segment(x, 0, t, h, inner);
       }
     }
 

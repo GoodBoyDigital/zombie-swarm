@@ -41,37 +41,41 @@ npm run dev     # opens http://localhost:8080
 | Tuning    | `src/debug/TuningPanel.ts`    | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`.                                                                                                                              |
 | Effects   | `src/fx/Effects.ts`           | Pooled muzzle flash, tracer, blood sparks.                                                                                                                                                                          |
 | Camera    | `src/fx/Camera.ts`            | Eased follow, clamped `CAMERA.edgeReveal` past the arena edge so a strip of wall shows. Zoom and rates in `src/config/camera.ts`.                                                                                   |
-| Art       | `src/fx/textures.ts`          | Loads the pixel sprites from `public/sprites` and generates the rest (splats, flash, sparks) at low resolution. Nearest filtering by default; add `?filter=linear` to the URL to compare smoothed sampling.                                                                              |
+| Art       | `src/fx/textures.ts`          | Loads the flat vector sprites from `public/sprites` at `1 / ART_SCALE` resolution and draws the effects (splats, sparks, muzzle flash, tracer, casings) as vector shapes at full resolution. Linear filtering by default; add `?filter=nearest` to the URL to compare.                                            |
 
 ## Art pipeline
 
-Character art is 8-bit pixel art generated with the "Zombie Swarm 8-bit" Style Pack. Full-size concepts live in
-`concepts/`; the game loads downscaled copies from `public/sprites`. To make a sprite from a concept:
+The look is flat vector cartoon: clean shapes, a bold even dark outline (`#151a15`), flat fills with one
+cel-shade tone per shape, no gradients or texture. The four `concepts/vectorA-*.png` images are the style
+reference; link them as style references on every generation, plus the existing sprite it replaces as the
+content reference. Generate on a flat magenta background rather than asking for transparency (use light grey
+`#C8C8C8` for purple or red subjects). Characters face right; weapons are drawn strictly top-down, barrel
+pointing right. If the generator returns a side profile with a hanging grip, crop to the band a top-down
+view would show (see `weapon-*-topdown.png`).
+
+Full-size keyed sources live in `concepts/vector/` (raw generations in `concepts/vector/raw/`). The game
+loads copies from `public/sprites` authored at **2x world size**: textures load at resolution
+`1 / ART_SCALE` (`src/fx/textures.ts`), so `texture.width` is already in world px and every anchor, hand
+point, grip and muzzle stays a plain fraction of the sprite. `concepts/vector/ship.sh` does the whole trip:
 
 ```sh
-magick concepts/foo.png -trim +repage -filter Point -resize 44x public/sprites/foo.png
+concepts/vector/ship.sh key  concepts/vector/raw/foo.png concepts/vector/foo.png   # key magenta, trim
+concepts/vector/ship.sh ship concepts/vector/foo.png public/sprites/foo.png 40 2.5 0.7
+concepts/vector/ship.sh flash public/sprites/zombie-foo.png public/sprites/zombie-foo-flash.png
 ```
 
-Pick the width so the character's head is about twice its collision radius (walker 44 px wide for radius 12,
-runner 64 for radius 10, brute 96 for radius 20, player 36 px for radius 14). Each zombie type needs three files
-named by its `art.key`: `zombie-<key>.png`, `zombie-<key>-corpse.png` and a white hit-flash silhouette made with
-
-````sh
-magick public/sprites/zombie-foo.png -channel RGB -fill white -colorize 100 +channel public/sprites/zombie-foo-flash.png
-``` Anchors and the player's hand point are fractions of the sprite set in
-`src/config/zombies.ts` and `src/entities/Player.ts`.
+`ship` takes the art width in world px, then the outline it adds around the silhouette and the extra weight
+on interior ink lines (both world px), and downscales to 2x with Lanczos. Generated outlines vanish at game
+size, so the weight is added here: 2.5 for walkers, corpses and the player, 2 for the runner, 3 for the brute,
+1.5 for weapons and pickups. Each zombie type needs `zombie-<key>.png`, `zombie-<key>-flash.png` and its
+corpses `zombie-<key>-corpse-<n>.png` (sprawled, curled on its side, face down). `art.radius` in
+`src/config/zombies.ts` is the body radius in world px the art was drawn for, and `art.anchor` the body
+centre as fractions; the player's hand point is in `src/entities/Player.ts`.
 
 Characters are drawn without weapons, hands empty and reaching forward. Each weapon is its own sprite
 (`sprite` in `src/config/weapons.ts`): `grip` is the fraction of the weapon image pinned to the player's
-hand point, `muzzle` is the barrel tip where shots, flash and tracer start. Weapon concepts are drawn strictly
-top-down with dumpy proportions, barrel pointing right, about 30 px wide in game. The walker (`concepts/styleA-walker-1.png`)
-and its corpse are the style reference; link them as references when generating new characters, and
-generate on a flat magenta background then key it out rather than asking for transparency, which eats
-the black outline:
-
-```sh
-magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35&&g<0.25)?0:u" +channel -trim +repage concepts/foo.png
-````
+hand point, `muzzle` is the barrel tip where shots, flash and tracer start, `eject` the port casings leave
+from. Weapons are about 30 world px long; crate icons are the same art shipped 26 px wide.
 
 ## Adding things
 

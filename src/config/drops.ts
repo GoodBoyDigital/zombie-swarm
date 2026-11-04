@@ -1,11 +1,22 @@
 /**
- * How power-up orbs appear and look. Which one drops is a weighted pick over every POWERUPS entry
- * (src/config/powerups.ts); colours come from POWERUP_CATEGORIES.
+ * How orbs appear and look. Guns and power-ups roll separately on each kill; within each, which one
+ * drops is a weighted pick over the POWERUPS entries of that kind (src/config/powerups.ts).
+ * Colours come from POWERUP_CATEGORIES.
  */
 export const DROP_RULES = {
-  /** Chance that a kill leaves an orb where the zombie fell. */
-  chancePerKill: 0.02,
-  /** An orb also appears somewhere in the arena this often; 0 disables it. */
+  /** Chance a kill drops a gun while the player only has the pistol: high, so you get armed soon. */
+  weaponChanceOnBackup: 0.05,
+  /** Chance a kill drops a gun while the player already holds a better one. */
+  weaponChanceArmed: 0.008,
+  /** Chance a kill drops a red or green power-up, rolled independently of guns. */
+  powerupChancePerKill: 0.04,
+  /**
+   * Most orbs one action can drop (a trigger pull, a blast, a bomb), per kind, so a nuke through
+   * a crowd doesn't carpet the floor with orbs.
+   */
+  maxWeaponsPerAction: 1,
+  maxPowerupsPerAction: 1,
+  /** An orb also appears somewhere in the arena this often (a gun while on the pistol, else a power-up); 0 disables it. */
   timedSpawnSeconds: 25,
   lifetime: 25,
   blinkSeconds: 4,

@@ -36,6 +36,11 @@ export interface WeaponDef {
   fireInterval: number;
   /** Shots per magazine. Each pull spends one round regardless of pellets. */
   magazine: number;
+  /**
+   * Magazines a pickup comes with, the loaded one included. When the last runs dry the player
+   * falls back to the pistol. Infinity = never runs out (the pistol, the backup gun).
+   */
+  magazines: number;
   reloadSeconds: number;
   /** Damage per pellet. */
   damage: number;
@@ -74,6 +79,7 @@ export const WEAPONS = {
     spreadMax: 0.04,
     fireInterval: 0.18,
     magazine: 12,
+    magazines: Infinity,
     reloadSeconds: 0.63,
     damage: 2,
     knockback: 260,
@@ -101,6 +107,7 @@ export const WEAPONS = {
     spreadMax: 0.02,
     fireInterval: 0.11,
     magazine: 30,
+    magazines: 4,
     reloadSeconds: 1.12,
     damage: 1,
     knockback: 320,
@@ -128,6 +135,7 @@ export const WEAPONS = {
     spreadMax: 0.22,
     fireInterval: 0.75,
     magazine: 6,
+    magazines: 5,
     reloadSeconds: 1.54,
     damage: 1,
     knockback: 420,
@@ -155,6 +163,7 @@ export const WEAPONS = {
     spreadMax: 0,
     fireInterval: 0.5,
     magazine: 1,
+    magazines: 8,
     reloadSeconds: 1.26,
     damage: 12,
     knockback: 900,
@@ -182,6 +191,7 @@ export const WEAPONS = {
     spreadMax: 0.22,
     fireInterval: 0.035,
     magazine: 150,
+    magazines: 2,
     reloadSeconds: 2.45,
     damage: 1,
     knockback: 180,
@@ -209,6 +219,7 @@ export const WEAPONS = {
     spreadMax: 0,
     fireInterval: 0.45,
     magazine: 6,
+    magazines: 5,
     reloadSeconds: 0.98,
     damage: 6,
     knockback: 700,
@@ -236,6 +247,7 @@ export const WEAPONS = {
     spreadMax: 0.18,
     fireInterval: 0.06,
     magazine: 32,
+    magazines: 4,
     reloadSeconds: 0.84,
     damage: 1,
     knockback: 120,
@@ -249,4 +261,7 @@ export const WEAPONS = {
 } as const satisfies Record<string, WeaponDef>;
 
 export type WeaponId = keyof typeof WEAPONS;
+
+/** The gun every run starts with and the one you fall back to when a pickup runs dry. Never drops. */
+export const BACKUP_WEAPON: WeaponId = "pistol";
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];

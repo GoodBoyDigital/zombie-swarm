@@ -3,8 +3,11 @@ import { DROP_RULES } from "../config/drops";
 import {
   POWERUP_CATEGORIES,
   POWERUP_DEFS,
+  POWERUP_DROPS,
+  WEAPON_DROPS,
   type PowerupDef,
 } from "../config/powerups";
+import { BACKUP_WEAPON, type WeaponId } from "../config/weapons";
 import { pickWeighted, rand } from "../core/random";
 import type { Effects } from "../fx/Effects";
 import type { GameTextures } from "../fx/textures";
@@ -53,12 +56,56 @@ export class Drops {
     private readonly arena: Arena,
     private readonly fx: Effects,
     private readonly onCollect: (def: PowerupDef) => void,
+    /** The gun the player holds now, so gun drops know whether he's on the backup pistol. */
+    private readonly heldWeapon: () => WeaponId,
   ) {}
 
-  /** Roll for an orb where a zombie fell. */
-  onKill(x: number, y: number): void {
-    if (Math.random() < DROP_RULES.chancePerKill)
-      this.spawn(pickWeighted(POWERUP_DEFS), x, y);
+  /** Which action the per-action budget below belongs to, and what it has dropped so far. */
+  private volley = -1;
+  private weaponsThisVolley = 0;
+  private powerupsThisVolley = 0;
+
+  /**
+   * Roll for orbs where a zombie fell. Guns and power-ups roll separately, and each action
+   * (`volley`: a trigger pull, a blast, a bomb) can drop only a few of each, however many it kills.
+   */
+  onKill(x: number, y: number, volley: number): void {
+    if (volley !== this.volley) {
+      this.volley = volley;
+      this.weaponsThisVolley = 0;
+      this.powerupsThisVolley = 0;
+    }
+    let dropped = false;
+    const onBackup = this.heldWeapon() === BACKUP_WEAPON;
+    const weaponChance = onBackup
+      ? DROP_RULES.weaponChanceOnBackup
+      : DROP_RULES.weaponChanceArmed;
+    if (
+      this.weaponsThisVolley < DROP_RULES.maxWeaponsPerAction &&
+      Math.random() < weaponChance
+    ) {
+      this.weaponsThisVolley++;
+      this.spawn(this.pickWeapon(), x, y);
+      dropped = true;
+    }
+    if (
+      this.powerupsThisVolley < DROP_RULES.maxPowerupsPerAction &&
+      Math.random() < DROP_RULES.powerupChancePerKill
+    ) {
+      this.powerupsThisVolley++;
+      // Same kill dropped a gun too: set this one beside it rather than hiding it underneath.
+      const nudge = dropped ? DROP_RULES.orbRadius * 2.4 : 0;
+      this.spawn(pickWeighted(POWERUP_DROPS), x + nudge, y);
+    }
+  }
+
+  /** A gun other than the one already in hand. */
+  private pickWeapon(): PowerupDef {
+    const held = this.heldWeapon();
+    const options = WEAPON_DROPS.filter(
+      (d) => !(d.effect === "equip" && d.weapon === held),
+    );
+    return pickWeighted(options.length > 0 ? options : WEAPON_DROPS);
   }
 
   /** Drop a specific orb, for testing and scripted drops. */
@@ -73,7 +120,9 @@ export class Drops {
         this.timer = DROP_RULES.timedSpawnSeconds;
         const b = this.arena.bounds;
         this.spawn(
-          pickWeighted(POWERUP_DEFS),
+          this.heldWeapon() === BACKUP_WEAPON
+            ? this.pickWeapon()
+            : pickWeighted(POWERUP_DROPS),
           rand(b.minX + SPAWN_INSET, b.maxX - SPAWN_INSET),
           rand(b.minY + SPAWN_INSET, b.maxY - SPAWN_INSET),
         );

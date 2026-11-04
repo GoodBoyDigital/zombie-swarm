@@ -36,6 +36,7 @@ export class CombatContext {
 
   /** Start a new trigger pull or blast: the next hit and kill may each play their sound again. */
   beginVolley(): void {
+    this.horde.volley++;
     this.hitSoundPlayed = false;
     this.deathSoundPlayed = false;
     this.tearSoundPlayed = false;

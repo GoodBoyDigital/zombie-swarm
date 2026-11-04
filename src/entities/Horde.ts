@@ -52,6 +52,8 @@ export class Horde {
   kills = 0;
   /** Called on every kill with the body's position and knockback velocity, before it is released. */
   onKill: ((z: Zombie) => void) | null = null;
+  /** Bumped at the start of every trigger pull, blast and bomb, so kills can be grouped by action. */
+  volley = 0;
   /** How many of the living are still wandering, for the debug HUD. */
   wandering = 0;
   /** False once the player is down: nobody notices him any more. */

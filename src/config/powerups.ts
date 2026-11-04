@@ -132,7 +132,6 @@ const gun = (id: WeaponId, name: string, weight: number) =>
   }) as const;
 
 export const POWERUPS = {
-  pistol: gun("pistol", "Pistol", 3),
   rifle: gun("rifle", "Rifle", 3),
   shotgun: gun("shotgun", "Shotgun", 3),
   railgun: gun("railgun", "Railgun", 1),
@@ -263,3 +262,9 @@ export const POWERUPS = {
 
 export type PowerupId = keyof typeof POWERUPS;
 export const POWERUP_DEFS: readonly PowerupDef[] = Object.values(POWERUPS);
+/** Gun pickups (blue). The backup pistol is never one of them. */
+export const WEAPON_DROPS = POWERUP_DEFS.filter((d) => d.category === "weapon");
+/** Everything else: support (green) and destructive (red). */
+export const POWERUP_DROPS = POWERUP_DEFS.filter(
+  (d) => d.category !== "weapon",
+);

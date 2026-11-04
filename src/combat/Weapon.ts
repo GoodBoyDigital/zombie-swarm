@@ -1,5 +1,6 @@
 import type { Audio, SfxName } from "../audio/Audio";
 import {
+  BACKUP_WEAPON,
   WEAPON_NOISE_RADIUS,
   WEAPONS,
   type WeaponDef,
@@ -31,9 +32,10 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
  * Two states: ready (rounds left in the magazine) and reloading. An empty magazine reloads itself.
  */
 export class Weapon {
-  /** The gun every run starts with. */
-  id: WeaponId = "pistol";
+  id: WeaponId = BACKUP_WEAPON;
   rounds = 0;
+  /** Magazines left after the loaded one. Infinity for the pistol. */
+  spareMagazines = Infinity;
   /** Seconds left on the current reload, 0 when ready. */
   reloadLeft = 0;
   private cooldown = 0;
@@ -66,11 +68,12 @@ export class Weapon {
     return this.reloadLeft > 0;
   }
 
-  /** Swap to a weapon with a full magazine, dropping any reload in progress. */
+  /** Swap to a weapon with a full magazine and its pickup's spares, dropping any reload in progress. */
   equip(id: WeaponId): void {
     this.id = id;
     this.player.equip(this.def);
     this.rounds = this.def.magazine;
+    this.spareMagazines = this.def.magazines - 1;
     this.reloadLeft = 0;
     this.cooldown = 0;
     this.bloom = 0;
@@ -90,6 +93,12 @@ export class Weapon {
 
   reload(): void {
     if (this.reloading || this.rounds >= this.def.magazine) return;
+    if (this.spareMagazines <= 0) {
+      // Dry: out of a pickup's ammo, back to the backup gun. A partly full last magazine keeps firing.
+      if (this.rounds === 0) this.outOfAmmo();
+      return;
+    }
+    this.spareMagazines--;
     this.reloadLeft = this.def.reloadSeconds;
     this.audio.play("reload", { pitch: rand(0.95, 1.05), volume: 0.6 });
   }
@@ -117,6 +126,12 @@ export class Weapon {
       this.fire();
     }
     if (this.rounds === 0) this.reload();
+  }
+
+  /** The pickup is spent: back to the pistol, which never runs out. */
+  private outOfAmmo(): void {
+    this.audio.play("reload", { pitch: 0.7, volume: 0.6 });
+    this.equip(BACKUP_WEAPON);
   }
 
   private fire(): void {

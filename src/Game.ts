@@ -104,12 +104,16 @@ export class Game {
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
     this.loot = new Loot(tex, this.fx, this.audio);
-    this.drops = new Drops(tex, this.arena, this.fx, (def) =>
-      this.powerups.apply(def),
+    this.drops = new Drops(
+      tex,
+      this.arena,
+      this.fx,
+      (def) => this.powerups.apply(def),
+      () => this.weapon.id,
     );
     this.horde.onKill = (z) => {
       this.loot.burst(z.x, z.y, z.kx, z.ky, z.def.lootScale);
-      this.drops.onKill(z.x, z.y);
+      this.drops.onKill(z.x, z.y, this.horde.volley);
     };
     this.weapon = new Weapon(
       this.player,
@@ -302,9 +306,12 @@ export class Game {
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
       : "";
     const step = `   step ${(profiler.smoothed.step ?? 0).toFixed(1)} ms   render ${(profiler.smoothed.render ?? 0).toFixed(1)} ms`;
-    const ammo = w.reloading
-      ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
-      : `${w.rounds}/${w.def.magazine}`;
+    const spare =
+      w.spareMagazines === Infinity ? "" : `  +${w.spareMagazines} mags`;
+    const ammo =
+      (w.reloading
+        ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
+        : `${w.rounds}/${w.def.magazine}`) + spare;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +

@@ -122,6 +122,8 @@ export const BLAST_TEXTURE_RADIUS = 128;
 
 /** Outline colour shared with the sprite art, for anything drawn here that needs an edge. */
 const INK = 0x151a15;
+/** Casing outline in world px, drawn outside the shape so the shell keeps its size. */
+const CASING_OUTLINE = 1.3;
 
 /**
  * Character, weapon, pickup and tile art is flat vector-style sprites from /public/sprites.
@@ -287,19 +289,20 @@ export async function createTextures(
     .poly([0, -2, 36, -1, 76, -2, 128, 0, 92, 2, 44, 1, 0, 2])
     .fill(0xffffff);
 
-  // Casings are tiny, so they're baked at a higher resolution: a rounded shell, rim and glint.
+  // Casings are tiny, so they're baked at a higher resolution: a chunky rounded shell with the same
+  // heavy ink outline as the character art, a darker rim band, and one cel-shade stripe for shine.
   const casings = Object.fromEntries(
     Object.entries(CASINGS).map(([id, def]) => {
       const { width: w, height: h } = def;
       const g = new Graphics()
-        .roundRect(-w / 2, -h / 2, w, h, h * 0.45)
+        .roundRect(-w / 2, -h / 2, w, h, h * 0.5)
         .fill(def.color)
-        .stroke({ width: 0.7, color: INK })
-        .roundRect(-w / 2, -h / 2, Math.max(1.5, w * 0.25), h, h * 0.3)
+        .roundRect(-w / 2, -h / 2, Math.max(2, w * 0.28), h, h * 0.35)
         .fill(def.baseColor)
-        .stroke({ width: 0.7, color: INK })
-        .rect(-w / 2 + w * 0.3, -h / 2 + h * 0.22, w * 0.55, h * 0.18)
-        .fill({ color: 0xffffff, alpha: 0.55 });
+        .rect(-w / 2 + w * 0.34, -h / 2 + h * 0.2, w * 0.5, h * 0.2)
+        .fill({ color: 0xffffff, alpha: 0.45 })
+        .roundRect(-w / 2, -h / 2, w, h, h * 0.5)
+        .stroke({ width: CASING_OUTLINE, color: INK, alignment: 0 });
       return [id, make(g, 4)];
     }),
   ) as Record<CasingId, Texture>;

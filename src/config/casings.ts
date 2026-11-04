@@ -12,24 +12,24 @@ export interface CasingDef {
 export const CASINGS = {
   rifle: {
     id: "rifle",
-    width: 7,
-    height: 3,
-    color: 0xd8a84a,
-    baseColor: 0x9c7430,
+    width: 10,
+    height: 4.5,
+    color: 0xc9a048,
+    baseColor: 0x8a6a2c,
   },
   pistol: {
     id: "pistol",
-    width: 5,
-    height: 3,
-    color: 0xd8a84a,
-    baseColor: 0x9c7430,
+    width: 7.5,
+    height: 4.5,
+    color: 0xc9a048,
+    baseColor: 0x8a6a2c,
   },
   shotgun: {
     id: "shotgun",
-    width: 9,
-    height: 4,
+    width: 12,
+    height: 6,
     color: 0xc43a2e,
-    baseColor: 0xd8a84a,
+    baseColor: 0xc9a048,
   },
 } as const satisfies Record<string, CasingDef>;
 

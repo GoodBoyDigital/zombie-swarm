@@ -4,6 +4,9 @@ import { rand } from "../core/random";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import type { GameTextures } from "./textures";
 
+/** Shells darken a touch once they settle into the floor, so piles read as old mess, not fresh brass. */
+const SETTLED_TINT = 0xb0b0b0;
+
 /** Fake vertical physics: casings pop up, fall under gravity and bounce before they settle. */
 const GRAVITY = 900;
 const BOUNCE = 0.45;
@@ -110,6 +113,7 @@ export class Casings {
     const c = this.live[index];
     this.floor.stampTexture(c.sprite.texture, c.x, c.y, {
       rotation: c.sprite.rotation,
+      tint: SETTLED_TINT,
     });
     this.view.removeChild(c.sprite);
     this.live[index] = this.live[this.live.length - 1];

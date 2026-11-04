@@ -16,9 +16,9 @@ const OUTSIDE_COLOR = 0x000000;
 const CHIP_HOLE = 0x0d0c0b;
 const CHIP_RIM = 0x6e675e;
 const CHIP_VARIANTS = 4;
-const CHIP_RADIUS = 8;
-/** How far into the wall a chip is centred, px, so it bites the wall face rather than the floor. */
-const CHIP_DEPTH = 10;
+const CHIP_RADIUS = 4;
+/** How far into the wall a chip is centred, px: the middle of the wall, so it never pokes onto the floor. */
+const CHIP_DEPTH = ARENA.wallThickness / 2;
 /** Grit stamped on the floor at the foot of the wall per hit. */
 const RUBBLE_BITS = 3;
 const RUBBLE_TINT = 0x57524b;

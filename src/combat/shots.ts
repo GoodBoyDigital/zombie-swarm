@@ -1,5 +1,7 @@
 import type { Audio } from "../audio/Audio";
+import { DISMEMBER } from "../config/dismember";
 import type { WeaponDef } from "../config/weapons";
+import { PART_IDS } from "../config/zombies";
 import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Zombie } from "../entities/Zombie";
@@ -17,6 +19,7 @@ export class ShotContext {
   /** Sound throttles: one hit and one death sound per trigger pull, or a shotgun stacks eight copies. */
   hitSoundPlayed = false;
   deathSoundPlayed = false;
+  tearSoundPlayed = false;
   /** Power-up damage multiplier. */
   damageScale = 1;
 
@@ -26,6 +29,9 @@ export class ShotContext {
     readonly floor: FloorCanvas,
     readonly audio: Audio,
   ) {}
+
+  /** Where the last severed piece left the body, for its blood spurt. */
+  private readonly stump = { x: 0, y: 0 };
 
   /**
    * Resolve one zombie taking a hit: damage, knockback along `dir`, gore and the kill.
@@ -45,6 +51,8 @@ export class ShotContext {
       dirY,
       def.knockback,
     );
+    // Before the kill, so the corpse lies down without the piece too.
+    this.dismember(zombie, hitX, hitY, dirX, dirY);
     this.fx.bloodBurst(hitX, hitY, dirX, dirY, killed ? 12 : 6, BLOOD_SPRAY);
     this.horde.splat(hitX, hitY, dirX, dirY);
     if (killed) {
@@ -60,6 +68,24 @@ export class ShotContext {
         this.audio.play("zombieHit", { pitch: rand(0.9, 1.2), volume: 0.6 });
       this.hitSoundPlayed = true;
     }
+  }
+
+  /** Maybe tear off the part the shot struck: the piece flies along the shot and the stump spurts. */
+  private dismember(
+    zombie: Zombie,
+    hitX: number,
+    hitY: number,
+    dirX: number,
+    dirY: number,
+  ): void {
+    const bit = zombie.partOnRay(hitX, hitY, dirX, dirY);
+    if (bit < 0 || Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`]) return;
+    this.horde.limbs.launch(zombie, bit, dirX, dirY, this.stump);
+    zombie.sever(bit);
+    this.fx.bloodBurst(this.stump.x, this.stump.y, dirX, dirY, 10, BLOOD_SPRAY);
+    if (!this.tearSoundPlayed)
+      this.audio.play("zombieTear", { pitch: rand(0.85, 1.2), volume: 0.8 });
+    this.tearSoundPlayed = true;
   }
 }
 

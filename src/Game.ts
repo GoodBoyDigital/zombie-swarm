@@ -123,6 +123,7 @@ export class Game {
       this.drops.view,
       this.player.view,
       this.horde.view,
+      this.horde.limbs.view,
       this.casings.view,
       this.fx.view,
       this.horde.debugView,

@@ -1,7 +1,18 @@
 import { Sprite } from "pixi.js";
-import { KNOCKBACK_DRAG, ZOMBIE_AI, type ZombieDef } from "../config/zombies";
+import {
+  KNOCKBACK_DRAG,
+  PART_IDS,
+  ZOMBIE_AI,
+  type PartShape,
+  type ZombieDef,
+} from "../config/zombies";
 import { rand } from "../core/random";
-import type { GameTextures, ZombieTextures } from "../fx/textures";
+import {
+  ART_SCALE,
+  type GameTextures,
+  type ZombieLook,
+  type ZombieTextures,
+} from "../fx/textures";
 import type { Gate } from "../world/Arena";
 import { aiDebug, ZombieBrain } from "./ZombieBrain";
 
@@ -13,6 +24,8 @@ const PULSE_MEAN = 0.3814;
 const WANDER_TINT_FACTOR = 0.55;
 /** Debug tint for chasers losing interest: blue pulled down so the green body reads lime. A tint can only darken. */
 const LOSING_TINT_FACTOR = 0.35;
+/** Spacing of the points tested along a shot when looking for which part it struck, world px. */
+const PART_RAY_STEP = 1.5;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -44,6 +57,10 @@ export class Zombie {
   readonly brain = new ZombieBrain();
   /** Sprite set for the current def; the pool is shared across types so it's picked at spawn. */
   private art!: ZombieTextures;
+  /** Bit per PART_IDS entry that has been shot off. */
+  missing = 0;
+  /** The art's look for the current missing mask. */
+  private look!: ZombieLook;
   gate!: Gate;
   /** Set once the zombie has fully crossed its gate; from then on walls contain it. */
   entered = false;
@@ -82,7 +99,9 @@ export class Zombie {
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
     this.sprite.tint = this.tint;
     this.brain.reset(def);
-    this.sprite.texture = this.art.body;
+    this.missing = 0;
+    this.look = this.art.looks[0];
+    this.sprite.texture = this.look.body;
     this.sprite.anchor.set(def.art.anchor.x, def.art.anchor.y);
     this.sprite.visible = true;
   }
@@ -97,6 +116,42 @@ export class Zombie {
     this.flash = HIT_FLASH_SECONDS;
     this.dead = this.health <= 0;
     return this.dead;
+  }
+
+  /**
+   * Which attached part a shot through (x, y) along the unit direction strikes first, as a part
+   * bit index, or -1. Walks the line from an arm's length in front of the hit point to the far side
+   * of the body, so arms reaching past the hit circle are caught and a shot can exit through the head.
+   */
+  partOnRay(x: number, y: number, dirX: number, dirY: number): number {
+    const parts = this.def.art.parts;
+    if (!parts) return -1;
+    const s = this.sprite;
+    const cos = Math.cos(s.rotation);
+    const sin = Math.sin(s.rotation);
+    const ax = s.anchor.x * s.texture.width;
+    const ay = s.anchor.y * s.texture.height;
+    const reach = s.texture.width * s.scale.x;
+    for (let t = -reach; t <= this.def.radius * 2; t += PART_RAY_STEP) {
+      const dx = x + dirX * t - s.x;
+      const dy = y + dirY * t - s.y;
+      // Into the sprite's own source pixels: undo rotation, scale and anchor, then ART_SCALE.
+      const u = ((dx * cos + dy * sin) / s.scale.x + ax) / ART_SCALE;
+      const v = ((dy * cos - dx * sin) / s.scale.y + ay) / ART_SCALE;
+      for (let bit = 0; bit < PART_IDS.length; bit++) {
+        const part = parts[PART_IDS[bit]];
+        if (part && !(this.missing & (1 << bit)) && inside(part.body, u, v))
+          return bit;
+      }
+    }
+    return -1;
+  }
+
+  /** Take a part off: from now on the body, flash and corpse are drawn without it. */
+  sever(bit: number): void {
+    this.missing |= 1 << bit;
+    this.look = this.art.looks[this.missing];
+    this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
   }
 
   update(
@@ -132,7 +187,7 @@ export class Zombie {
 
     if (this.flash > 0) {
       this.flash -= dt;
-      this.sprite.texture = this.flash > 0 ? this.art.flash : this.art.body;
+      this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
     }
     const flashing = this.flash > 0;
     const tint = flashing ? 0xffffff : this.debugTint();
@@ -155,6 +210,23 @@ export class Zombie {
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));
   }
+}
+
+function inside(shape: PartShape, x: number, y: number): boolean {
+  if ("circle" in shape) {
+    const [cx, cy, r] = shape.circle;
+    return (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+  }
+  // Even-odd crossing test.
+  const p = shape.poly;
+  let hit = false;
+  for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+    const yi = p[i + 1];
+    const yj = p[j + 1];
+    if (yi > y !== yj > y && x < ((p[j] - p[i]) * (y - yi)) / (yj - yi) + p[i])
+      hit = !hit;
+  }
+  return hit;
 }
 
 const jitter = (amount: number): number => 1 + rand(-amount, amount);

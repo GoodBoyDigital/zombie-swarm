@@ -1,5 +1,6 @@
 import { Pane, type FolderApi } from "tweakpane";
 import { CASINGS } from "../config/casings";
+import { DISMEMBER } from "../config/dismember";
 import { DROP_RULES, DROPS } from "../config/drops";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
@@ -106,6 +107,25 @@ const SPAWN_RANGES: Ranges = {
 const CASING_RANGES: Ranges = {
   width: { min: 1, max: 20, step: 1 },
   height: { min: 1, max: 20, step: 1 },
+};
+
+const DISMEMBER_RANGES: Ranges = {
+  leftArmChance: { min: 0, max: 1, step: 0.01 },
+  rightArmChance: { min: 0, max: 1, step: 0.01 },
+  headChunkChance: { min: 0, max: 1, step: 0.01 },
+  launchSpeedMin: { min: 0, max: 800, step: 10 },
+  launchSpeedMax: { min: 0, max: 800, step: 10 },
+  launchSpread: { min: 0, max: 1.5, step: 0.05 },
+  inheritKnockback: { min: 0, max: 2, step: 0.05 },
+  hopMin: { min: 0, max: 600, step: 10 },
+  hopMax: { min: 0, max: 600, step: 10 },
+  gravity: { min: 100, max: 3000, step: 50 },
+  spinMin: { min: 0, max: 40, step: 0.5 },
+  spinMax: { min: 0, max: 40, step: 0.5 },
+  bounce: { min: 0, max: 0.9, step: 0.05 },
+  bounceFriction: { min: 0, max: 1, step: 0.05 },
+  floorDrag: { min: 0.5, max: 20, step: 0.5 },
+  maxLive: { min: 1, max: 300, step: 1 },
 };
 
 const WEAPON_RANGES: Ranges = {
@@ -270,6 +290,7 @@ export function setupTuning(): TuningPanel {
   panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
+  panel.add("DISMEMBER", null, DISMEMBER, DISMEMBER_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   panel.add("CAMERA", null, CAMERA, CAMERA_RANGES);
   return panel;

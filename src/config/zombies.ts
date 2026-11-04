@@ -9,6 +9,24 @@ export interface ZombieArt {
   radius: number;
   /** Where the body centre sits in the texture, as fractions; the arms reach ahead of it. */
   anchor: { x: number; y: number };
+  /** Pieces a shot can take off. Types without parts never lose any. */
+  parts?: Partial<Record<PartId, ZombiePart>>;
+}
+
+/** Severable pieces, in bit order of a zombie's missing-parts mask. */
+export const PART_IDS = ["leftArm", "rightArm", "headChunk"] as const;
+export type PartId = (typeof PART_IDS)[number];
+
+/** An outline in a sprite's own pixels (the 2x source file): a polygon as flat x,y pairs, or a circle. */
+export type PartShape =
+  | { poly: readonly number[] }
+  | { circle: readonly [x: number, y: number, r: number] };
+
+export interface ZombiePart {
+  /** Where the part sits on the standing body sprite; shots are tested against this. */
+  body: PartShape;
+  /** The same part on each corpse pose, ordered like `ZombieArt.corpses`. */
+  corpses: readonly PartShape[];
 }
 
 /** Brain numbers a type may override; anything left out comes from ZOMBIE_AI. */
@@ -62,6 +80,34 @@ export const ZOMBIES = {
       corpses: [1, 2, 3],
       radius: 12,
       anchor: { x: 0.28, y: 0.52 },
+      // Faces right, so the left arm is the upper one. Arms tear off at the sleeve; the head chunk
+      // is the back-left of the skull. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
+      parts: {
+        leftArm: {
+          body: { poly: [46, 0, 92, 0, 92, 31, 52, 31, 46, 17] },
+          corpses: [
+            { poly: [42, 0, 80, 0, 78, 20, 62, 28, 50, 28, 42, 22] },
+            { poly: [40, 4, 58, 4, 62, 22, 63, 44, 48, 46, 40, 28] },
+            { poly: [71, 0, 120, 0, 120, 32, 98, 32, 88, 22, 71, 20] },
+          ],
+        },
+        rightArm: {
+          body: { poly: [46, 46, 52, 40, 92, 38, 92, 69, 46, 69] },
+          corpses: [
+            { poly: [36, 76, 58, 74, 70, 82, 72, 107, 36, 107] },
+            { poly: [76, 2, 102, 2, 102, 40, 78, 40, 74, 22] },
+            { poly: [71, 58, 86, 56, 96, 48, 120, 46, 120, 80, 71, 80] },
+          ],
+        },
+        headChunk: {
+          body: { circle: [13, 19, 10] },
+          corpses: [
+            { circle: [8, 36, 10] },
+            { circle: [16, 14, 10] },
+            { circle: [70, 28, 10] },
+          ],
+        },
+      },
     },
     radius: 12,
     speed: 34,

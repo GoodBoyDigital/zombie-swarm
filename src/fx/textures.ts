@@ -11,15 +11,35 @@ import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
 import type { PowerupId } from "../config/powerups";
 import { WEAPONS, type WeaponId } from "../config/weapons";
-import { ZOMBIES, type ZombieArt } from "../config/zombies";
+import {
+  PART_IDS,
+  ZOMBIES,
+  type PartShape,
+  type ZombieArt,
+} from "../config/zombies";
 import { rand } from "../core/random";
 
-export interface ZombieTextures {
+export interface ZombieLook {
   body: Texture;
   /** White silhouette of the body, swapped in for the hit flash. */
   flash: Texture;
   /** Lying-down poses, one picked at random per death. */
   corpses: Texture[];
+}
+
+/** One part on its own, for the piece that flies off. */
+export interface SeveredPart {
+  texture: Texture;
+  /** Centre of the piece on the body texture, in world px from its top-left. */
+  x: number;
+  y: number;
+}
+
+export interface ZombieTextures {
+  /** Indexed by missing-parts mask: 0 is the whole zombie, and the only entry for types without parts. */
+  looks: ZombieLook[];
+  /** Severed pieces by part bit; null where the type has no such part. */
+  parts: (SeveredPart | null)[];
 }
 
 export interface GameTextures {
@@ -115,7 +135,7 @@ export async function createTextures(
   renderer: Renderer,
 ): Promise<GameTextures> {
   const weaponDefs = Object.values(WEAPONS);
-  const zombieArts = [
+  const zombieArts: ZombieArt[] = [
     ...new Map(Object.values(ZOMBIES).map((z) => [z.art.key, z.art])).values(),
   ];
   const zombiePaths = (art: ZombieArt) => ({
@@ -150,13 +170,16 @@ export async function createTextures(
   const zombies = Object.fromEntries(
     zombieArts.map((art) => {
       const paths = zombiePaths(art);
+      const whole: ZombieLook = {
+        body: loaded[paths.body],
+        flash: loaded[paths.flash],
+        corpses: paths.corpses.map((path) => loaded[path]),
+      };
       return [
         art.key,
-        {
-          body: loaded[paths.body],
-          flash: loaded[paths.flash],
-          corpses: paths.corpses.map((path) => loaded[path]),
-        },
+        art.parts
+          ? carveParts(renderer, art.parts, whole)
+          : { looks: [whole], parts: [] },
       ];
     }),
   );
@@ -289,6 +312,186 @@ export async function createTextures(
       wall: sprite("tileWall"),
     },
   };
+}
+
+/** Raw red flesh along a torn edge, under an ink line so the cut reads as part of the drawing. */
+const STUMP_FLESH = 0x6e1c1c;
+/** Stroke widths in source px, centred on the cut: half lands on the body, half on the piece. */
+const STUMP_FLESH_WIDTH = 16;
+const STUMP_INK_WIDTH = 6;
+/** Cut edges are split every TEAR_STEP source px and alternate points pushed TEAR_DEPTH in or out. */
+const TEAR_STEP = 5;
+const TEAR_DEPTH = 3;
+
+/**
+ * Every combination of missing parts for the body, its flash and each corpse pose, plus each part
+ * cut out on its own. Built once at load by drawing the sprite and erasing the parts' outlines.
+ */
+function carveParts(
+  renderer: Renderer,
+  parts: NonNullable<ZombieArt["parts"]>,
+  whole: ZombieLook,
+): ZombieTextures {
+  const torn = PART_IDS.map((id) => {
+    const part = parts[id];
+    return part
+      ? { body: tornOutline(part.body), corpses: part.corpses.map(tornOutline) }
+      : null;
+  });
+  const looks = [whole];
+  for (let mask = 1; mask < 1 << PART_IDS.length; mask++) {
+    const gone = torn.filter((t, bit) => t && mask & (1 << bit));
+    const bodyCuts = gone.map((t) => t!.body);
+    looks.push({
+      body: carve(renderer, whole.body, bodyCuts, true),
+      flash: carve(renderer, whole.flash, bodyCuts, false),
+      corpses: whole.corpses.map((pose, i) =>
+        carve(
+          renderer,
+          pose,
+          gone.map((t) => t!.corpses[i]),
+          true,
+        ),
+      ),
+    });
+  }
+  return {
+    looks,
+    parts: torn.map((t) => t && sever(renderer, whole.body, t.body)),
+  };
+}
+
+/** A part outline as flat source-px points with a ragged edge, so cuts read torn rather than clipped. */
+function tornOutline(shape: PartShape): number[] {
+  const points: number[] = [];
+  // Deterministic wobble so the stump and the flying piece share one edge.
+  const offset = (i: number) =>
+    (i % 2 ? 1 : -1) * TEAR_DEPTH * (0.4 + 0.6 * (((i * 7) % 5) / 4));
+  if ("circle" in shape) {
+    const [cx, cy, r] = shape.circle;
+    const n = Math.max(8, Math.round((Math.PI * 2 * r) / TEAR_STEP));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const d = r + offset(i) / 2;
+      points.push(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
+    }
+    return points;
+  }
+  const p = shape.poly;
+  let i = 0;
+  for (let v = 0; v < p.length; v += 2) {
+    const x0 = p[v];
+    const y0 = p[v + 1];
+    const dx = p[(v + 2) % p.length] - x0;
+    const dy = p[(v + 3) % p.length] - y0;
+    const len = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.round(len / TEAR_STEP));
+    for (let k = 0; k < steps; k++, i++) {
+      const t = k / steps;
+      // Corners stay put so the outline keeps the shape it was drawn with.
+      const o = k === 0 ? 0 : offset(i);
+      points.push(x0 + dx * t - (dy / len) * o, y0 + dy * t + (dx / len) * o);
+    }
+  }
+  return points;
+}
+
+/** The sprite plus, if `stumps`, a flesh-and-ink band along each outline clipped to its silhouette. */
+function withStumps(
+  source: Texture,
+  outlines: number[][],
+  stumps: boolean,
+): Container {
+  const root = new Container();
+  root.addChild(new Sprite(source));
+  if (!stumps) return root;
+  const silhouette = new Sprite(source);
+  const band = new Graphics();
+  for (const points of outlines)
+    band
+      .poly(points)
+      .stroke({ width: STUMP_FLESH_WIDTH, color: STUMP_FLESH, join: "round" });
+  for (const points of outlines)
+    band
+      .poly(points)
+      .stroke({ width: STUMP_INK_WIDTH, color: INK, join: "round" });
+  band.scale.set(ART_SCALE);
+  band.mask = silhouette;
+  root.addChild(silhouette, band);
+  return root;
+}
+
+/** `source` with the outlines erased, at the source's own size so anchors keep working. */
+function carve(
+  renderer: Renderer,
+  source: Texture,
+  outlines: number[][],
+  stumps: boolean,
+): Texture {
+  const root = withStumps(source, outlines, stumps);
+  const cut = new Graphics();
+  for (const points of outlines) cut.poly(points).fill(0xffffff);
+  cut.scale.set(ART_SCALE);
+  cut.blendMode = "erase";
+  root.addChild(cut);
+  return bake(renderer, root, new Rectangle(0, 0, source.width, source.height));
+}
+
+/** Everything outside the outline erased, cropped to the outline's bounds. */
+function sever(
+  renderer: Renderer,
+  source: Texture,
+  outline: number[],
+): SeveredPart {
+  const root = withStumps(source, [outline], true);
+  const w = source.width / ART_SCALE;
+  const h = source.height / ART_SCALE;
+  const keep = new Graphics()
+    .rect(0, 0, w, h)
+    .fill(0xffffff)
+    .poly(outline)
+    .cut();
+  keep.scale.set(ART_SCALE);
+  keep.blendMode = "erase";
+  root.addChild(keep);
+  let minX = w;
+  let minY = h;
+  let maxX = 0;
+  let maxY = 0;
+  for (let i = 0; i < outline.length; i += 2) {
+    minX = Math.min(minX, outline[i]);
+    minY = Math.min(minY, outline[i + 1]);
+    maxX = Math.max(maxX, outline[i]);
+    maxY = Math.max(maxY, outline[i + 1]);
+  }
+  // Whole source pixels, clamped to the sprite, so the crop lands on texel edges.
+  minX = Math.max(0, Math.floor(minX));
+  minY = Math.max(0, Math.floor(minY));
+  maxX = Math.min(w, Math.ceil(maxX));
+  maxY = Math.min(h, Math.ceil(maxY));
+  const frame = new Rectangle(
+    minX * ART_SCALE,
+    minY * ART_SCALE,
+    (maxX - minX) * ART_SCALE,
+    (maxY - minY) * ART_SCALE,
+  );
+  return {
+    texture: bake(renderer, root, frame),
+    x: frame.x + frame.width / 2,
+    y: frame.y + frame.height / 2,
+  };
+}
+
+function bake(renderer: Renderer, root: Container, frame: Rectangle): Texture {
+  const texture = renderer.generateTexture({
+    target: root,
+    frame,
+    antialias: true,
+    resolution: ART_RESOLUTION,
+    textureSourceOptions: { scaleMode: SCALE_MODE },
+  });
+  root.destroy({ children: true });
+  return texture;
 }
 
 /** Lay separate images side by side in one texture and hand back a frame per key. */

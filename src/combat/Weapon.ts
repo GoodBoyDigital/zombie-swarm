@@ -141,6 +141,7 @@ export class Weapon {
 
     this.shots.hitSoundPlayed = false;
     this.shots.deathSoundPlayed = false;
+    this.shots.tearSoundPlayed = false;
     const handler = SHOT_HANDLERS[def.shot];
     const spread = this.spread;
     for (let i = 0; i < def.pellets; i++) {

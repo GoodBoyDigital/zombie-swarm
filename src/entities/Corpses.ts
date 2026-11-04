@@ -47,10 +47,14 @@ export class Corpses {
     vx: number,
     vy: number,
     def: ZombieDef,
+    /** Missing-parts mask, so a body that lost an arm lies down without it. */
+    missing: number,
     tint: number,
   ): void {
     const c = this.pool.pop() ?? this.create();
-    c.sprite.texture = pick(this.tex.zombies[def.art.key].corpses);
+    c.sprite.texture = pick(
+      this.tex.zombies[def.art.key].looks[missing].corpses,
+    );
     c.x = x;
     c.y = y;
     // The body carries exactly the knockback the killing shot gave it; nothing extra.

@@ -122,12 +122,10 @@ export const BLAST_TEXTURE_RADIUS = 128;
 
 /** Outline colour shared with the sprite art, for anything drawn here that needs an edge. */
 const INK = 0x151a15;
-/** Casing outline in world px, drawn outside the shape so the shell keeps its size. */
-const CASING_OUTLINE = 1.3;
 
 /**
  * Character, weapon, pickup and tile art is flat vector-style sprites from /public/sprites.
- * Effects (splats, sparks, muzzle flash, tracer, casings) are drawn here as vector shapes at
+ * Effects (splats, sparks, muzzle flash, tracer) are drawn here as vector shapes at
  * full resolution so they match.
  */
 export async function createTextures(
@@ -147,6 +145,7 @@ export async function createTextures(
   const urls = [
     ...Object.values(SPRITES),
     ...weaponDefs.map((w) => w.sprite.path),
+    ...Object.values(CASINGS).map((c) => c.sprite),
     ...zombieArts.flatMap((art) => {
       const paths = zombiePaths(art);
       const pieces = Object.values(art.parts ?? {}).flatMap(
@@ -289,22 +288,8 @@ export async function createTextures(
     .poly([0, -2, 36, -1, 76, -2, 128, 0, 92, 2, 44, 1, 0, 2])
     .fill(0xffffff);
 
-  // Casings are tiny, so they're baked at a higher resolution: a chunky rounded shell with the same
-  // heavy ink outline as the character art, a darker rim band, and one cel-shade stripe for shine.
   const casings = Object.fromEntries(
-    Object.entries(CASINGS).map(([id, def]) => {
-      const { width: w, height: h } = def;
-      const g = new Graphics()
-        .roundRect(-w / 2, -h / 2, w, h, h * 0.5)
-        .fill(def.color)
-        .roundRect(-w / 2, -h / 2, Math.max(2, w * 0.28), h, h * 0.35)
-        .fill(def.baseColor)
-        .rect(-w / 2 + w * 0.34, -h / 2 + h * 0.2, w * 0.5, h * 0.2)
-        .fill({ color: 0xffffff, alpha: 0.45 })
-        .roundRect(-w / 2, -h / 2, w, h, h * 0.5)
-        .stroke({ width: CASING_OUTLINE, color: INK, alignment: 0 });
-      return [id, make(g, 4)];
-    }),
+    Object.values(CASINGS).map((c) => [c.id, loaded[c.sprite]]),
   ) as Record<CasingId, Texture>;
 
   // Smooth blood blobs: a darker rim around a lighter body (both multiply with the stamp tint),

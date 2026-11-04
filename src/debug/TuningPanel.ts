@@ -158,8 +158,7 @@ const SPAWN_RANGES: Ranges = {
 };
 
 const CASING_RANGES: Ranges = {
-  width: { min: 1, max: 20, step: 1 },
-  height: { min: 1, max: 20, step: 1 },
+  width: { min: 1, max: 40, step: 1 },
 };
 
 const DISMEMBER_RANGES: Ranges = {

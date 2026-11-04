@@ -19,7 +19,7 @@ const SHADOW_Y = 22;
 const SHADOW_ALPHA = 0.28;
 /** Motion stretch along the flight line, and the faint trailing copies behind the plane. */
 const STRETCH = 1.12;
-const PLANE_SCALE = 1.5;
+const PLANE_SCALE = 1.95;
 const GHOSTS = [
   { gap: 22, alpha: 0.12 },
   { gap: 44, alpha: 0.05 },

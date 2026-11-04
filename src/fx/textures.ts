@@ -9,6 +9,7 @@ import {
 } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
+import type { PowerupId } from "../config/powerups";
 import { WEAPONS, type WeaponId } from "../config/weapons";
 import { ZOMBIES, type ZombieArt } from "../config/zombies";
 import { rand } from "../core/random";
@@ -43,7 +44,9 @@ export interface GameTextures {
   loot: Record<LootId, Texture>;
   crate: Texture;
   weaponIcons: Record<WeaponId, Texture>;
-  crosshair: Texture;
+  /** Glowing orb that carries a power-up, with an icon per kind. */
+  orb: Texture;
+  powerupIcons: Record<PowerupId, Texture>;
 }
 
 const SPRITES = {
@@ -56,13 +59,20 @@ const SPRITES = {
   tileDirt: "/sprites/tile-dirt.png",
   tileWall: "/sprites/tile-wall.png",
   crate: "/sprites/drop-crate.png",
-  crosshair: "/sprites/ui-crosshair.png",
+  orb: "/sprites/powerup-orb.png",
 } as const;
 
 const LOOT_SPRITES: Record<LootId, string> = {
   coin: "/sprites/loot-coin.png",
   gem: "/sprites/loot-gem.png",
   bigGem: "/sprites/loot-big-gem.png",
+};
+
+const POWERUP_ICON_SPRITES: Record<PowerupId, string> = {
+  magnet: "/sprites/icon-powerup-magnet.png",
+  rapidFire: "/sprites/icon-powerup-rapid.png",
+  doubleDamage: "/sprites/icon-powerup-damage.png",
+  speed: "/sprites/icon-powerup-speed.png",
 };
 
 const ICON_SPRITES: Record<WeaponId, string> = {
@@ -77,6 +87,15 @@ const ICON_SPRITES: Record<WeaponId, string> = {
 
 /** Procedural art is rendered at this fraction of world resolution so it reads as chunky pixels. */
 const PIXEL_SCALE = 0.25;
+
+/**
+ * Texture filtering for all game art. Nearest keeps hard pixel edges; linear smooths edges when
+ * sprites rotate or scale by non-integer amounts. Compare with ?filter=linear in the URL.
+ */
+const SCALE_MODE: "nearest" | "linear" =
+  new URLSearchParams(location.search).get("filter") === "linear"
+    ? "linear"
+    : "nearest";
 
 /**
  * Character art is 8-bit pixel sprites from /public/sprites. Everything else is still generated
@@ -105,6 +124,7 @@ export async function createTextures(
     }),
     ...Object.values(LOOT_SPRITES),
     ...Object.values(ICON_SPRITES),
+    ...Object.values(POWERUP_ICON_SPRITES),
   ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
   const weapons = Object.fromEntries(
@@ -135,7 +155,7 @@ export async function createTextures(
       target: g,
       antialias: false,
       resolution: PIXEL_SCALE,
-      textureSourceOptions: { scaleMode: "nearest" },
+      textureSourceOptions: { scaleMode: SCALE_MODE },
     });
     g.destroy();
     return pixelate(texture);
@@ -156,7 +176,7 @@ export async function createTextures(
         target: g,
         antialias: false,
         resolution: 1,
-        textureSourceOptions: { scaleMode: "nearest" },
+        textureSourceOptions: { scaleMode: SCALE_MODE },
       });
       g.destroy();
       return [id, texture];
@@ -184,7 +204,13 @@ export async function createTextures(
     zombies,
     loot: packAtlas(renderer, LOOT_SPRITES, loaded),
     crate: sprite("crate"),
-    crosshair: sprite("crosshair"),
+    orb: sprite("orb"),
+    powerupIcons: Object.fromEntries(
+      Object.entries(POWERUP_ICON_SPRITES).map(([id, url]) => [
+        id,
+        pixelate(loaded[url]),
+      ]),
+    ) as Record<PowerupId, Texture>,
     weaponIcons: icons,
     player: sprite("player"),
     playerFlash: sprite("playerFlash"),
@@ -224,7 +250,7 @@ function packAtlas<K extends string>(
     target: sheet,
     antialias: false,
     resolution: 1,
-    textureSourceOptions: { scaleMode: "nearest" },
+    textureSourceOptions: { scaleMode: SCALE_MODE },
   });
   sheet.destroy({ children: true });
   const out = {} as Record<K, Texture>;
@@ -234,6 +260,6 @@ function packAtlas<K extends string>(
 }
 
 function pixelate(texture: Texture): Texture {
-  texture.source.scaleMode = "nearest";
+  texture.source.scaleMode = SCALE_MODE;
   return texture;
 }

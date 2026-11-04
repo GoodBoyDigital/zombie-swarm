@@ -18,10 +18,15 @@ import { aiDebug } from "./ZombieBrain";
 
 const MAX_ALIVE = 600;
 const CELL_SIZE = 48;
-/** Spawns per second at the start and after `RAMP_SECONDS` of play. */
-const SPAWN_RATE_START = 3;
-const SPAWN_RATE_END = 14;
-const RAMP_SECONDS = 150;
+/**
+ * Spawns per second at the start and after `RAMP_SECONDS` of play. The curve eases in (`RAMP_POWER`):
+ * the first minute feels sparse and harmless, then the rate climbs steeply so the arena fills before the
+ * player notices it happening. Roughly 2.7/s at 1 min, 6/s at 2 min, 12/s at 3 min, 20/s at 4 min.
+ */
+const SPAWN_RATE_START = 1.5;
+const SPAWN_RATE_END = 20;
+const RAMP_SECONDS = 240;
+const RAMP_POWER = 2;
 const CORPSE_TINT_FACTOR = 0.8;
 /** Length and width of a hit splat relative to the splat texture, before random variation. */
 const SPLAT_STRETCH = 1.1;
@@ -205,7 +210,7 @@ export class Horde {
   }
 
   private spawnWave(dt: number): void {
-    const t = Math.min(1, this.elapsed / RAMP_SECONDS);
+    const t = Math.min(1, this.elapsed / RAMP_SECONDS) ** RAMP_POWER;
     this.spawnDebt +=
       dt * (SPAWN_RATE_START + (SPAWN_RATE_END - SPAWN_RATE_START) * t);
     while (this.spawnDebt >= 1 && this.alive.length < MAX_ALIVE) {

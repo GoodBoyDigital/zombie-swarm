@@ -37,6 +37,9 @@ export class Weapon {
   private cooldown = 0;
   /** Extra spread built up by holding the trigger. See WeaponDef.spreadBloom. */
   bloom = 0;
+  /** Power-up multipliers, set each frame by the game. Damage lives on the shot context. */
+  fireIntervalScale = 1;
+  spreadScale = 1;
   private readonly shots: ShotContext;
 
   constructor(
@@ -73,7 +76,14 @@ export class Weapon {
 
   /** Current half-angle of spread, base plus bloom. */
   get spread(): number {
-    return Math.min(this.def.spreadMax, this.def.spread + this.bloom);
+    return (
+      Math.min(this.def.spreadMax, this.def.spread + this.bloom) *
+      this.spreadScale
+    );
+  }
+
+  set damageScale(scale: number) {
+    this.shots.damageScale = scale;
   }
 
   reload(): void {
@@ -100,7 +110,7 @@ export class Weapon {
     if (!triggerHeld) return;
     // Carry the overshoot so the rate doesn't quantise to frames; fast weapons may fire twice a frame.
     while (this.cooldown <= 0 && this.rounds > 0) {
-      this.cooldown += this.def.fireInterval;
+      this.cooldown += this.def.fireInterval * this.fireIntervalScale;
       this.rounds--;
       this.fire();
     }

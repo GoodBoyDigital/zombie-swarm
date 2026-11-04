@@ -29,6 +29,14 @@ export class Zombie {
   /** Step cycle, radians. Advances with distance walked; drives the lurch, sway and squash. */
   private phase = 0;
   private stepSin = 0;
+  /** Per-zombie multipliers rolled at spawn so no two of a type share a cadence, sway or size. */
+  private stepScale = 1;
+  private swayScale = 1;
+  private sizeScale = 1;
+  private shuffleScale = 1;
+  /** Slow speed drift: its own phase and rate per zombie. */
+  private wobblePhase = 0;
+  private wobbleRate = 0;
   tint = 0xffffff;
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
@@ -61,6 +69,14 @@ export class Zombie {
     this.y = gate.spawn.y + (horizontal ? rand(-30, 30) : along);
     this.facing = Math.atan2(gate.entry.y - this.y, gate.entry.x - this.x);
     this.phase = rand(0, TWO_PI);
+    this.stepScale = jitter(ZOMBIE_AI.stepLengthJitter);
+    this.swayScale = jitter(ZOMBIE_AI.swayJitter);
+    this.sizeScale = jitter(ZOMBIE_AI.sizeJitter);
+    this.shuffleScale = jitter(ZOMBIE_AI.shuffleJitter);
+    this.wobblePhase = rand(0, TWO_PI);
+    this.wobbleRate =
+      TWO_PI /
+      rand(ZOMBIE_AI.speedWobblePeriodMin, ZOMBIE_AI.speedWobblePeriodMax);
     this.tint = shade(def.color, rand(0.8, 1));
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
@@ -90,23 +106,24 @@ export class Zombie {
     playerRadius: number,
     hunting: boolean,
   ): void {
-    const move = this.brain.steer(
-      dt,
-      this,
-      playerX,
-      playerY,
-      playerRadius,
-      hunting,
-    );
+    this.wobblePhase += this.wobbleRate * dt;
+    const move =
+      this.brain.steer(dt, this, playerX, playerY, playerRadius, hunting) *
+      (1 + ZOMBIE_AI.speedWobble * Math.sin(this.wobblePhase));
     // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
     const ai = this.def.ai;
     if (move > 0)
       this.phase +=
-        (move / (ai.stepLength ?? ZOMBIE_AI.stepLength)) * TWO_PI * dt;
+        (move / ((ai.stepLength ?? ZOMBIE_AI.stepLength) * this.stepScale)) *
+        TWO_PI *
+        dt;
     this.stepSin = Math.sin(this.phase);
     const pulse = this.stepSin > 0 ? Math.sqrt(this.stepSin) : 0;
-    const gait =
-      1 + (ai.shuffle ?? ZOMBIE_AI.shuffle) * (pulse / PULSE_MEAN - 1);
+    const shuffle = Math.min(
+      1,
+      (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
+    );
+    const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
     this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
     this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);
@@ -133,12 +150,14 @@ export class Zombie {
     const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
     this.sprite.rotation =
-      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway);
-    const base = this.def.radius / this.def.art.radius;
+      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale;
+    const base = (this.def.radius / this.def.art.radius) * this.sizeScale;
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));
   }
 }
+
+const jitter = (amount: number): number => 1 + rand(-amount, amount);
 
 function shade(color: number, factor: number): number {
   const r = Math.min(255, Math.round(((color >> 16) & 0xff) * factor));

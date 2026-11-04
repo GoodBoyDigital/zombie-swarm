@@ -12,9 +12,13 @@ const SPAWN_INSET = 80;
 /** Where the icon sits on the crate, in px above its centre. */
 const ICON_LIFT = 2;
 const SPARKLE = 0xfff1c2;
+/** Orbs breathe: scale swing and cycles per second. */
+const ORB_PULSE = 0.08;
+const ORB_PULSE_SPEED = 1.5;
 
 interface Drop {
   view: Container;
+  base: Sprite;
   icon: Sprite;
   def: DropDef;
   x: number;
@@ -24,8 +28,8 @@ interface Drop {
 }
 
 /**
- * Weapon crates (and later power-ups). Few exist at once, so each is an ordinary pooled
- * Container of crate plus icon. No vacuum: the player walks over them.
+ * Weapon crates and power-up orbs. Few exist at once, so each is an ordinary pooled
+ * Container of a base (crate or orb) plus icon. No vacuum: the player walks over them.
  */
 export class Drops {
   readonly view = new Container();
@@ -76,6 +80,10 @@ export class Drops {
       }
       d.bob += dt * DROP_RULES.bobSpeed * Math.PI * 2;
       d.icon.y = -ICON_LIFT + Math.sin(d.bob) * DROP_RULES.bobHeight;
+      if (d.def.kind === "powerup") {
+        const phase = d.bob * (ORB_PULSE_SPEED / DROP_RULES.bobSpeed);
+        d.base.scale.set(1 + Math.sin(phase) * ORB_PULSE);
+      }
       d.view.alpha =
         d.life < DROP_RULES.blinkSeconds && (d.life * 8) % 2 < 1 ? 0.3 : 1;
     }
@@ -88,11 +96,17 @@ export class Drops {
     d.y = y;
     d.life = DROP_RULES.lifetime;
     d.bob = rand(0, Math.PI * 2);
-    // Power-ups will get their own icon set; until then the crate shows nothing for them.
-    d.icon.visible = def.kind !== "powerup";
-    if (def.kind === "weapon")
+    if (def.kind === "weapon") {
+      d.base.texture = this.tex.crate;
       d.icon.texture = this.tex.weaponIcons[def.weapon];
-    if (def.kind === "health") d.icon.texture = this.tex.medkit;
+    } else if (def.kind === "health") {
+      d.base.texture = this.tex.crate;
+      d.icon.texture = this.tex.medkit;
+    } else {
+      d.base.texture = this.tex.orb;
+      d.icon.texture = this.tex.powerupIcons[def.powerup];
+    }
+    d.base.scale.set(1);
     d.view.position.set(x, y);
     d.view.alpha = 1;
     this.view.addChild(d.view);
@@ -119,11 +133,11 @@ export class Drops {
 
   private create(): Drop {
     const view = new Container();
-    const crate = new Sprite(this.tex.crate);
-    crate.anchor.set(0.5);
+    const base = new Sprite(this.tex.crate);
+    base.anchor.set(0.5);
     const icon = new Sprite();
     icon.anchor.set(0.5);
-    view.addChild(crate, icon);
-    return { view, icon, def: DROP_DEFS[0], x: 0, y: 0, life: 0, bob: 0 };
+    view.addChild(base, icon);
+    return { view, base, icon, def: DROP_DEFS[0], x: 0, y: 0, life: 0, bob: 0 };
   }
 }

@@ -3,6 +3,7 @@ import { CASINGS } from "../config/casings";
 import { DROP_RULES, DROPS } from "../config/drops";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
+import { POWERUPS } from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { ZOMBIE_AI } from "../config/zombies";
 
@@ -76,6 +77,16 @@ const ZOMBIE_AI_RANGES: Ranges = {
   squash: { min: 0, max: 0.15, step: 0.01 },
 };
 
+const POWERUP_RANGES: Ranges = {
+  seconds: { min: 1, max: 60, step: 0.5 },
+  moveSpeed: { min: 0.2, max: 4, step: 0.05 },
+  fireInterval: { min: 0.1, max: 2, step: 0.05 },
+  damage: { min: 0.5, max: 6, step: 0.25 },
+  magnetRadius: { min: 0.5, max: 10, step: 0.25 },
+  magnetPull: { min: 0.5, max: 10, step: 0.25 },
+  spread: { min: 0, max: 3, step: 0.05 },
+};
+
 const CASING_RANGES: Ranges = {
   width: { min: 1, max: 20, step: 1 },
   height: { min: 1, max: 20, step: 1 },
@@ -144,6 +155,12 @@ export class TuningPanel {
   ): void {
     for (const key of Object.keys(def)) {
       const value = def[key];
+      // Nested objects (a power-up's modifiers) get their own sub-folder.
+      if (typeof value === "object" && value !== null) {
+        const sub = folder.addFolder({ title: key, expanded: true });
+        this.bindNumbers(sub, value as Record<string, unknown>, ranges);
+        continue;
+      }
       if (typeof value !== "number") continue;
       // Infinity (railgun pierce) breaks number inputs, so it gets a checkbox instead.
       if (!Number.isFinite(value) || key === "pierce") {
@@ -193,20 +210,27 @@ export class TuningPanel {
 /** Mirror the hand-written shape of src/config/*.ts, including Infinity, which JSON cannot carry. */
 function toSource({ exportName, typeName, obj }: Table): string {
   const lines = [`export const ${exportName} = {`];
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "object" && value !== null) {
-      lines.push(`  ${key}: {`);
-      for (const [field, v] of Object.entries(value))
-        lines.push(`    ${field}: ${literal(v, field)},`);
-      lines.push("  },");
-    } else lines.push(`  ${key}: ${literal(value, key)},`);
-  }
+  pushFields(lines, obj, "  ");
   lines.push(
     typeName
       ? `} as const satisfies Record<string, ${typeName}>;`
       : "} as const;",
   );
   return lines.join("\n") + "\n";
+}
+
+function pushFields(
+  lines: string[],
+  obj: Record<string, unknown>,
+  indent: string,
+): void {
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "object" && value !== null) {
+      lines.push(`${indent}${key}: {`);
+      pushFields(lines, value as Record<string, unknown>, indent + "  ");
+      lines.push(`${indent}},`);
+    } else lines.push(`${indent}${key}: ${literal(value, key)},`);
+  }
 }
 
 const isColor = (key: string): boolean => /color$/i.test(key);
@@ -227,6 +251,7 @@ export function setupTuning(): TuningPanel {
   panel.add("PLAYER", null, PLAYER, PLAYER_RANGES);
   panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
+  panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   return panel;

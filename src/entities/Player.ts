@@ -30,8 +30,10 @@ export class Player {
   private invuln = 0;
   private flash = 0;
   private sinceHit = Infinity;
-  /** Multiplies the loot vacuum radius and pull from `PLAYER`. A magnet power-up raises it. */
-  magnetScale = 1;
+  /** Power-up multipliers, set each frame by the game. */
+  speedScale = 1;
+  magnetRadiusScale = 1;
+  magnetPullScale = 1;
   x: number;
   y: number;
   private vx = 0;
@@ -141,8 +143,9 @@ export class Player {
 
     const axis = input.moveAxis();
     const blend = 1 - Math.exp(-dt * ACCEL);
-    this.vx += (axis.x * MOVE_SPEED - this.vx) * blend;
-    this.vy += (axis.y * MOVE_SPEED - this.vy) * blend;
+    const speed = MOVE_SPEED * this.speedScale;
+    this.vx += (axis.x * speed - this.vx) * blend;
+    this.vy += (axis.y * speed - this.vy) * blend;
     this.x += (this.vx + this.rx) * dt;
     this.y += (this.vy + this.ry) * dt;
     const settle = Math.exp(-dt * RECOIL_DECAY);

@@ -1,8 +1,11 @@
 /** Player numbers: health and contact damage, plus the loot magnet pair a magnet power-up will scale. */
 export const PLAYER = {
   maxHealth: 100,
-  /** Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`. */
-  contactDamage: 12,
+  /**
+   * Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`.
+   * Kept modest on purpose: one zombie is a nuisance, a crowd that built up unnoticed is the killer.
+   */
+  contactDamage: 6,
   /** Reach beyond the two body radii at which a zombie counts as touching, px. */
   contactMargin: 4,
   /** Seconds of immunity after a hit. Contact damage lands as one lump per window. */

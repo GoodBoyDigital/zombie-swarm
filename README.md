@@ -40,8 +40,20 @@ magick concepts/foo.png -trim +repage -filter Point -resize 44x public/sprites/f
 ```
 
 Pick the width so the character's body matches its collision radius (walker is 44 px wide for radius 12,
-player 56 px for radius 14). Anchors and the player's muzzle point are fractions of the sprite set in
+player 52 px for radius 14). Anchors and the player's hand point are fractions of the sprite set in
 `src/config/zombies.ts` and `src/entities/Player.ts`.
+
+Characters are drawn without weapons, hands empty and reaching forward. Each weapon is its own sprite
+(`sprite` in `src/config/weapons.ts`): `grip` is the fraction of the weapon image pinned to the player's
+hand point, `muzzle` is the barrel tip where shots, flash and tracer start. Weapon concepts are drawn in
+side profile, barrel pointing right, about 44 px wide in game. The walker (`concepts/styleA-walker-1.png`)
+and its corpse are the style reference; link them as references when generating new characters, and
+generate on a flat magenta background then key it out rather than asking for transparency, which eats
+the black outline:
+
+```sh
+magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35&&g<0.25)?0:u" +channel -trim +repage concepts/foo.png
+```
 
 ## Adding things
 

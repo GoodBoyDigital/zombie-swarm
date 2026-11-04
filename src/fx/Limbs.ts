@@ -1,5 +1,6 @@
 import { Container, Sprite } from "pixi.js";
 import { DISMEMBER } from "../config/dismember";
+import { PART_IDS } from "../config/zombies";
 import { pick, rand } from "../core/random";
 import type { Zombie } from "../entities/Zombie";
 import type { FloorCanvas } from "../world/FloorCanvas";
@@ -7,6 +8,8 @@ import type { GameTextures } from "./textures";
 
 /** Apparent growth per px of height so a piece in the air reads as closer to the camera. */
 const HEIGHT_SCALE = 0.012;
+/** Most it grows at the top of a hop; a head's high pop would otherwise blow the art up soft. */
+const MAX_HEIGHT_GROWTH = 0.3;
 /** Below this vertical speed a bounce counts as landed. */
 const MIN_HOP = 40;
 /** Below this horizontal speed, on the floor, the piece is stamped and recycled. */
@@ -72,15 +75,19 @@ export class Limbs {
     const speed = rand(DISMEMBER.launchSpeedMin, DISMEMBER.launchSpeedMax);
     l.vx = Math.cos(a) * speed + z.kx * DISMEMBER.inheritKnockback;
     l.vy = Math.sin(a) * speed + z.ky * DISMEMBER.inheritKnockback;
-    l.vz = rand(DISMEMBER.hopMin, DISMEMBER.hopMax);
+    const head = PART_IDS[bit] === "head";
+    l.vz =
+      rand(DISMEMBER.hopMin, DISMEMBER.hopMax) *
+      (head ? DISMEMBER.headHopScale : 1);
     l.spin =
       rand(DISMEMBER.spinMin, DISMEMBER.spinMax) *
+      (head ? DISMEMBER.headSpinScale : 1) *
       (Math.random() < 0.5 ? -1 : 1);
-    l.scale = (s.scale.x + s.scale.y) / 2;
+    l.scale = ((s.scale.x + s.scale.y) / 2) * DISMEMBER.pieceScale;
     l.tint = z.tint;
     l.landed = false;
-    l.sprite.texture = part.texture;
-    l.sprite.rotation = s.rotation;
+    l.sprite.texture = pick(part.textures);
+    l.sprite.rotation = s.rotation + part.rotation;
     l.sprite.tint = z.tint;
     l.sprite.position.set(l.x, l.y);
     l.sprite.scale.set(l.scale);
@@ -122,7 +129,9 @@ export class Limbs {
         }
       }
       l.sprite.position.set(l.x, l.y);
-      l.sprite.scale.set(l.scale * (1 + l.z * HEIGHT_SCALE));
+      l.sprite.scale.set(
+        l.scale * (1 + Math.min(MAX_HEIGHT_GROWTH, l.z * HEIGHT_SCALE)),
+      );
     }
   }
 

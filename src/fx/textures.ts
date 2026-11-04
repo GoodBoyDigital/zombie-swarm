@@ -14,6 +14,7 @@ import { WEAPONS, type WeaponId } from "../config/weapons";
 import {
   PART_IDS,
   ZOMBIES,
+  type NeckCap,
   type PartShape,
   type ZombieArt,
 } from "../config/zombies";
@@ -38,10 +39,13 @@ export interface OpacityMask {
 
 /** One part on its own, for the piece that flies off. */
 export interface SeveredPart {
-  texture: Texture;
+  /** One picked per detach. */
+  textures: Texture[];
   /** Centre of the piece on the body texture, in world px from its top-left. */
   x: number;
   y: number;
+  /** Added to the body's rotation at launch: cut-outs sit as they were, sprite pieces are drawn upright. */
+  rotation: number;
 }
 
 export interface ZombieTextures {
@@ -159,7 +163,10 @@ export async function createTextures(
     ...weaponDefs.map((w) => w.sprite.path),
     ...zombieArts.flatMap((art) => {
       const paths = zombiePaths(art);
-      return [paths.body, paths.flash, ...paths.corpses];
+      const pieces = Object.values(art.parts ?? {}).flatMap(
+        (part) => part.pieces ?? [],
+      );
+      return [paths.body, paths.flash, ...paths.corpses, ...pieces];
     }),
     ...Object.values(LOOT_SPRITES),
     ...Object.values(ICON_SPRITES),
@@ -188,7 +195,7 @@ export async function createTextures(
       return [
         art.key,
         art.parts
-          ? carveParts(renderer, art.parts, whole)
+          ? carveParts(renderer, art.parts, whole, loaded)
           : { looks: [whole], parts: [] },
       ];
     }),
@@ -326,51 +333,90 @@ export async function createTextures(
 
 /** Raw red flesh along a torn edge, under an ink line so the cut reads as part of the drawing. */
 const STUMP_FLESH = 0x6e1c1c;
-/** Stroke widths in source px, centred on the cut: half lands on the body, half on the piece. */
+/** Stroke widths in source px for a torn edge, centred on the cut: half lands either side. */
 const STUMP_FLESH_WIDTH = 16;
 const STUMP_INK_WIDTH = 6;
+/** Neck stump colours, sampled from the walker: shirt, its shadow, skin shadow; plus bone. */
+const SHIRT = 0x4c6255;
+const SHIRT_SHADE = 0x313e37;
+const NECK_SKIN = 0x4f7648;
+const BONE = 0xe8dfc4;
+/** The sprites' outline weight in source px, for shapes drawn to sit among them. */
+const OUTLINE_WIDTH = 5;
 /** Cut edges are split every TEAR_STEP source px and alternate points pushed TEAR_DEPTH in or out. */
 const TEAR_STEP = 5;
 const TEAR_DEPTH = 2.5;
 
 /**
  * Every combination of missing parts for the body, its flash and each corpse pose, plus each part
- * cut out on its own. Built once at load by drawing the sprite and erasing the parts' outlines.
+ * on its own. Built once at load by drawing the sprite, erasing the parts' outlines and capping the
+ * wounds: a torn band along a cut, or a neck stump where a head was.
  */
 function carveParts(
   renderer: Renderer,
   parts: NonNullable<ZombieArt["parts"]>,
   whole: ZombieLook,
+  loaded: Record<string, Texture>,
 ): ZombieTextures {
   const torn = PART_IDS.map((id) => {
     const part = parts[id];
     return part
-      ? { body: tornOutline(part.body), corpses: part.corpses.map(tornOutline) }
+      ? {
+          part,
+          body: tornOutline(part.body),
+          corpses: part.corpses.map(tornOutline),
+        }
       : null;
   });
   const looks = [{ ...whole, opaque: opacityOf(renderer, whole.body) }];
   for (let mask = 1; mask < 1 << PART_IDS.length; mask++) {
-    const gone = torn.filter((t, bit) => t && mask & (1 << bit));
-    const bodyCuts = gone.map((t) => t!.body);
-    const body = carve(renderer, whole.body, bodyCuts, true);
+    const gone = torn.filter((t, bit) => t && mask & (1 << bit)).map((t) => t!);
+    // Pose -1 is the standing body; the rest index the corpse poses.
+    const cuts = (pose: number): Cuts => {
+      const at = <T>(body: T, corpses: readonly T[]) =>
+        pose < 0 ? body : corpses[pose];
+      return {
+        erase: gone.map((t) => at(t.body, t.corpses)),
+        bands: gone
+          .filter((t) => !t.part.neck)
+          .map((t) => at(t.body, t.corpses)),
+        necks: gone.flatMap((t) =>
+          t.part.neck ? [at(t.part.neck.body, t.part.neck.corpses)] : [],
+        ),
+      };
+    };
+    const body = carve(renderer, whole.body, cuts(-1), false);
     looks.push({
       body,
       opaque: opacityOf(renderer, body),
-      flash: carve(renderer, whole.flash, bodyCuts, false),
+      flash: carve(renderer, whole.flash, cuts(-1), true),
       corpses: whole.corpses.map((pose, i) =>
-        carve(
-          renderer,
-          pose,
-          gone.map((t) => t!.corpses[i]),
-          true,
-        ),
+        carve(renderer, pose, cuts(i), false),
       ),
     });
   }
   return {
     looks,
-    parts: torn.map((t) => t && sever(renderer, whole.body, t.body)),
+    parts: torn.map((t) => {
+      if (!t) return null;
+      if (!t.part.pieces) return sever(renderer, whole.body, t.body);
+      const box = bounds(t.body.points);
+      return {
+        textures: t.part.pieces.map((path) => loaded[path]),
+        x: (box.x + box.width / 2) * ART_SCALE,
+        y: (box.y + box.height / 2) * ART_SCALE,
+        rotation: Math.PI / 2,
+      };
+    }),
   };
+}
+
+/** What to do to a sprite for one set of missing parts, in its source pixels. */
+interface Cuts {
+  erase: Torn[];
+  /** Cuts that get a torn flesh band. */
+  bands: Torn[];
+  necks: NeckCap[];
 }
 
 /** Read a texture back once at load and keep which of its source pixels are more than half opaque. */
@@ -429,18 +475,17 @@ function tornOutline(shape: PartShape): Torn {
 }
 
 /**
- * The sprite plus, if `stumps`, a flesh-and-ink band along each cut clipped to its silhouette.
+ * The sprite plus a flesh-and-ink band along each cut, clipped to its silhouette.
  * Destroy `band` once the root is baked.
  */
 function withStumps(
   renderer: Renderer,
   source: Texture,
   outlines: Torn[],
-  stumps: boolean,
 ): { root: Container; band: Texture | null } {
   const root = new Container();
   root.addChild(new Sprite(source));
-  if (!stumps) return { root, band: null };
+  if (outlines.length === 0) return { root, band: null };
   const frame = new Rectangle(0, 0, source.width, source.height);
   // A sprite mask drifts and fades inside generateTexture, so clip the band by erasing it with
   // everything outside the silhouette instead.
@@ -471,19 +516,25 @@ function withStumps(
   return { root, band };
 }
 
-/** `source` with the outlines erased, at the source's own size so anchors keep working. */
+/**
+ * `source` with the cuts erased and their wounds capped, at the source's own size so anchors keep
+ * working. The flash gets no bands and a white neck, so it stays a plain silhouette.
+ */
 function carve(
   renderer: Renderer,
   source: Texture,
-  outlines: Torn[],
-  stumps: boolean,
+  cuts: Cuts,
+  flash: boolean,
 ): Texture {
-  const { root, band } = withStumps(renderer, source, outlines, stumps);
+  const { root, band } = withStumps(renderer, source, flash ? [] : cuts.bands);
   const cut = new Graphics();
-  for (const { points } of outlines) cut.poly(points).fill(0xffffff);
+  for (const { points } of cuts.erase) cut.poly(points).fill(0xffffff);
   cut.scale.set(ART_SCALE);
   cut.blendMode = "erase";
-  root.addChild(cut);
+  const necks = new Graphics();
+  for (const cap of cuts.necks) drawNeck(necks, cap, flash);
+  necks.scale.set(ART_SCALE);
+  root.addChild(cut, necks);
   const texture = bake(
     renderer,
     root,
@@ -493,13 +544,36 @@ function carve(
   return texture;
 }
 
+/** Top-down neck stump: the upper back it sat on (if any), torn skin, raw flesh and a bone nub. */
+function drawNeck(g: Graphics, cap: NeckCap, flash: boolean): void {
+  const c = (color: number) => (flash ? 0xffffff : color);
+  const { x, y, r } = cap;
+  if (cap.back) {
+    g.circle(x, y, cap.back)
+      .fill(c(SHIRT_SHADE))
+      .circle(x + 1.5, y - 1, cap.back - 3.5)
+      .fill(c(SHIRT))
+      .circle(x, y, cap.back)
+      .stroke({ width: OUTLINE_WIDTH, color: c(INK) });
+  }
+  const ring = (radius: number) =>
+    tornOutline({ circle: [x, y, radius] }).points;
+  g.poly(ring(r))
+    .fill(c(NECK_SKIN))
+    .stroke({ width: 3, color: c(INK), join: "round" })
+    .poly(ring(r * 0.68))
+    .fill(c(STUMP_FLESH))
+    .circle(x + r * 0.08, y, r * 0.3)
+    .fill(c(BONE))
+    .stroke({ width: 1.5, color: c(INK) });
+}
+
 /** Everything outside the outline erased, cropped to the outline's bounds. */
 function sever(renderer: Renderer, source: Texture, torn: Torn): SeveredPart {
-  const { root, band } = withStumps(renderer, source, [torn], true);
-  const outline = torn.points;
+  const { root, band } = withStumps(renderer, source, [torn]);
   const w = source.width / ART_SCALE;
   const h = source.height / ART_SCALE;
-  const shape = new Graphics().poly(outline).fill(0xffffff);
+  const shape = new Graphics().poly(torn.points).fill(0xffffff);
   shape.scale.set(ART_SCALE);
   const outside = outsideOf(
     renderer,
@@ -509,21 +583,12 @@ function sever(renderer: Renderer, source: Texture, torn: Torn): SeveredPart {
   const keep = new Sprite(outside);
   keep.blendMode = "erase";
   root.addChild(keep);
-  let minX = w;
-  let minY = h;
-  let maxX = 0;
-  let maxY = 0;
-  for (let i = 0; i < outline.length; i += 2) {
-    minX = Math.min(minX, outline[i]);
-    minY = Math.min(minY, outline[i + 1]);
-    maxX = Math.max(maxX, outline[i]);
-    maxY = Math.max(maxY, outline[i + 1]);
-  }
+  const box = bounds(torn.points);
   // Whole source pixels, clamped to the sprite, so the crop lands on texel edges.
-  minX = Math.max(0, Math.floor(minX));
-  minY = Math.max(0, Math.floor(minY));
-  maxX = Math.min(w, Math.ceil(maxX));
-  maxY = Math.min(h, Math.ceil(maxY));
+  const minX = Math.max(0, Math.floor(box.x));
+  const minY = Math.max(0, Math.floor(box.y));
+  const maxX = Math.min(w, Math.ceil(box.x + box.width));
+  const maxY = Math.min(h, Math.ceil(box.y + box.height));
   const frame = new Rectangle(
     minX * ART_SCALE,
     minY * ART_SCALE,
@@ -534,10 +599,26 @@ function sever(renderer: Renderer, source: Texture, torn: Torn): SeveredPart {
   band?.destroy(true);
   outside.destroy(true);
   return {
-    texture,
+    textures: [texture],
     x: frame.x + frame.width / 2,
     y: frame.y + frame.height / 2,
+    rotation: 0,
   };
+}
+
+/** Bounding box of flat x,y points. */
+function bounds(points: number[]): Rectangle {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < points.length; i += 2) {
+    minX = Math.min(minX, points[i]);
+    minY = Math.min(minY, points[i + 1]);
+    maxX = Math.max(maxX, points[i]);
+    maxY = Math.max(maxY, points[i + 1]);
+  }
+  return new Rectangle(minX, minY, maxX - minX, maxY - minY);
 }
 
 /** White everywhere in `frame` that `shape` doesn't cover; erasing with it keeps only the shape. */

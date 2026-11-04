@@ -45,14 +45,18 @@ export class ShotContext {
     dirY: number,
     def: WeaponDef,
   ): void {
-    const killed = zombie.hit(
+    let killed = zombie.hit(
       def.damage * this.damageScale,
       dirX,
       dirY,
       def.knockback,
     );
     // Before the kill, so the corpse lies down without the piece too.
-    this.dismember(zombie, hitX, hitY, dirX, dirY);
+    const severed = this.dismember(zombie, hitX, hitY, dirX, dirY);
+    if (PART_IDS[severed] === "head" && DISMEMBER.headKills && !zombie.dead) {
+      zombie.drop();
+      killed = true;
+    }
     this.fx.bloodBurst(hitX, hitY, dirX, dirY, killed ? 12 : 6, BLOOD_SPRAY);
     this.horde.splat(hitX, hitY, dirX, dirY);
     if (killed) {
@@ -70,22 +74,43 @@ export class ShotContext {
     }
   }
 
-  /** Maybe tear off the part the shot struck: the piece flies along the shot and the stump spurts. */
+  /**
+   * Maybe tear off the part the shot struck: the piece flies along the shot and the stump spurts.
+   * A head pops off with a fountain from the neck. Returns the severed part's bit, or -1.
+   */
   private dismember(
     zombie: Zombie,
     hitX: number,
     hitY: number,
     dirX: number,
     dirY: number,
-  ): void {
+  ): number {
     const bit = zombie.partOnRay(hitX, hitY, dirX, dirY);
-    if (bit < 0 || Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`]) return;
+    if (bit < 0 || Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`])
+      return -1;
     this.horde.limbs.launch(zombie, bit, dirX, dirY, this.stump);
     zombie.sever(bit);
-    this.fx.bloodBurst(this.stump.x, this.stump.y, dirX, dirY, 10, BLOOD_SPRAY);
+    const { x, y } = this.stump;
+    const head = PART_IDS[bit] === "head";
+    if (head) {
+      this.fx.bloodBurst(x, y, dirX, dirY, DISMEMBER.headSpurt, BLOOD_SPRAY);
+      this.fx.fountain(
+        x,
+        y,
+        dirX,
+        dirY,
+        DISMEMBER.headFountainSeconds,
+        DISMEMBER.headFountainRate,
+        BLOOD_SPRAY,
+      );
+    } else this.fx.bloodBurst(x, y, dirX, dirY, DISMEMBER.spurt, BLOOD_SPRAY);
     if (!this.tearSoundPlayed)
-      this.audio.play("zombieTear", { pitch: rand(0.85, 1.2), volume: 0.8 });
+      this.audio.play(head ? "zombieHeadPop" : "zombieTear", {
+        pitch: rand(0.85, 1.2),
+        volume: 0.8,
+      });
     this.tearSoundPlayed = true;
+    return bit;
   }
 }
 

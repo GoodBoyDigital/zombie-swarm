@@ -114,7 +114,8 @@ export class Game {
     window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
-    // he gets swamped, with additive effects on top of everything.
+    // he gets swamped, with additive effects on top. Flying limbs go over the effects so a head
+    // stays readable through its own blood fountain.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
@@ -123,9 +124,9 @@ export class Game {
       this.drops.view,
       this.player.view,
       this.horde.view,
-      this.horde.limbs.view,
       this.casings.view,
       this.fx.view,
+      this.horde.limbs.view,
       this.horde.debugView,
     );
 

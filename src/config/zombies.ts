@@ -14,7 +14,7 @@ export interface ZombieArt {
 }
 
 /** Severable pieces, in bit order of a zombie's missing-parts mask. */
-export const PART_IDS = ["leftArm", "rightArm", "headChunk"] as const;
+export const PART_IDS = ["leftArm", "rightArm", "head"] as const;
 export type PartId = (typeof PART_IDS)[number];
 
 /**
@@ -31,6 +31,24 @@ export interface ZombiePart {
   body: PartShape;
   /** The same part on each corpse pose, ordered like `ZombieArt.corpses`. */
   corpses: readonly PartShape[];
+  /** Losing this part leaves a neck stump instead of a torn edge: where it sits on the body and each corpse pose. */
+  neck?: { body: NeckCap; corpses: readonly NeckCap[] };
+  /**
+   * Sprites thrown in place of the cut-out piece, one picked per detach, drawn upright with the
+   * top of the part along the facing. A whole head with a face reads better than a cut-out disc.
+   */
+  pieces?: readonly string[];
+}
+
+/**
+ * A neck stump in a sprite's source pixels. `back`, when set, first fills a disc of that radius with
+ * the upper back: top-down, the head was hiding the shoulders.
+ */
+export interface NeckCap {
+  x: number;
+  y: number;
+  r: number;
+  back?: number;
 }
 
 /** Brain numbers a type may override; anything left out comes from ZOMBIE_AI. */
@@ -85,8 +103,8 @@ export const ZOMBIES = {
       radius: 12,
       anchor: { x: 0.28, y: 0.52 },
       // Faces right, so the left arm is the upper one. Outer edges run past the sprite so the torn
-      // wobble never leaves slivers. Arms tear off at the sleeve; the head chunk is the front
-      // of the scalp, between the arms, where a shot from ahead lands. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
+      // wobble never leaves slivers. Arms tear off at the sleeve; the head comes off whole and
+      // leaves a neck stump. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
       parts: {
         leftArm: {
           body: {
@@ -116,12 +134,24 @@ export const ZOMBIES = {
             },
           ],
         },
-        headChunk: {
-          body: { circle: [37, 30, 10] },
+        head: {
+          body: { circle: [26, 31, 23] },
           corpses: [
-            { circle: [8, 47, 10] },
-            { circle: [12, 24, 10] },
-            { circle: [90, 39, 10] },
+            { circle: [21, 48, 27] },
+            { circle: [21, 23, 25] },
+            { circle: [79, 38, 20.5] },
+          ],
+          neck: {
+            body: { x: 26, y: 31, r: 9, back: 22 },
+            corpses: [
+              { x: 44, y: 48, r: 8 },
+              { x: 41, y: 39, r: 8 },
+              { x: 61, y: 39, r: 8 },
+            ],
+          },
+          pieces: [
+            "/sprites/zombie-walker-head-1.png",
+            "/sprites/zombie-walker-head-2.png",
           ],
         },
       },

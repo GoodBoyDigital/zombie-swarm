@@ -112,7 +112,7 @@ const CASING_RANGES: Ranges = {
 const DISMEMBER_RANGES: Ranges = {
   leftArmChance: { min: 0, max: 1, step: 0.01 },
   rightArmChance: { min: 0, max: 1, step: 0.01 },
-  headChunkChance: { min: 0, max: 1, step: 0.01 },
+  headChance: { min: 0, max: 1, step: 0.01 },
   launchSpeedMin: { min: 0, max: 800, step: 10 },
   launchSpeedMax: { min: 0, max: 800, step: 10 },
   launchSpread: { min: 0, max: 1.5, step: 0.05 },
@@ -125,6 +125,13 @@ const DISMEMBER_RANGES: Ranges = {
   bounce: { min: 0, max: 0.9, step: 0.05 },
   bounceFriction: { min: 0, max: 1, step: 0.05 },
   floorDrag: { min: 0.5, max: 20, step: 0.5 },
+  pieceScale: { min: 0.5, max: 3, step: 0.05 },
+  spurt: { min: 0, max: 60, step: 1 },
+  headSpurt: { min: 0, max: 80, step: 1 },
+  headFountainSeconds: { min: 0, max: 2, step: 0.05 },
+  headFountainRate: { min: 0, max: 400, step: 5 },
+  headHopScale: { min: 0.5, max: 3, step: 0.05 },
+  headSpinScale: { min: 0.5, max: 4, step: 0.05 },
   maxLive: { min: 1, max: 300, step: 1 },
 };
 
@@ -195,6 +202,10 @@ export class TuningPanel {
       if (typeof value === "object" && value !== null) {
         const sub = folder.addFolder({ title: key, expanded: true });
         this.bindNumbers(sub, value as Record<string, unknown>, ranges);
+        continue;
+      }
+      if (typeof value === "boolean") {
+        folder.addBinding(def, key);
         continue;
       }
       if (typeof value !== "number") continue;

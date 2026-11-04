@@ -36,7 +36,7 @@ export class Horde {
   readonly hash = new SpatialHash<Zombie>(CELL_SIZE);
   /** Bodies still sliding. Drawn under the living so the crowd walks over them. */
   readonly corpses: Corpses;
-  /** Pieces shot off zombies, tumbling to the floor. Drawn over the living so they fly clear of the crowd. */
+  /** Pieces shot off zombies, tumbling to the floor. Game draws them over the living and the effects so they fly clear of the crowd and the spray. */
   readonly limbs: Limbs;
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();

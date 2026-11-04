@@ -154,6 +154,12 @@ export class Zombie {
     return -1;
   }
 
+  /** Killed outright, whatever health was left: it lost its head. */
+  drop(): void {
+    this.health = 0;
+    this.dead = true;
+  }
+
   /** Take a part off: from now on the body, flash and corpse are drawn without it. */
   sever(bit: number): void {
     this.missing |= 1 << bit;

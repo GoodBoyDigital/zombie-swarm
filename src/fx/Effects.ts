@@ -28,11 +28,26 @@ const FLASH_TILT = 0.05;
 /** Tracers draw a little wider than the weapon's tracerWidth; the soft edge eats the outer rows. */
 const TRACER_WIDTH_SCALE = 1.6;
 
+/** Blood pumping from one spot for a moment, as a few bursts a frame. */
+interface Fountain {
+  x: number;
+  y: number;
+  angle: number;
+  left: number;
+  rate: number;
+  debt: number;
+  tint: number;
+}
+
+/** How far either side of its direction a fountain sprays, radians. */
+const FOUNTAIN_SPREAD = 1.1;
+
 /** Short-lived visuals: muzzle flash, hitscan tracer, blood sparks. Sprites are pooled. */
 export class Effects {
   readonly view = new Container();
   private readonly live: Particle[] = [];
   private readonly pool: Sprite[] = [];
+  private readonly fountains: Fountain[] = [];
 
   constructor(private readonly tex: GameTextures) {}
 
@@ -108,7 +123,33 @@ export class Effects {
     }
   }
 
+  /** Pump blood from (x, y) for `seconds`, `rate` sparks a second, sprayed wide around the direction. */
+  fountain(
+    x: number,
+    y: number,
+    dirX: number,
+    dirY: number,
+    seconds: number,
+    rate: number,
+    tint: number,
+  ): void {
+    const angle = Math.atan2(dirY, dirX);
+    this.fountains.push({ x, y, angle, left: seconds, rate, debt: 0, tint });
+  }
+
   update(dt: number): void {
+    for (let i = this.fountains.length - 1; i >= 0; i--) {
+      const f = this.fountains[i];
+      f.debt += f.rate * dt;
+      for (; f.debt >= 1; f.debt--) {
+        const a = f.angle + rand(-FOUNTAIN_SPREAD, FOUNTAIN_SPREAD);
+        this.bloodBurst(f.x, f.y, Math.cos(a), Math.sin(a), 1, f.tint);
+      }
+      f.left -= dt;
+      if (f.left > 0) continue;
+      this.fountains[i] = this.fountains[this.fountains.length - 1];
+      this.fountains.pop();
+    }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const p = this.live[i];
       p.life -= dt;

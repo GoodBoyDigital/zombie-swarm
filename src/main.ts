@@ -1,8 +1,10 @@
 import { Application } from "pixi.js";
+import { applyBuildLabel } from "./debug/buildLabel";
 import { createTextures } from "./fx/textures";
 import { Game } from "./Game";
 
 (async () => {
+  applyBuildLabel();
   const app = new Application();
   await app.init({
     background: "#141210",

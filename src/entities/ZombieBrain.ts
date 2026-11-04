@@ -5,18 +5,25 @@ import type { Zombie } from "./Zombie";
 
 export type ZombieMode = "wander" | "chase";
 
-/** Debug overlay switch (key V): wanderers tint blue, the player's aggro radius and gunshot noise are drawn. */
+/** Debug overlay switch (key V): state tints, the player's aggro and lose radii, and gunshot noise rings. */
 export const aiDebug = { enabled: false };
 
 /** How far inside the walls wander points are picked, so herds don't grind along the edges. */
 const WANDER_INSET = 80;
 /** Close enough to a wander point to pick the next one. */
 const ARRIVE_DIST = 24;
+/** Seconds between picking a new random turn rate while wandering, and how fast the current one eases to it. */
+const DRIFT_RETARGET_MIN = 0.3;
+const DRIFT_RETARGET_MAX = 0.8;
+const DRIFT_EASE = 4;
+/** When a chaser gives up, its first wander leg stays within this of its current heading so nothing snaps. */
+const RESUME_SPREAD = 0.5;
 
 /**
  * Decision-making for one zombie: where it wants to go and how fast. Movement, health and art stay on the Zombie.
  * Fresh zombies wander. The player entering the aggro radius, or a gunshot's noise reaching them, alerts them;
- * after a short reaction delay they chase, and a chaser never goes back to wandering.
+ * after a short reaction delay they chase. A chaser loses interest once the player has been outside the lose
+ * radius, with no noise arriving, for its lose-interest time, and drifts back into wandering.
  */
 export class ZombieBrain {
   mode: ZombieMode = "wander";
@@ -25,6 +32,14 @@ export class ZombieBrain {
   private retargetIn = 0;
   /** Seconds left before an alert becomes a chase; negative when nothing has been noticed yet. */
   private reactIn = -1;
+  /** Seconds since the player was last within loseRadius or a noise arrived. Only meaningful while chasing. */
+  private sinceContact = 0;
+  /** This zombie's own lose-interest time, jittered so a crowd doesn't give up in unison. */
+  private loseAfter = 0;
+  /** Current and target random turn rate while wandering, radians/s. */
+  private drift = 0;
+  private driftTarget = 0;
+  private driftIn = 0;
   /** Neighbour sums filled by the horde's crowd query each frame, consumed on the next steer. */
   herdCount = 0;
   herdX = 0;
@@ -36,6 +51,13 @@ export class ZombieBrain {
     this.mode = "wander";
     this.retargetIn = 0;
     this.reactIn = -1;
+    this.sinceContact = 0;
+    this.loseAfter =
+      ZOMBIE_AI.loseInterestSeconds +
+      rand(-ZOMBIE_AI.loseInterestJitter, ZOMBIE_AI.loseInterestJitter);
+    this.drift = 0;
+    this.driftTarget = 0;
+    this.driftIn = 0;
     this.clearHerd();
   }
 
@@ -43,10 +65,22 @@ export class ZombieBrain {
     return this.mode === "wander";
   }
 
-  /** Something caught this zombie's attention. The chase starts after its reaction delay. */
+  /** Chasing, but the player has slipped away and the give-up timer is running. */
+  get losingInterest(): boolean {
+    return this.mode === "chase" && this.sinceContact > 0;
+  }
+
+  /** Something caught this zombie's attention: a chaser stays keen, a wanderer starts its reaction delay. */
   alert(): void {
-    if (this.mode === "chase" || this.reactIn >= 0) return;
-    this.reactIn = rand(ZOMBIE_AI.reactionDelayMin, ZOMBIE_AI.reactionDelayMax);
+    if (this.mode === "chase") {
+      this.sinceContact = 0;
+      return;
+    }
+    if (this.reactIn < 0)
+      this.reactIn = rand(
+        ZOMBIE_AI.reactionDelayMin,
+        ZOMBIE_AI.reactionDelayMax,
+      );
   }
 
   /** Turns the zombie toward where it wants to go and returns its move speed for this frame, px/s. */
@@ -60,14 +94,15 @@ export class ZombieBrain {
     const ai = ZOMBIE_AI;
     if (this.reactIn >= 0) {
       this.reactIn -= dt;
-      if (this.reactIn < 0) this.mode = "chase";
+      if (this.reactIn < 0) {
+        this.mode = "chase";
+        this.sinceContact = 0;
+      }
     }
     const px = playerX - z.x;
     const py = playerY - z.y;
-    if (
-      this.mode === "wander" &&
-      px * px + py * py < ai.aggroRadius * ai.aggroRadius
-    )
+    const playerDist2 = px * px + py * py;
+    if (this.mode === "wander" && playerDist2 < ai.aggroRadius * ai.aggroRadius)
       this.alert();
 
     // Still in the gate corridor: head for the entry point whatever the mood.
@@ -83,29 +118,25 @@ export class ZombieBrain {
     }
 
     if (this.mode === "chase") {
-      turnToward(z, px, py, ai.chaseTurnRate, dt);
-      // Slow to a stop when touching the player instead of overlapping them.
-      const stopAt = z.def.radius + playerRadius;
-      return px * px + py * py > stopAt * stopAt ? z.speed : 0;
+      if (playerDist2 < ai.loseRadius * ai.loseRadius) this.sinceContact = 0;
+      else this.sinceContact += dt;
+      if (this.sinceContact > this.loseAfter) {
+        this.mode = "wander";
+        this.sinceContact = 0;
+        this.pickLeg(z, z.facing + rand(-RESUME_SPREAD, RESUME_SPREAD));
+      } else {
+        turnToward(z, px, py, ai.chaseTurnRate, dt);
+        // Slow to a stop when touching the player instead of overlapping them.
+        const stopAt = z.def.radius + playerRadius;
+        return playerDist2 > stopAt * stopAt ? z.speed : 0;
+      }
     }
 
     this.retargetIn -= dt;
     let tx = this.targetX - z.x;
     let ty = this.targetY - z.y;
     if (this.retargetIn <= 0 || tx * tx + ty * ty < ARRIVE_DIST * ARRIVE_DIST) {
-      const heading = rand(0, Math.PI * 2);
-      const leg = rand(ai.wanderLegMin, ai.wanderLegMax);
-      this.targetX = clamp(
-        z.x + Math.cos(heading) * leg,
-        WANDER_INSET,
-        ARENA.width - WANDER_INSET,
-      );
-      this.targetY = clamp(
-        z.y + Math.sin(heading) * leg,
-        WANDER_INSET,
-        ARENA.height - WANDER_INSET,
-      );
-      this.retargetIn = rand(ai.retargetIntervalMin, ai.retargetIntervalMax);
+      this.pickLeg(z, rand(0, Math.PI * 2));
       tx = this.targetX - z.x;
       ty = this.targetY - z.y;
     }
@@ -128,9 +159,33 @@ export class ZombieBrain {
     }
 
     turnToward(z, vx, vy, ai.wanderTurnRate, dt);
-    // Random walk on the heading; sqrt(dt) keeps the drift rate independent of frame rate.
-    z.facing += rand(-1, 1) * ai.turnNoise * Math.sqrt(3 * dt);
+    // Meander: a random turn rate that itself drifts slowly. Fresh noise every frame made the sprite twitch.
+    this.driftIn -= dt;
+    if (this.driftIn <= 0) {
+      this.driftTarget = rand(-ai.turnNoise, ai.turnNoise);
+      this.driftIn = rand(DRIFT_RETARGET_MIN, DRIFT_RETARGET_MAX);
+    }
+    this.drift +=
+      (this.driftTarget - this.drift) * Math.min(1, dt * DRIFT_EASE);
+    z.facing += this.drift * dt;
     return z.speed * ai.wanderSpeedScale;
+  }
+
+  /** Start a new wander leg in the given direction, clamped inside the arena. */
+  private pickLeg(z: Zombie, heading: number): void {
+    const ai = ZOMBIE_AI;
+    const leg = rand(ai.wanderLegMin, ai.wanderLegMax);
+    this.targetX = clamp(
+      z.x + Math.cos(heading) * leg,
+      WANDER_INSET,
+      ARENA.width - WANDER_INSET,
+    );
+    this.targetY = clamp(
+      z.y + Math.sin(heading) * leg,
+      WANDER_INSET,
+      ARENA.height - WANDER_INSET,
+    );
+    this.retargetIn = rand(ai.retargetIntervalMin, ai.retargetIntervalMax);
   }
 
   private clearHerd(): void {
@@ -142,7 +197,7 @@ export class ZombieBrain {
   }
 }
 
-/** Ease the facing toward a direction vector rather than snapping, so direction changes read as lumbering. */
+/** Ease the facing toward a direction vector, capped at maxTurnRate so direction changes never snap. */
 function turnToward(
   z: Zombie,
   dx: number,
@@ -152,7 +207,8 @@ function turnToward(
 ): void {
   let turn = Math.atan2(dy, dx) - z.facing;
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-  z.facing += turn * Math.min(1, dt * rate);
+  const maxTurn = ZOMBIE_AI.maxTurnRate * dt;
+  z.facing += clamp(turn * Math.min(1, dt * rate), -maxTurn, maxTurn);
 }
 
 const clamp = (v: number, lo: number, hi: number): number =>

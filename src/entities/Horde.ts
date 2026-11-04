@@ -106,6 +106,11 @@ export class Horde {
       color: 0x60a0ff,
       alpha: 0.6,
     });
+    g.circle(playerX, playerY, ZOMBIE_AI.loseRadius).stroke({
+      width: 2,
+      color: 0x60a0ff,
+      alpha: 0.25,
+    });
     const fade = 1 - this.lastNoise.age / NOISE_RING_SECONDS;
     if (fade <= 0) return;
     g.circle(this.lastNoise.x, this.lastNoise.y, this.lastNoise.radius).stroke({

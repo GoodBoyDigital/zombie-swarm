@@ -12,6 +12,8 @@ import { aiDebug, ZombieBrain } from "./ZombieBrain";
 const HIT_FLASH_SECONDS = 0.07;
 /** Debug tint for wanderers: red and green pulled down so the body reads blue. */
 const WANDER_TINT_FACTOR = 0.55;
+/** Debug tint for chasers losing interest: blue pulled down so the green body reads lime. A tint can only darken. */
+const LOSING_TINT_FACTOR = 0.35;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -27,6 +29,7 @@ export class Zombie {
   facing = 0;
   tint = 0xffffff;
   private wanderTint = 0xffffff;
+  private losingTint = 0xffffff;
   private flash = 0;
   readonly brain = new ZombieBrain();
   gate!: Gate;
@@ -60,6 +63,7 @@ export class Zombie {
     this.facing = Math.atan2(gate.entry.y - this.y, gate.entry.x - this.x);
     this.tint = shade(def.color, rand(0.8, 1));
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
+    this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
     this.sprite.tint = this.tint;
     this.brain.reset();
     this.sprite.texture = this.texture;
@@ -97,12 +101,14 @@ export class Zombie {
       this.sprite.texture = this.flash > 0 ? this.flashTexture : this.texture;
     }
     const flashing = this.flash > 0;
-    const tint = flashing
-      ? 0xffffff
-      : aiDebug.enabled && this.brain.wandering
-        ? this.wanderTint
-        : this.tint;
+    const tint = flashing ? 0xffffff : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
+  }
+
+  private debugTint(): number {
+    if (!aiDebug.enabled) return this.tint;
+    if (this.brain.wandering) return this.wanderTint;
+    return this.brain.losingInterest ? this.losingTint : this.tint;
   }
 
   /** Push the resolved position to the sprite. Runs after crowding and wall clamps. */
@@ -123,4 +129,9 @@ function blueShade(color: number, factor: number): number {
   const r = Math.round(((color >> 16) & 0xff) * factor);
   const g = Math.round(((color >> 8) & 0xff) * factor);
   return (r << 16) | (g << 8) | (color & 0xff);
+}
+
+function limeShade(color: number, factor: number): number {
+  const b = Math.round((color & 0xff) * factor);
+  return (color & 0xffff00) | b;
 }

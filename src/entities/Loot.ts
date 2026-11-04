@@ -26,6 +26,8 @@ const POP_IN = 0.15;
 const COMBO_WINDOW = 0.6;
 const COMBO_PITCH_STEP = 0.05;
 const COMBO_MAX = 14;
+/** How much faster than the player homing loot always travels, px/s. */
+const MAGNET_LEAD = 100;
 const SPARKLE: Record<LootId, number> = {
   coin: 0xffd84a,
   bill: 0xa5d985,
@@ -194,7 +196,8 @@ export class Loot {
         if (d2 < radius * radius) it.attracted = true;
       },
     );
-    const minSpeed = player.moveSpeed + 60;
+    // Always faster than the player, even running away with a gun kicking him backwards.
+    const minSpeed = Math.max(player.moveSpeed, player.speed) + MAGNET_LEAD;
     const maxSpeed = Math.max(PLAYER.magnetMaxSpeed, minSpeed);
     // Once caught, keep homing even if the player runs beyond the pickup radius.
     for (let i = this.live.length - 1; i >= 0; i--) {

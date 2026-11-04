@@ -22,10 +22,10 @@ export const PLAYER = {
   regenPerSecond: 0,
   regenDelay: 4,
   /** Loot inside this radius drifts toward the player. */
-  magnetRadius: 49,
+  magnetRadius: 34,
   /** Acceleration of attracted loot toward its incoming speed, px/s². */
   magnetPull: 400,
-  /** Incoming loot speed in px/s; raised when needed to stay ahead of the player's run speed. */
+  /** Incoming loot speed in px/s; raised when needed to stay ahead of the player's actual speed. */
   magnetMaxSpeed: 330,
   /** Added to the body radius for the overlap that collects loot. */
   collectRadius: 6,

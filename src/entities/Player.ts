@@ -111,6 +111,11 @@ export class Player {
     return MOVE_SPEED * this.speedScale;
   }
 
+  /** How fast he is actually moving right now: the run plus any recoil kickback. */
+  get speed(): number {
+    return Math.hypot(this.vx + this.rx, this.vy + this.ry);
+  }
+
   /** Take a hit. Returns false while immune or already down, so feedback only fires on real hits. */
   hurt(amount: number): boolean {
     if (this.invuln > 0 || !this.alive) return false;

@@ -33,6 +33,8 @@ const FLASH_TILT = 0.05;
 const TRACER_WIDTH_SCALE = 1.6;
 /** Power-mode tracer glow: an angry orange-red under a white core. */
 const HOT_TRACER = 0xff5a1f;
+/** How much thicker the whole power-mode tracer (glow and core) is drawn. */
+const HOT_TRACER_THICKNESS = 3;
 
 /** Fireball, chunks and embers thrown out by a blast. */
 const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
@@ -92,8 +94,8 @@ export class Effects {
       streak(width, 0xfff1c2, 0.09);
       return;
     }
-    streak(width * power * 1.6, HOT_TRACER, 0.14);
-    streak(width * 0.9, 0xffffff, 0.1);
+    streak(width * power * 1.6 * HOT_TRACER_THICKNESS, HOT_TRACER, 0.14);
+    streak(width * 0.9 * HOT_TRACER_THICKNESS, 0xffffff, 0.1);
   }
 
   /** Blood spray leaving a hit point, biased along the shot direction. */

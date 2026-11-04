@@ -1,5 +1,9 @@
+import type { CasingId } from "./casings";
+
 export interface WeaponDef {
   id: string;
+  /** Shell ejected per shot, or null for weapons that leave nothing behind. */
+  casing: CasingId | null;
   /** Seconds between shots while the trigger is held. */
   fireInterval: number;
   damage: number;
@@ -25,6 +29,7 @@ export const WEAPON_NOISE_RADIUS = 300;
 export const WEAPONS = {
   rifle: {
     id: "rifle",
+    casing: "rifle",
     fireInterval: 0.11,
     damage: 1,
     knockback: 320,

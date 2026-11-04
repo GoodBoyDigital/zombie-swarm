@@ -1,4 +1,5 @@
 import { Assets, Graphics, type Renderer, type Texture } from "pixi.js";
+import { CASINGS, type CasingId } from "../config/casings";
 import { rand } from "../core/random";
 
 export interface GameTextures {
@@ -10,6 +11,7 @@ export interface GameTextures {
   muzzleFlash: Texture;
   spark: Texture;
   splats: Texture[];
+  casings: Record<CasingId, Texture>;
   /** Repeating ground and wall tiles. */
   tiles: { concrete: Texture; dirt: Texture; wall: Texture };
 }
@@ -51,6 +53,26 @@ export async function createTextures(
 
   const spark = new Graphics().rect(-3, -3, 6, 6).fill(0xffffff);
 
+  // Casings are a few pixels across, so they're drawn 1:1 rather than through the chunky downscale.
+  const casings = Object.fromEntries(
+    Object.entries(CASINGS).map(([id, def]) => {
+      const { width: w, height: h } = def;
+      const g = new Graphics()
+        .rect(-w / 2, -h / 2, w, h)
+        .fill(def.color)
+        .rect(-w / 2, -h / 2, 1, h)
+        .fill(def.baseColor);
+      const texture = renderer.generateTexture({
+        target: g,
+        antialias: false,
+        resolution: 1,
+        textureSourceOptions: { scaleMode: "nearest" },
+      });
+      g.destroy();
+      return [id, texture];
+    }),
+  ) as Record<CasingId, Texture>;
+
   const splats = Array.from({ length: 4 }, () => {
     const g = new Graphics().circle(0, 0, rand(14, 20)).fill(0xffffff);
     const blobs = Math.floor(rand(6, 12));
@@ -76,6 +98,7 @@ export async function createTextures(
     muzzleFlash: sprite("muzzleFlash"),
     spark: make(spark),
     splats,
+    casings,
     tiles: {
       concrete: sprite("tileConcrete"),
       dirt: sprite("tileDirt"),

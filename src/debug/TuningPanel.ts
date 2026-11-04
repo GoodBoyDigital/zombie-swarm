@@ -1,8 +1,10 @@
 import { Pane, type FolderApi } from "tweakpane";
+import { CASINGS } from "../config/casings";
 import { DROP_RULES, DROPS } from "../config/drops";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { WEAPONS } from "../config/weapons";
+import { ZOMBIE_AI } from "../config/zombies";
 
 /** Slider limits per numeric field. Fields without an entry get a plain number box. */
 type Ranges = Record<string, { min: number; max: number; step?: number }>;
@@ -39,6 +41,28 @@ const LOOT_RANGES: Ranges = {
   bobSpeed: { min: 0, max: 10, step: 0.1 },
 };
 
+const ZOMBIE_AI_RANGES: Ranges = {
+  wanderSpeedScale: { min: 0, max: 1.5, step: 0.05 },
+  turnNoise: { min: 0, max: 4, step: 0.05 },
+  retargetIntervalMin: { min: 0.2, max: 10, step: 0.1 },
+  retargetIntervalMax: { min: 0.2, max: 10, step: 0.1 },
+  wanderLegMin: { min: 20, max: 1000, step: 10 },
+  wanderLegMax: { min: 20, max: 1000, step: 10 },
+  aggroRadius: { min: 0, max: 800, step: 10 },
+  reactionDelayMin: { min: 0, max: 2, step: 0.05 },
+  reactionDelayMax: { min: 0, max: 2, step: 0.05 },
+  loseRadius: { min: 0, max: 1200, step: 10 },
+  loseInterestSeconds: { min: 0, max: 20, step: 0.5 },
+  loseInterestJitter: { min: 0, max: 5, step: 0.1 },
+  herdCohesion: { min: 0, max: 2, step: 0.05 },
+  herdAlignment: { min: 0, max: 2, step: 0.05 },
+};
+
+const CASING_RANGES: Ranges = {
+  width: { min: 1, max: 20, step: 1 },
+  height: { min: 1, max: 20, step: 1 },
+};
+
 const WEAPON_RANGES: Ranges = {
   pellets: { min: 1, max: 24, step: 1 },
   spread: { min: 0, max: 0.6, step: 0.005 },
@@ -51,6 +75,7 @@ const WEAPON_RANGES: Ranges = {
   range: { min: 100, max: 3000, step: 10 },
   shake: { min: 0, max: 1, step: 0.01 },
   tracerWidth: { min: 1, max: 16, step: 0.5 },
+  noiseRadius: { min: 0, max: 1500, step: 10 },
 };
 
 /**
@@ -105,7 +130,9 @@ export class TuningPanel {
         this.bindPierce(folder, def, key);
         continue;
       }
-      folder.addBinding(def, key, ranges[key]);
+      // Colour fields get a swatch; the source copy writes them back as hex.
+      if (isColor(key)) folder.addBinding(def, key, { view: "color" });
+      else folder.addBinding(def, key, ranges[key]);
     }
   }
 
@@ -150,9 +177,9 @@ function toSource({ exportName, typeName, obj }: Table): string {
     if (typeof value === "object" && value !== null) {
       lines.push(`  ${key}: {`);
       for (const [field, v] of Object.entries(value))
-        lines.push(`    ${field}: ${literal(v)},`);
+        lines.push(`    ${field}: ${literal(v, field)},`);
       lines.push("  },");
-    } else lines.push(`  ${key}: ${literal(value)},`);
+    } else lines.push(`  ${key}: ${literal(value, key)},`);
   }
   lines.push(
     typeName
@@ -162,9 +189,13 @@ function toSource({ exportName, typeName, obj }: Table): string {
   return lines.join("\n") + "\n";
 }
 
-function literal(value: unknown): string {
-  if (typeof value === "number")
+const isColor = (key: string): boolean => /color$/i.test(key);
+
+function literal(value: unknown, key: string): string {
+  if (typeof value === "number") {
+    if (isColor(key)) return `0x${value.toString(16).padStart(6, "0")}`;
     return Number.isFinite(value) ? String(value) : "Infinity";
+  }
   return JSON.stringify(value);
 }
 
@@ -176,5 +207,7 @@ export function setupTuning(): TuningPanel {
   panel.add("PLAYER", null, PLAYER, LOOT_RANGES);
   panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
+  panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
+  panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   return panel;
 }

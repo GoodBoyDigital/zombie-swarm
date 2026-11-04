@@ -9,6 +9,7 @@ import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
 import { Loot } from "./entities/Loot";
 import { Player } from "./entities/Player";
+import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
 import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
@@ -100,6 +101,7 @@ export class Game {
       this.horde.view,
       this.casings.view,
       this.fx.view,
+      this.horde.debugView,
     );
 
     this.hud = new Text({
@@ -133,6 +135,7 @@ export class Game {
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
     if (e.code === "KeyR") this.weapon.reload();
+    if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
     if (theme) this.audio.playMusic(theme);
@@ -158,13 +161,16 @@ export class Game {
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
     const w = this.weapon;
+    const ai = aiDebug.enabled
+      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}`
+      : "";
     const ammo = w.reloading
       ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-5 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
-      `kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
+      `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

@@ -1,5 +1,10 @@
 import type { Audio, SfxName } from "../audio/Audio";
-import { WEAPONS, type WeaponDef, type WeaponId } from "../config/weapons";
+import {
+  WEAPON_NOISE_RADIUS,
+  WEAPONS,
+  type WeaponDef,
+  type WeaponId,
+} from "../config/weapons";
 import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
@@ -106,6 +111,7 @@ export class Weapon {
     }
     this.camera.addTrauma(def.shake);
     this.camera.kick(aimX * 3, aimY * 3);
+    this.shots.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
     this.shots.hitSoundPlayed = false;
     this.shots.deathSoundPlayed = false;

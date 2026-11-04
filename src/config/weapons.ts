@@ -38,9 +38,9 @@ export const WEAPONS = {
     id: "rifle",
     sprite: {
       path: "/sprites/weapon-rifle.png",
-      grip: { x: 0.42, y: 0.33 },
-      muzzle: { x: 1, y: 0.33 },
-      eject: { x: 0.5, y: 0.33 },
+      grip: { x: 0.4, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
     },
     casing: "rifle",
     fireInterval: 0.11,

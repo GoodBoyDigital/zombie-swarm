@@ -16,8 +16,8 @@ const GUN_KICK = 4;
  * equipped weapon's grip is pinned there.
  */
 const SPRITE = {
-  anchor: { x: 0.27, y: 0.5 },
-  hand: { x: 0.88, y: 0.5 },
+  anchor: { x: 0.5, y: 0.5 },
+  hand: { x: 0.9, y: 0.56 },
 } as const;
 
 export class Player {

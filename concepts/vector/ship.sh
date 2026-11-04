@@ -23,11 +23,13 @@ case "$1" in
     bg=${4:-"#FF00FF"}
     if [[ "$bg" == "#FF00FF" ]]; then
       magick "$2" -alpha set -fuzz 18% -transparent "$bg" \
-        -channel RGB -fx "(r>0.35&&b>0.35&&g<0.25)?0:u" +channel \
-        -trim +repage "$3"
+        -channel RGB -fx "(r>0.35&&b>0.35&&g<0.25)?0:u" +channel "$TMP/k.png"
     else
-      magick "$2" -alpha set -fuzz 12% -transparent "$bg" -trim +repage "$3"
+      magick "$2" -alpha set -fuzz 12% -transparent "$bg" "$TMP/k.png"
     fi
+    # Trim to the art, ignoring stray specks (generator marks) that would hold the box open.
+    box=$(magick "$TMP/k.png" -alpha extract -threshold 50% -morphology Open Disk:4 -format "%@" info:)
+    magick "$TMP/k.png" -crop "$box" +repage "$3"
     ;;
   ship)
     src=$2 out=$3 w=$4 outer=${5:-1.5} inner=${6:-0.4}

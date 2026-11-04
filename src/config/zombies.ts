@@ -79,9 +79,9 @@ export const ZOMBIES = {
     art: {
       key: "runner",
       corpses: [1, 2, 3],
-      // Skinny top-down art: head centred 16% across, about 8 px radius including outline.
-      radius: 8,
-      anchor: { x: 0.16, y: 0.5 },
+      // Skinny top-down art with a trailing leg: torso centred 36% across, about 9 px radius.
+      radius: 9,
+      anchor: { x: 0.36, y: 0.47 },
     },
     radius: 10,
     speed: 85,

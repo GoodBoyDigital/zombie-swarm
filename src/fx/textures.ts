@@ -177,28 +177,33 @@ export async function createTextures(
     .circle(0, 0, 2.2)
     .fill(0xffffff);
 
-  // Bold four-point star pointing along +x, anchored at its left middle by Effects.
+  // Bold starburst blasting along +x, anchored at its left middle by Effects: a long centre
+  // spike, two flanking spikes and short side spikes, in ink, orange, yellow and a white core.
   const flash = new Graphics();
-  const star = (len: number, side: number, back: number, color: number) => {
-    flash
-      .poly([
-        0, 0,
-        len * 0.32, -side * 0.28,
-        len * 0.42, -side,
-        len * 0.55, -side * 0.22,
-        len, 0,
-        len * 0.55, side * 0.22,
-        len * 0.42, side,
-        len * 0.32, side * 0.28,
-        0, 0,
-        -back, 0,
-      ])
-      .fill(color);
+  const BURST: [number, number][] = [
+    [0, 1],
+    [0.42, 0.62],
+    [-0.42, 0.62],
+    [1.05, 0.42],
+    [-1.05, 0.42],
+    [1.75, 0.26],
+    [-1.75, 0.26],
+  ];
+  const burst = (len: number, valley: number, color: number) => {
+    const spikes = [...BURST].sort((p, q) => p[0] - q[0]);
+    const points: number[] = [];
+    spikes.forEach(([angle, reach], i) => {
+      points.push(Math.cos(angle) * len * reach, Math.sin(angle) * len * reach);
+      const next = spikes[i + 1] ?? [spikes[0][0] + Math.PI * 2, 0];
+      const mid = (angle + next[0]) / 2;
+      points.push(Math.cos(mid) * valley, Math.sin(mid) * valley);
+    });
+    flash.poly(points).fill(color);
   };
-  star(46, 19, 2, INK);
-  star(42, 16, 0, 0xff7a1a);
-  star(33, 11, 0, 0xffd23a);
-  flash.ellipse(10, 0, 9, 5).fill(0xffffff);
+  burst(52, 9, INK);
+  burst(46, 7, 0xff7a1a);
+  burst(34, 5, 0xffd23a);
+  flash.circle(4, 0, 6).fill(0xffffff);
 
   // Soft-edged band for tracers: opaque core, fading rows above and below. Stretched to length.
   const tracer = new Graphics();

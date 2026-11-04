@@ -4,6 +4,7 @@ import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
 import type { Camera } from "../fx/Camera";
+import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import { SHOT_HANDLERS, ShotContext } from "./shots";
@@ -36,6 +37,7 @@ export class Weapon {
     floor: FloorCanvas,
     private readonly camera: Camera,
     private readonly audio: Audio,
+    private readonly casings: Casings,
   ) {
     this.shots = new ShotContext(horde, fx, floor, audio);
     this.equip(this.id);
@@ -97,6 +99,16 @@ export class Weapon {
     });
     this.shots.fx.muzzleFlash(m.x, m.y, aim);
     this.player.recoil(aimX, aimY, def.recoil);
+    if (def.casing) {
+      // Port sits a little way up the barrel from the body, not at the muzzle.
+      const port = 14;
+      this.casings.eject(
+        this.player.x + aimX * port,
+        this.player.y + aimY * port,
+        aim,
+        def.casing,
+      );
+    }
     this.camera.addTrauma(def.shake);
     this.camera.kick(aimX * 3, aimY * 3);
 

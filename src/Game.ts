@@ -8,6 +8,7 @@ import { Horde } from "./entities/Horde";
 import { Player } from "./entities/Player";
 import { Weapon } from "./combat/Weapon";
 import { Camera } from "./fx/Camera";
+import { Casings } from "./fx/Casings";
 import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
 import { Arena } from "./world/Arena";
@@ -36,6 +37,7 @@ export class Game {
   private readonly player: Player;
   private readonly horde: Horde;
   private readonly fx: Effects;
+  private readonly casings: Casings;
   private readonly weapon: Weapon;
   private readonly hud: Text;
   private hudTimer = 0;
@@ -54,6 +56,7 @@ export class Game {
     this.horde = new Horde(tex, this.arena, this.floor);
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
+    this.casings = new Casings(tex, this.floor);
     this.weapon = new Weapon(
       this.player,
       this.horde,
@@ -61,6 +64,7 @@ export class Game {
       this.floor,
       this.camera,
       this.audio,
+      this.casings,
     );
     void this.audio.load().then(() => {
       this.audio.loop("hordeAmbience", 0.35);
@@ -69,13 +73,15 @@ export class Game {
     window.addEventListener("keydown", (e) => this.hotkey(e));
     setupTuning();
 
-    // Draw order: floor gore, walls, zombies, player, then additive effects on top.
+    // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
+    // he gets swamped, with additive effects on top of everything.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
-      this.horde.view,
       this.player.view,
+      this.horde.view,
+      this.casings.view,
       this.fx.view,
     );
 
@@ -118,6 +124,7 @@ export class Game {
     this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
     this.weapon.update(dt, this.input.firing);
     this.fx.update(dt);
+    this.casings.update(dt);
     this.camera.update(dt);
     this.groan(dt);
     this.hudTimer -= dt;

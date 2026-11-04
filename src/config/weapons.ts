@@ -1,4 +1,5 @@
 import type { ShotType } from "../combat/shots";
+import type { CasingId } from "./casings";
 
 export interface WeaponDef {
   id: string;
@@ -6,6 +7,8 @@ export interface WeaponDef {
   name: string;
   /** How a pellet reaches its target. See `SHOT_HANDLERS`. */
   shot: ShotType;
+  /** Shell ejected per trigger pull, or null for weapons that leave nothing behind. */
+  casing: CasingId | null;
   /** Raycasts per trigger pull. A shotgun fires several at once. */
   pellets: number;
   /** Half-angle of random spread in radians, rolled independently per pellet. */
@@ -34,6 +37,7 @@ export const WEAPONS = {
     id: "pistol",
     name: "Pistol",
     shot: "hitscan",
+    casing: "pistol",
     pellets: 1,
     spread: 0.02,
     fireInterval: 0.18,
@@ -51,6 +55,7 @@ export const WEAPONS = {
     id: "rifle",
     name: "Rifle",
     shot: "hitscan",
+    casing: "rifle",
     pellets: 1,
     spread: 0.025,
     fireInterval: 0.11,
@@ -68,6 +73,7 @@ export const WEAPONS = {
     id: "shotgun",
     name: "Shotgun",
     shot: "hitscan",
+    casing: "shotgun",
     pellets: 8,
     spread: 0.22,
     fireInterval: 0.75,
@@ -85,6 +91,7 @@ export const WEAPONS = {
     id: "railgun",
     name: "Railgun",
     shot: "hitscan",
+    casing: null,
     pellets: 1,
     spread: 0,
     fireInterval: 0.5,
@@ -102,6 +109,7 @@ export const WEAPONS = {
     id: "minigun",
     name: "Minigun",
     shot: "hitscan",
+    casing: "rifle",
     pellets: 1,
     spread: 0.09,
     fireInterval: 0.035,

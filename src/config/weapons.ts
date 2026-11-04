@@ -2,7 +2,7 @@ import type { ShotType } from "../combat/shots";
 import type { CasingId } from "./casings";
 
 export interface WeaponSprite {
-  /** Image under public/sprites, point-sampled like the character art. */
+  /** Image under public/sprites, authored at 2x like the character art (see ART_SCALE). */
   path: string;
   /** Point the player's hands hold, as fractions of the sprite. It is pinned to the player's hand point. */
   grip: { x: number; y: number };
@@ -64,7 +64,7 @@ export const WEAPONS = {
       path: "/sprites/weapon-pistol.png",
       grip: { x: 0.3, y: 0.5 },
       muzzle: { x: 1, y: 0.5 },
-      eject: { x: 0.55, y: 0.3 },
+      eject: { x: 0.55, y: 0.4 },
     },
     shot: "hitscan",
     casing: "pistol",
@@ -89,9 +89,9 @@ export const WEAPONS = {
     name: "Rifle",
     sprite: {
       path: "/sprites/weapon-rifle.png",
-      grip: { x: 0.3, y: 0.43 },
-      muzzle: { x: 1, y: 0.43 },
-      eject: { x: 0.52, y: 0.43 },
+      grip: { x: 0.35, y: 0.6 },
+      muzzle: { x: 1, y: 0.6 },
+      eject: { x: 0.5, y: 0.45 },
     },
     shot: "hitscan",
     casing: "rifle",
@@ -116,8 +116,8 @@ export const WEAPONS = {
     name: "Shotgun",
     sprite: {
       path: "/sprites/weapon-shotgun.png",
-      grip: { x: 0.35, y: 0.55 },
-      muzzle: { x: 1, y: 0.4 },
+      grip: { x: 0.3, y: 0.55 },
+      muzzle: { x: 1, y: 0.45 },
       eject: { x: 0.5, y: 0.45 },
     },
     shot: "hitscan",
@@ -143,8 +143,8 @@ export const WEAPONS = {
     name: "Railgun",
     sprite: {
       path: "/sprites/weapon-railgun.png",
-      grip: { x: 0.3, y: 0.5 },
-      muzzle: { x: 1, y: 0.5 },
+      grip: { x: 0.25, y: 0.5 },
+      muzzle: { x: 1, y: 0.45 },
       eject: { x: 0.4, y: 0.5 },
     },
     shot: "hitscan",
@@ -170,9 +170,9 @@ export const WEAPONS = {
     name: "Minigun",
     sprite: {
       path: "/sprites/weapon-minigun.png",
-      grip: { x: 0.3, y: 0.55 },
+      grip: { x: 0.25, y: 0.5 },
       muzzle: { x: 1, y: 0.5 },
-      eject: { x: 0.45, y: 0.4 },
+      eject: { x: 0.45, y: 0.35 },
     },
     shot: "hitscan",
     casing: "rifle",
@@ -197,9 +197,9 @@ export const WEAPONS = {
     name: "Magnum",
     sprite: {
       path: "/sprites/weapon-magnum.png",
-      grip: { x: 0.2, y: 0.55 },
-      muzzle: { x: 1, y: 0.45 },
-      eject: { x: 0.4, y: 0.3 },
+      grip: { x: 0.15, y: 0.55 },
+      muzzle: { x: 1, y: 0.5 },
+      eject: { x: 0.35, y: 0.4 },
     },
     shot: "hitscan",
     casing: "pistol",
@@ -225,8 +225,8 @@ export const WEAPONS = {
     sprite: {
       path: "/sprites/weapon-uzi.png",
       grip: { x: 0.35, y: 0.5 },
-      muzzle: { x: 1, y: 0.45 },
-      eject: { x: 0.5, y: 0.3 },
+      muzzle: { x: 1, y: 0.5 },
+      eject: { x: 0.5, y: 0.35 },
     },
     shot: "hitscan",
     casing: "pistol",

@@ -1,4 +1,4 @@
-import { Container, Sprite, Texture } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import { rand } from "../core/random";
 import type { GameTextures } from "./textures";
 
@@ -13,7 +13,10 @@ interface Particle {
   vy: number;
 }
 
-/** Short-lived additive visuals: muzzle flash, hitscan tracer, blood sparks. Sprites are pooled. */
+/** Tracers draw a little wider than the weapon's tracerWidth; the soft edge eats the outer rows. */
+const TRACER_WIDTH_SCALE = 1.6;
+
+/** Short-lived visuals: muzzle flash, hitscan tracer, blood sparks. Sprites are pooled. */
 export class Effects {
   readonly view = new Container();
   private readonly live: Particle[] = [];
@@ -35,12 +38,12 @@ export class Effects {
   }
 
   tracer(x0: number, y0: number, x1: number, y1: number, width: number): void {
-    const p = this.spawn("tracer", Texture.WHITE, 0.09);
+    const p = this.spawn("tracer", this.tex.tracer, 0.09);
     p.sprite.anchor.set(0, 0.5);
     p.sprite.position.set(x0, y0);
     p.sprite.rotation = Math.atan2(y1 - y0, x1 - x0);
     p.sprite.width = Math.hypot(x1 - x0, y1 - y0);
-    p.sprite.height = width;
+    p.sprite.height = width * TRACER_WIDTH_SCALE;
     p.sprite.tint = 0xfff1c2;
     p.sprite.alpha = 0.9;
   }
@@ -120,7 +123,8 @@ export class Effects {
   private spawn(kind: Kind, texture: Texture, life: number): Particle {
     const sprite = this.pool.pop() ?? new Sprite();
     sprite.texture = texture;
-    sprite.blendMode = kind === "spark" ? "normal" : "add";
+    // The flash is an outlined vector star, so it draws normally; only the tracer glows additively.
+    sprite.blendMode = kind === "tracer" ? "add" : "normal";
     sprite.visible = true;
     this.view.addChild(sprite);
     const p: Particle = { sprite, kind, life, maxLife: life, vx: 0, vy: 0 };

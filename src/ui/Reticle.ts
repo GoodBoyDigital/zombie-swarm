@@ -1,6 +1,7 @@
 import { Container, Graphics, Text } from "pixi.js";
 import type { Weapon } from "../combat/Weapon";
 import type { Input } from "../core/Input";
+import { UI_FONT } from "./font";
 
 /** Crosshair width on screen in px. The ring and timer scale with it. */
 export const RETICLE_SIZE = 72;
@@ -39,11 +40,10 @@ export class Reticle {
     this.timer = new Text({
       text: "",
       style: {
-        fontFamily: "monospace",
+        ...UI_FONT,
         fontSize: TIMER_FONT,
-        fontWeight: "bold",
         fill: RING_FILL,
-        stroke: { color: 0x000000, width: TIMER_FONT * 0.22 },
+        stroke: { color: 0x151a15, width: TIMER_FONT * 0.26, join: "round" },
       },
     });
     this.timer.anchor.set(0.5, 0);

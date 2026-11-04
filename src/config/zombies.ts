@@ -5,7 +5,7 @@ export interface ZombieArt {
   key: string;
   /** Lying-down poses, zombie-<key>-corpse-<n>.png; one is picked at random per death. */
   corpses: readonly number[];
-  /** Body radius the sprites were downscaled for. The sprite is scaled by the def's radius over this. */
+  /** Body radius the sprites were drawn for, in world px once ART_SCALE is applied. The sprite is scaled by the def's radius over this. */
   radius: number;
   /** Where the body centre sits in the texture, as fractions; the arms reach ahead of it. */
   anchor: { x: number; y: number };
@@ -61,7 +61,7 @@ export const ZOMBIES = {
       key: "walker",
       corpses: [1, 2, 3],
       radius: 12,
-      anchor: { x: 0.25, y: 0.5 },
+      anchor: { x: 0.28, y: 0.52 },
     },
     radius: 12,
     speed: 34,
@@ -82,9 +82,9 @@ export const ZOMBIES = {
     art: {
       key: "runner",
       corpses: [1, 2, 3],
-      // Skinny top-down art: head centred 18% across, about 9 px radius including outline.
+      // Skinny top-down art with a trailing leg: torso centred 36% across, about 9 px radius.
       radius: 9,
-      anchor: { x: 0.18, y: 0.5 },
+      anchor: { x: 0.36, y: 0.47 },
     },
     radius: 10,
     speed: 85,
@@ -115,7 +115,7 @@ export const ZOMBIES = {
       key: "brute",
       corpses: [1, 2, 3],
       radius: 20,
-      anchor: { x: 0.27, y: 0.5 },
+      anchor: { x: 0.4, y: 0.5 },
     },
     radius: 20,
     speed: 40,

@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, type Application } from "pixi.js";
+import { UI_FONT } from "./font";
 
 const DIM = 0x000000;
 const DIM_ALPHA = 0.6;
@@ -30,18 +31,17 @@ export class GameOver {
     private readonly app: Application,
     onRestart: () => void,
   ) {
-    const mono = (size: number, fill: number) => ({
-      fontFamily: "monospace",
+    const style = (size: number, fill: number) => ({
+      ...UI_FONT,
       fontSize: size,
-      fontWeight: "bold" as const,
       fill,
       stroke: { color: 0x000000, width: size * 0.18 },
     });
-    this.title = new Text({ text: "YOU DIED", style: mono(56, TITLE) });
-    this.stats = new Text({ text: "", style: mono(22, INK) });
-    this.hint = new Text({ text: "press R to restart", style: mono(16, INK) });
+    this.title = new Text({ text: "YOU DIED", style: style(56, TITLE) });
+    this.stats = new Text({ text: "", style: style(22, INK) });
+    this.hint = new Text({ text: "press R to restart", style: style(16, INK) });
     for (const t of [this.title, this.stats, this.hint]) t.anchor.set(0.5);
-    const label = new Text({ text: "RESTART", style: mono(22, INK) });
+    const label = new Text({ text: "RESTART", style: style(22, INK) });
     label.anchor.set(0.5);
     this.button.addChild(this.buttonFace, label);
     this.button.eventMode = "static";

@@ -11,7 +11,19 @@ interface Particle {
   maxLife: number;
   vx: number;
   vy: number;
+  /** Flash only: the gun it's pinned to, and its small random tilt off the barrel. */
+  source: MuzzleSource | null;
+  tilt: number;
 }
+
+/** Anything with a barrel tip the muzzle flash should stay attached to while it fades. */
+export interface MuzzleSource {
+  readonly aim: number;
+  muzzle(): { x: number; y: number };
+}
+
+/** Random tilt of each flash off the barrel line, radians. Kept small so it reads as coming out of the gun. */
+const FLASH_TILT = 0.05;
 
 /** Tracers draw a little wider than the weapon's tracerWidth; the soft edge eats the outer rows. */
 const TRACER_WIDTH_SCALE = 1.6;
@@ -24,11 +36,16 @@ export class Effects {
 
   constructor(private readonly tex: GameTextures) {}
 
-  muzzleFlash(x: number, y: number, angle: number): void {
+  /**
+   * Flash at the gun's barrel tip. It follows the tip for its whole short life, because the gun
+   * kicks back, the body recoils and the aim keeps turning in the frames after the shot.
+   */
+  muzzleFlash(source: MuzzleSource): void {
     const p = this.spawn("flash", this.tex.muzzleFlash, 0.07);
+    p.source = source;
+    p.tilt = rand(-FLASH_TILT, FLASH_TILT);
     p.sprite.anchor.set(0, 0.5);
-    p.sprite.position.set(x, y);
-    p.sprite.rotation = angle + rand(-0.15, 0.15);
+    this.pinFlash(p);
     p.sprite.scale.set(
       rand(0.8, 1.15),
       rand(0.8, 1.2) * (Math.random() < 0.5 ? 1 : -1),
@@ -102,6 +119,7 @@ export class Effects {
       const t = p.life / p.maxLife;
       switch (p.kind) {
         case "flash":
+          this.pinFlash(p);
           p.sprite.alpha = t;
           p.sprite.scale.x = 0.4 + t * 0.8;
           break;
@@ -127,9 +145,25 @@ export class Effects {
     sprite.blendMode = kind === "tracer" ? "add" : "normal";
     sprite.visible = true;
     this.view.addChild(sprite);
-    const p: Particle = { sprite, kind, life, maxLife: life, vx: 0, vy: 0 };
+    const p: Particle = {
+      sprite,
+      kind,
+      life,
+      maxLife: life,
+      vx: 0,
+      vy: 0,
+      source: null,
+      tilt: 0,
+    };
     this.live.push(p);
     return p;
+  }
+
+  private pinFlash(p: Particle): void {
+    if (!p.source) return;
+    const m = p.source.muzzle();
+    p.sprite.position.set(m.x, m.y);
+    p.sprite.rotation = p.source.aim + p.tilt;
   }
 
   private recycle(index: number): void {

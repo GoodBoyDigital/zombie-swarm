@@ -59,4 +59,10 @@ export class Powerups {
       if (a.def.mode === "timed") ctx.audio.play("powerupEnd", { volume: 0.5 });
     }
   }
+
+  /** End everything still running, on death or teardown, so loops stop and visuals and zones go. */
+  endAll(): void {
+    for (const a of this.active) effectOf(a.def).end?.(this.ctx, a.def, a);
+    this.active.length = 0;
+  }
 }

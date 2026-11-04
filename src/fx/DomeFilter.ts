@@ -54,6 +54,9 @@ let backBuffer: { useBackBuffer: boolean } | null = null;
 let noise: Texture | null = null;
 
 export class DomeFilter extends Filter {
+  /** Set after its first prepare; from the next frame on the back buffer is known to be live. */
+  private primed = false;
+
   constructor() {
     super({
       glProgram: GlProgram.from({
@@ -92,12 +95,14 @@ export class DomeFilter extends Filter {
   /**
    * Call from the filtered container's onRender. WebGL can only read behind a filter while the frame
    * renders into a back buffer, a full-screen copy, so it is switched on just while a dome is up. The
-   * switch lands at the start of the next frame, so the filter sits out the first one.
+   * switch lands at the start of the next frame, so every new filter sits out its first one (two domes
+   * opening together can't tell which of them switched it on).
    */
   prepare(renderer: Renderer): void {
     const bb = (renderer as WebGLRenderer).backBuffer;
     if (!bb) return;
-    this.enabled = bb.useBackBuffer;
+    this.enabled = this.primed;
+    this.primed = true;
     bb.useBackBuffer = true;
     backBuffer = bb;
   }

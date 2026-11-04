@@ -204,6 +204,7 @@ export class Game {
     this.app.ticker.remove(this.tick);
     this.app.ticker.remove(this.endRender);
     window.removeEventListener("keydown", this.onKeyDown);
+    this.powerups.endAll();
     this.input.destroy();
     this.floor.destroy();
     for (const child of [
@@ -332,6 +333,7 @@ export class Game {
       rotation: p.aim + rand(-0.4, 0.4),
     });
     p.view.visible = false;
+    this.powerups.endAll();
     this.horde.calm();
     this.audio.duckMusic(DEATH_MUSIC_DUCK);
     this.gameOver.show({

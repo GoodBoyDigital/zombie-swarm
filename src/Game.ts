@@ -132,6 +132,7 @@ export class Game {
         this.floor,
         this.camera,
         this.audio,
+        this.casings,
         this.player,
         this.weapon,
         this.powerupWorld,

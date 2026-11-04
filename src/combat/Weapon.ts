@@ -58,7 +58,7 @@ export class Weapon {
     private readonly audio: Audio,
     private readonly casings: Casings,
   ) {
-    this.shots = new CombatContext(horde, fx, floor, camera, audio);
+    this.shots = new CombatContext(horde, fx, floor, camera, audio, casings);
     this.equip(this.id);
   }
 

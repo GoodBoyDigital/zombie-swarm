@@ -1,4 +1,4 @@
-import { Container, Sprite } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import { rand } from "../core/random";
 import type { FloorCanvas } from "../world/FloorCanvas";
@@ -19,6 +19,8 @@ const REST_SPEED = 8;
 const HEIGHT_SCALE = 0.02;
 /** Oldest casings are stamped early if more than this are in flight at once. */
 const MAX_LIVE = 200;
+/** Chance a bullet hitting a wall knocks a chunk loose to land on the floor. */
+const WALL_CHUNK_CHANCE = 0.6;
 
 interface Casing {
   sprite: Sprite;
@@ -30,12 +32,12 @@ interface Casing {
   vz: number;
   spin: number;
   bounces: number;
-  /** Sprite scale that draws it CASINGS[kind].width long, so the panel can resize shells live. */
+  /** Sprite scale on the floor; a shell's draws it CASINGS[kind].width long. */
   scale: number;
 }
 
 /**
- * Spent shells. Each ejects from the gun, tumbles through a couple of bounces, then burns into
+ * Spent shells and chunks of wall. Each ejects from the gun or the wall, tumbles through a couple of bounces, then burns into
  * the floor texture and goes back to the pool. The floor keeps every shell ever fired for free.
  */
 export class Casings {
@@ -52,22 +54,69 @@ export class Casings {
 
   /** Throw a shell out of the ejection port, sideways to the aim with a bit of backward drift. */
   eject(x: number, y: number, aim: number, kind: CasingId): void {
-    if (this.live.length >= MAX_LIVE) this.settle(0);
-    const c = this.pool.pop() ?? this.create();
-    c.sprite.texture = this.tex.casings[kind];
-    c.scale = CASINGS[kind].width / c.sprite.texture.width;
+    const texture = this.tex.casings[kind];
     // Ejection port is on the right of the barrel, so throw at aim + 90 degrees, angled slightly back.
     const a = aim + Math.PI / 2 + rand(0.2, 0.6);
     const speed = rand(90, 170);
+    this.toss(
+      texture,
+      CASINGS[kind].width / texture.width,
+      x,
+      y,
+      6,
+      Math.cos(a) * speed,
+      Math.sin(a) * speed,
+      rand(140, 220),
+      aim + rand(-0.4, 0.4),
+    );
+  }
+
+  /**
+   * Maybe knock a chunk off the wall at (x, y), whose inward normal is (nx, ny): it drops from
+   * the wall face, bounces back across the floor away from the shooter and stays there.
+   */
+  wallChunk(x: number, y: number, nx: number, ny: number): void {
+    if (Math.random() >= WALL_CHUNK_CHANCE) return;
+    const chunks = this.tex.wallChunks;
+    const a = Math.atan2(ny, nx) + rand(-0.9, 0.9);
+    const speed = rand(50, 130);
+    this.toss(
+      chunks[Math.floor(Math.random() * chunks.length)],
+      rand(0.8, 1.2),
+      x + nx * 2,
+      y + ny * 2,
+      rand(8, 16),
+      Math.cos(a) * speed,
+      Math.sin(a) * speed,
+      rand(60, 140),
+      rand(0, Math.PI * 2),
+    );
+  }
+
+  private toss(
+    texture: Texture,
+    scale: number,
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number,
+    rotation: number,
+  ): void {
+    if (this.live.length >= MAX_LIVE) this.settle(0);
+    const c = this.pool.pop() ?? this.create();
+    c.sprite.texture = texture;
+    c.scale = scale;
     c.x = x;
     c.y = y;
-    c.z = 6;
-    c.vx = Math.cos(a) * speed;
-    c.vy = Math.sin(a) * speed;
-    c.vz = rand(140, 220);
+    c.z = z;
+    c.vx = vx;
+    c.vy = vy;
+    c.vz = vz;
     c.spin = rand(14, 26) * (Math.random() < 0.5 ? -1 : 1);
     c.bounces = 0;
-    c.sprite.rotation = aim + rand(-0.4, 0.4);
+    c.sprite.rotation = rotation;
     c.sprite.position.set(x, y);
     this.view.addChild(c.sprite);
     this.live.push(c);

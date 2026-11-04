@@ -5,6 +5,7 @@ import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Zombie } from "../entities/Zombie";
 import type { Camera } from "../fx/Camera";
+import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
 
@@ -12,7 +13,7 @@ const BLOOD_SPRAY = 0x6fe04a;
 
 /**
  * Everything that hurts zombies goes through one of these: shot handlers, explosions, power-ups.
- * Anyone with the five systems can build one; each owner keeps its own so sound throttles don't
+ * Anyone with the six systems can build one; each owner keeps its own so sound throttles don't
  * cross (the weapon has one, power-ups another).
  */
 export class CombatContext {
@@ -31,6 +32,7 @@ export class CombatContext {
     readonly floor: FloorCanvas,
     readonly camera: Camera,
     readonly audio: Audio,
+    readonly casings: Casings,
   ) {}
 
   /** Where the last severed piece left the body, for its blood spurt. */

@@ -75,6 +75,8 @@ export interface GameTextures {
   spark: Texture;
   splats: Texture[];
   casings: Record<CasingId, Texture>;
+  /** Little broken bits of wall that bullets knock onto the floor. */
+  wallChunks: Texture[];
   /** Repeating floor and wall tiles. */
   tiles: { concrete: Texture; wall: Texture };
   /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
@@ -124,6 +126,8 @@ export const BLAST_TEXTURE_RADIUS = 128;
 
 /** Outline colour shared with the sprite art, for anything drawn here that needs an edge. */
 const INK = 0x151a15;
+/** Broken concrete, matching the pale rim of the bullet chips in the walls. */
+const WALL_CHUNK = 0x6e675e;
 
 /**
  * Character, weapon and pickup art comes from the AssetPack atlas; repeating tiles load separately.
@@ -296,6 +300,23 @@ export async function createTextures(
     Object.values(CASINGS).map((c) => [c.id, loaded[c.sprite]]),
   ) as Record<CasingId, Texture>;
 
+  // Jagged concrete crumbs with an ink outline, a few pixels across.
+  const wallChunks = Array.from({ length: 4 }, () => {
+    const points: number[] = [];
+    const n = 5 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const d = rand(1.6, 3);
+      points.push(Math.cos(a) * d, Math.sin(a) * d);
+    }
+    return make(
+      new Graphics()
+        .poly(points)
+        .fill(WALL_CHUNK)
+        .stroke({ color: INK, width: 1, alignment: 0 }),
+    );
+  });
+
   // Smooth blood blobs: a darker rim around a lighter body (both multiply with the stamp tint),
   // plus a few round droplets thrown further out.
   const splats = Array.from({ length: 4 }, () => {
@@ -390,6 +411,7 @@ export async function createTextures(
     spark: make(spark),
     splats,
     casings,
+    wallChunks,
     tiles: {
       concrete: sprite("tileConcrete"),
       wall: sprite("tileWall"),

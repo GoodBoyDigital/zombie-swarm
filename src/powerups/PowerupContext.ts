@@ -6,6 +6,7 @@ import type { Modifiers, PowerupDef } from "../config/powerups";
 import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
 import type { Camera } from "../fx/Camera";
+import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
 
@@ -23,6 +24,7 @@ export class PowerupContext extends CombatContext {
     floor: FloorCanvas,
     camera: Camera,
     audio: Audio,
+    casings: Casings,
     readonly player: Player,
     readonly weapon: Weapon,
     /** World-space layer for effect visuals (bubbles, domes, planes), drawn over the horde. */
@@ -34,7 +36,7 @@ export class PowerupContext extends CombatContext {
     /** Live screen size in CSS px, for anything sized to the screen layer. */
     readonly screenRect: Rectangle,
   ) {
-    super(horde, fx, floor, camera, audio);
+    super(horde, fx, floor, camera, audio, casings);
   }
 
   resetModifiers(): void {

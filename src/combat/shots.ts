@@ -42,6 +42,7 @@ const hitscan: ShotHandler = {
     if (!stoppedBy && wall && wall.t <= def.range) {
       ctx.fx.wallDebris(wall.x, wall.y, dirX, dirY, wall.nx, wall.ny);
       ctx.floor.chipWall(wall.x, wall.y, wall.nx, wall.ny);
+      ctx.casings.wallChunk(wall.x, wall.y, wall.nx, wall.ny);
     }
     if (def.beam === "rail") {
       ctx.fx.railBeam(ox, oy, endX, endY, hits);

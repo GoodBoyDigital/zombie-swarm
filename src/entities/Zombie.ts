@@ -1,11 +1,14 @@
 import { Sprite } from "pixi.js";
-import { KNOCKBACK_DRAG, type ZombieDef } from "../config/zombies";
+import { KNOCKBACK_DRAG, ZOMBIE_AI, type ZombieDef } from "../config/zombies";
 import { rand } from "../core/random";
 import type { GameTextures, ZombieTextures } from "../fx/textures";
 import type { Gate } from "../world/Arena";
 import { aiDebug, ZombieBrain } from "./ZombieBrain";
 
 const HIT_FLASH_SECONDS = 0.07;
+const TWO_PI = Math.PI * 2;
+/** Mean of max(0, sin φ)^0.5 over a step cycle, so the pulsed speed averages out to the def speed. */
+const PULSE_MEAN = 0.3814;
 /** Debug tint for wanderers: red and green pulled down so the body reads blue. */
 const WANDER_TINT_FACTOR = 0.55;
 /** Debug tint for chasers losing interest: blue pulled down so the green body reads lime. A tint can only darken. */
@@ -23,6 +26,9 @@ export class Zombie {
   kx = 0;
   ky = 0;
   facing = 0;
+  /** Step cycle, radians. Advances with distance walked; drives the lurch, sway and squash. */
+  private phase = 0;
+  private stepSin = 0;
   tint = 0xffffff;
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
@@ -54,6 +60,7 @@ export class Zombie {
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
     this.y = gate.spawn.y + (horizontal ? rand(-30, 30) : along);
     this.facing = Math.atan2(gate.entry.y - this.y, gate.entry.x - this.x);
+    this.phase = rand(0, TWO_PI);
     this.tint = shade(def.color, rand(0.8, 1));
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
@@ -61,7 +68,6 @@ export class Zombie {
     this.brain.reset(def);
     this.sprite.texture = this.art.body;
     this.sprite.anchor.set(def.art.anchor.x, def.art.anchor.y);
-    this.sprite.scale.set(def.radius / def.art.radius);
     this.sprite.visible = true;
   }
 
@@ -84,8 +90,17 @@ export class Zombie {
     playerRadius: number,
   ): void {
     const move = this.brain.steer(dt, this, playerX, playerY, playerRadius);
-    this.x += (Math.cos(this.facing) * move + this.kx) * dt;
-    this.y += (Math.sin(this.facing) * move + this.ky) * dt;
+    // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
+    const ai = this.def.ai;
+    if (move > 0)
+      this.phase +=
+        (move / (ai.stepLength ?? ZOMBIE_AI.stepLength)) * TWO_PI * dt;
+    this.stepSin = Math.sin(this.phase);
+    const pulse = this.stepSin > 0 ? Math.sqrt(this.stepSin) : 0;
+    const gait =
+      1 + (ai.shuffle ?? ZOMBIE_AI.shuffle) * (pulse / PULSE_MEAN - 1);
+    this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
+    this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);
     this.kx *= decay;
     this.ky *= decay;
@@ -107,8 +122,13 @@ export class Zombie {
 
   /** Push the resolved position to the sprite. Runs after crowding and wall clamps. */
   syncSprite(): void {
+    const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
-    this.sprite.rotation = this.facing;
+    this.sprite.rotation =
+      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway);
+    const base = this.def.radius / this.def.art.radius;
+    const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
+    this.sprite.scale.set(base * (1 + squash), base * (1 - squash));
   }
 }
 

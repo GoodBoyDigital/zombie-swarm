@@ -20,6 +20,10 @@ export type ZombieAiOverrides = Partial<
     | "wanderSpeedScale"
     | "reactionDelayMin"
     | "reactionDelayMax"
+    | "shuffle"
+    | "stepLength"
+    | "sway"
+    | "squash"
   >
 >;
 
@@ -41,7 +45,7 @@ export interface ZombieDef {
   groans: readonly SfxName[];
   /** Playback rate for its sounds. 1 = as recorded. */
   voicePitch: number;
-  /** Multiplier on drops when the loot system lands. Unused until then. */
+  /** Multiplier on how much loot a kill throws out. */
   lootScale: number;
 }
 
@@ -58,8 +62,8 @@ export const ZOMBIES = {
       anchor: { x: 0.25, y: 0.5 },
     },
     radius: 12,
-    speed: 75,
-    speedVariance: 25,
+    speed: 55,
+    speedVariance: 20,
     health: 3,
     knockbackScale: 1,
     mass: 1,
@@ -90,6 +94,10 @@ export const ZOMBIES = {
       wanderSpeedScale: 0.4,
       reactionDelayMin: 0.02,
       reactionDelayMax: 0.08,
+      shuffle: 0.12,
+      stepLength: 24,
+      sway: 0.03,
+      squash: 0.02,
     },
     groans: ["runnerShriek"],
     voicePitch: 1.15,
@@ -110,7 +118,14 @@ export const ZOMBIES = {
     knockbackScale: 0.25,
     mass: 4,
     color: 0xffffff,
-    ai: { aggroRadius: 180, wanderSpeedScale: 0.7 },
+    ai: {
+      aggroRadius: 180,
+      wanderSpeedScale: 0.7,
+      shuffle: 0.7,
+      stepLength: 56,
+      sway: 0.09,
+      squash: 0.05,
+    },
     groans: ["bruteGroan"],
     voicePitch: 0.8,
     lootScale: 3,
@@ -179,4 +194,15 @@ export const ZOMBIE_AI = {
   chaseTurnRate: 8,
   /** Hard cap on turning, radians/s, so the sprite never visibly snaps whatever the steering asks for. */
   maxTurnRate: 6,
+  /**
+   * Gait. Forward speed pulses once per step so zombies lurch rather than glide: 0 = constant velocity,
+   * 1 = a full stall between pushes. The average over a step always equals the def speed.
+   */
+  shuffle: 0.5,
+  /** Distance covered per step cycle, px. Shorter = busier steps. */
+  stepLength: 30,
+  /** Facing sway with each step, radians. Visual only. */
+  sway: 0.06,
+  /** Scale squash along the facing with each step, as a fraction. Visual only. */
+  squash: 0.04,
 } satisfies Record<string, number>;

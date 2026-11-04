@@ -1,3 +1,4 @@
+import type { ShotType } from "../combat/shots";
 import type { CasingId } from "./casings";
 
 export interface WeaponSprite {
@@ -13,19 +14,29 @@ export interface WeaponSprite {
 
 export interface WeaponDef {
   id: string;
+  /** Shown in the HUD and on crates. */
+  name: string;
   sprite: WeaponSprite;
-  /** Shell ejected per shot, or null for weapons that leave nothing behind. */
+  /** How a pellet reaches its target. See `SHOT_HANDLERS`. */
+  shot: ShotType;
+  /** Shell ejected per trigger pull, or null for weapons that leave nothing behind. */
   casing: CasingId | null;
+  /** Raycasts per trigger pull. A shotgun fires several at once. */
+  pellets: number;
+  /** Half-angle of random spread in radians, rolled independently per pellet. */
+  spread: number;
   /** Seconds between shots while the trigger is held. */
   fireInterval: number;
+  /** Shots per magazine. Each pull spends one round regardless of pellets. */
+  magazine: number;
+  reloadSeconds: number;
+  /** Damage per pellet. */
   damage: number;
   /** Impulse applied to each zombie hit, in px/s. */
   knockback: number;
   /** Impulse applied to the player on each shot, in px/s. */
   recoil: number;
-  /** Half-angle of random spread in radians. */
-  spread: number;
-  /** Max zombies one shot can hit, nearest first. 1 = stops at the first. Infinity = everything on the line. */
+  /** Max zombies one pellet can hit, nearest first. 1 = stops at the first. Infinity = everything on the line. */
   pierce: number;
   range: number;
   /** Camera trauma added per shot, 0..1. */
@@ -39,26 +50,132 @@ export interface WeaponDef {
 export const WEAPON_NOISE_RADIUS = 300;
 
 export const WEAPONS = {
+  pistol: {
+    id: "pistol",
+    name: "Pistol",
+    sprite: {
+      path: "/sprites/weapon-pistol.png",
+      grip: { x: 0.3, y: 0.5 },
+      muzzle: { x: 1, y: 0.3 },
+      eject: { x: 0.55, y: 0.3 },
+    },
+    shot: "hitscan",
+    casing: "pistol",
+    pellets: 1,
+    spread: 0.02,
+    fireInterval: 0.18,
+    magazine: 12,
+    reloadSeconds: 0.9,
+    damage: 2,
+    knockback: 260,
+    recoil: 70,
+    pierce: 1,
+    range: 1200,
+    shake: 0.15,
+    tracerWidth: 2,
+    noiseRadius: 320,
+  },
   rifle: {
     id: "rifle",
+    name: "Rifle",
     sprite: {
       path: "/sprites/weapon-rifle.png",
       grip: { x: 0.3, y: 0.43 },
       muzzle: { x: 1, y: 0.43 },
       eject: { x: 0.52, y: 0.43 },
     },
+    shot: "hitscan",
     casing: "rifle",
+    pellets: 1,
+    spread: 0.025,
     fireInterval: 0.11,
+    magazine: 30,
+    reloadSeconds: 1.6,
     damage: 1,
     knockback: 320,
     recoil: 110,
-    spread: 0.025,
     pierce: 1,
     range: 1600,
     shake: 0.22,
     tracerWidth: 3,
     noiseRadius: 420,
   },
+  shotgun: {
+    id: "shotgun",
+    name: "Shotgun",
+    sprite: {
+      path: "/sprites/weapon-shotgun.png",
+      grip: { x: 0.35, y: 0.55 },
+      muzzle: { x: 1, y: 0.4 },
+      eject: { x: 0.5, y: 0.45 },
+    },
+    shot: "hitscan",
+    casing: "shotgun",
+    pellets: 8,
+    spread: 0.22,
+    fireInterval: 0.75,
+    magazine: 6,
+    reloadSeconds: 2.2,
+    damage: 1,
+    knockback: 420,
+    recoil: 380,
+    pierce: 1,
+    range: 520,
+    shake: 0.5,
+    tracerWidth: 2,
+    noiseRadius: 600,
+  },
+  railgun: {
+    id: "railgun",
+    name: "Railgun",
+    sprite: {
+      path: "/sprites/weapon-railgun.png",
+      grip: { x: 0.3, y: 0.5 },
+      muzzle: { x: 1, y: 0.5 },
+      eject: { x: 0.4, y: 0.5 },
+    },
+    shot: "hitscan",
+    casing: null,
+    pellets: 1,
+    spread: 0,
+    fireInterval: 0.5,
+    magazine: 1,
+    reloadSeconds: 1.8,
+    damage: 12,
+    knockback: 900,
+    recoil: 520,
+    pierce: Infinity,
+    range: 2400,
+    shake: 0.7,
+    tracerWidth: 8,
+    noiseRadius: 700,
+  },
+  minigun: {
+    id: "minigun",
+    name: "Minigun",
+    sprite: {
+      path: "/sprites/weapon-minigun.png",
+      grip: { x: 0.3, y: 0.55 },
+      muzzle: { x: 1, y: 0.5 },
+      eject: { x: 0.45, y: 0.4 },
+    },
+    shot: "hitscan",
+    casing: "rifle",
+    pellets: 1,
+    spread: 0.09,
+    fireInterval: 0.035,
+    magazine: 150,
+    reloadSeconds: 3.5,
+    damage: 1,
+    knockback: 180,
+    recoil: 60,
+    pierce: 1,
+    range: 1400,
+    shake: 0.12,
+    tracerWidth: 2,
+    noiseRadius: 450,
+  },
 } as const satisfies Record<string, WeaponDef>;
 
 export type WeaponId = keyof typeof WEAPONS;
+export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];

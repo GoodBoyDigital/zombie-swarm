@@ -1,10 +1,14 @@
 import { Application, Container, Text } from "pixi.js";
 import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
-import { WEAPONS } from "./config/weapons";
+import type { DropDef } from "./config/drops";
+import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { pick } from "./core/random";
+import { setupTuning } from "./debug/TuningPanel";
+import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
+import { Loot } from "./entities/Loot";
 import { Player } from "./entities/Player";
 import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
@@ -12,17 +16,23 @@ import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
 import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
+import { Reticle } from "./ui/Reticle";
 import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
 const MAX_DT = 1 / 30;
-/** Number keys 1..n pick a music theme; 0 stops it. */
-const THEME_KEYS: MusicName[] = [
-  "surfRock",
-  "synthwaveDread",
-  "chiptuneFrenzy",
-];
+/** F1..F3 pick a music theme; F4 stops it. */
+const THEME_KEYS: Record<string, MusicName> = {
+  F1: "surfRock",
+  F2: "synthwaveDread",
+  F3: "chiptuneFrenzy",
+};
 const GROAN_INTERVAL = 0.35;
+
+/** Keys typed into the tuning panel's fields must not reach the game. */
+export const isTyping = (e: KeyboardEvent): boolean =>
+  e.target instanceof HTMLInputElement ||
+  e.target instanceof HTMLTextAreaElement;
 
 export class Game {
   private readonly world = new Container();
@@ -34,8 +44,11 @@ export class Game {
   private readonly horde: Horde;
   private readonly fx: Effects;
   private readonly casings: Casings;
+  private readonly loot: Loot;
+  private readonly drops: Drops;
   private readonly weapon: Weapon;
   private readonly hud: Text;
+  private readonly reticle: Reticle;
   private hudTimer = 0;
   private readonly audio = new Audio();
   private groanTimer = 0;
@@ -53,11 +66,19 @@ export class Game {
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
+    this.loot = new Loot(tex, this.fx, this.audio);
+    this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
+      this.collectDrop(def),
+    );
+    this.horde.onKill = (z) => {
+      this.loot.burst(z.x, z.y, z.kx, z.ky, z.def.lootScale);
+      this.drops.onKill(z.x, z.y);
+    };
     this.weapon = new Weapon(
-      WEAPONS.rifle,
       this.player,
       this.horde,
       this.fx,
+      this.floor,
       this.camera,
       this.audio,
       this.casings,
@@ -66,12 +87,8 @@ export class Game {
       this.audio.loop("hordeAmbience", 0.35);
       this.audio.playMusic("synthwaveDread");
     });
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Digit0") this.audio.stopMusic();
-      if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
-      const theme = THEME_KEYS[Number(e.key) - 1];
-      if (theme) this.audio.playMusic(theme);
-    });
+    window.addEventListener("keydown", (e) => this.hotkey(e));
+    setupTuning();
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
     // he gets swamped, with additive effects on top of everything.
@@ -79,6 +96,8 @@ export class Game {
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
+      this.loot.view,
+      this.drops.view,
       this.player.view,
       this.horde.view,
       this.casings.view,
@@ -96,29 +115,63 @@ export class Game {
       },
     });
     this.hud.position.set(12, 10);
-    app.stage.addChild(this.world, this.hud);
+    this.reticle = new Reticle(tex, this.input);
+    app.stage.addChild(this.world, this.hud, this.reticle.view);
 
     app.ticker.add((ticker) =>
       this.step(Math.min(MAX_DT, ticker.deltaMS / 1000)),
     );
   }
 
+  /** Pickups call this; number keys use it for testing. */
+  equip(id: WeaponId): void {
+    this.weapon.equip(id);
+  }
+
+  private collectDrop(def: DropDef): void {
+    if (def.kind === "weapon") this.equip(def.weapon);
+    // Power-ups: timed modifiers over the player and weapon defs, not built yet.
+  }
+
+  private hotkey(e: KeyboardEvent): void {
+    if (isTyping(e)) return;
+    if (e.code === "KeyR") this.weapon.reload();
+    if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
+    if (e.code === "F4") this.audio.stopMusic();
+    const theme = THEME_KEYS[e.code];
+    if (theme) this.audio.playMusic(theme);
+    // Digit1..Digit5 swap weapons in config order.
+    const weapon = WEAPON_IDS[Number(e.key) - 1];
+    if (weapon && /^Digit\d$/.test(e.code)) this.equip(weapon);
+    if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
+  }
+
   private step(dt: number): void {
     this.player.update(dt, this.input, this.camera, this.arena);
     this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
     this.weapon.update(dt, this.input.firing);
+    this.loot.update(dt, this.player);
+    this.drops.update(dt, this.player);
     this.fx.update(dt);
     this.casings.update(dt);
     this.camera.update(dt);
+    this.reticle.update(dt, this.weapon);
     this.groan(dt);
     this.hudTimer -= dt;
     if (this.hudTimer > 0) return;
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
+    const w = this.weapon;
     const ai = aiDebug.enabled
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}`
       : "";
-    this.hud.text = `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [1-3, 0 off]: ${theme}`;
+    const ammo = w.reloading
+      ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
+      : `${w.rounds}/${w.def.magazine}`;
+    this.hud.text =
+      `${w.def.name.toUpperCase()} ${ammo}   [1-5 weapon, R reload]\n` +
+      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
+      `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

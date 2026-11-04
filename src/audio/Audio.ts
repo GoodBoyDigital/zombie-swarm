@@ -1,7 +1,15 @@
 /** Web Audio playback: pooled one-shots with pitch variation, a looping bed, and switchable music. */
 
 const SFX = {
-  gunshot: "/audio/sfx/gunshot.mp3",
+  shotPistol: "/audio/sfx/shot-pistol.mp3",
+  shotRifle: "/audio/sfx/gunshot.mp3",
+  shotShotgun: "/audio/sfx/shot-shotgun.mp3",
+  shotRailgun: "/audio/sfx/shot-railgun.mp3",
+  shotMinigun: "/audio/sfx/shot-minigun.mp3",
+  reload: "/audio/sfx/reload.mp3",
+  pickupCoin: "/audio/sfx/pickup-coin.mp3",
+  pickupGem: "/audio/sfx/pickup-gem.mp3",
+  pickupWeapon: "/audio/sfx/pickup-weapon.mp3",
   zombieHit: "/audio/sfx/zombie-hit.mp3",
   zombieDeath: "/audio/sfx/zombie-death.mp3",
   groan1: "/audio/sfx/zombie-groan-1.mp3",

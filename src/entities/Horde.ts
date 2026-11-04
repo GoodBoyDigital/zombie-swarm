@@ -16,7 +16,7 @@ import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
 import { aiDebug } from "./ZombieBrain";
 
-const MAX_ALIVE = 400;
+const MAX_ALIVE = 600;
 const CELL_SIZE = 48;
 /** Spawns per second at the start and after `RAMP_SECONDS` of play. */
 const SPAWN_RATE_START = 3;
@@ -42,6 +42,8 @@ export class Horde {
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
+  /** Called on every kill with the body's position and knockback velocity, before it is released. */
+  onKill: ((z: Zombie) => void) | null = null;
   /** How many of the living are still wandering, for the debug HUD. */
   wandering = 0;
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
@@ -146,6 +148,7 @@ export class Horde {
   /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
   kill(z: Zombie): void {
     this.kills++;
+    this.onKill?.(z);
     this.corpses.spawn(
       z.x,
       z.y,

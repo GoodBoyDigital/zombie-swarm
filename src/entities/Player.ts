@@ -1,4 +1,5 @@
 import { Container, Sprite } from "pixi.js";
+import { PLAYER } from "../config/player";
 import type { WeaponDef } from "../config/weapons";
 import type { Input } from "../core/Input";
 import type { Arena } from "../world/Arena";
@@ -10,6 +11,7 @@ const ACCEL = 14;
 const RECOIL_DECAY = 22;
 /** How far the gun jolts back along the barrel on a shot, in px. */
 const GUN_KICK = 4;
+const HURT_FLASH_SECONDS = 0.09;
 /**
  * Where things sit in the player sprite, as fractions of its size. The anchor is the torso
  * centre the body rotates around; the hand point is where the two hands meet, and the
@@ -23,6 +25,11 @@ const SPRITE = {
 export class Player {
   readonly view = new Container();
   readonly radius = 14;
+  health = PLAYER.maxHealth;
+  /** Seconds of immunity left after a hit. */
+  private invuln = 0;
+  private flash = 0;
+  private sinceHit = Infinity;
   /** Power-up multipliers, set each frame by the game. */
   speedScale = 1;
   magnetRadiusScale = 1;
@@ -97,6 +104,25 @@ export class Player {
     };
   }
 
+  get alive(): boolean {
+    return this.health > 0;
+  }
+
+  /** Take a hit. Returns false while immune or already down, so feedback only fires on real hits. */
+  hurt(amount: number): boolean {
+    if (this.invuln > 0 || !this.alive) return false;
+    this.health = Math.max(0, this.health - amount);
+    this.invuln = PLAYER.invulnSeconds;
+    this.flash = HURT_FLASH_SECONDS;
+    this.sinceHit = 0;
+    return true;
+  }
+
+  heal(amount: number): void {
+    if (this.alive)
+      this.health = Math.min(PLAYER.maxHealth, this.health + amount);
+  }
+
   /** Shove the player opposite the shot and jolt the gun back along the barrel. */
   recoil(dirX: number, dirY: number, strength: number): void {
     this.rx -= dirX * strength;
@@ -105,6 +131,16 @@ export class Player {
   }
 
   update(dt: number, input: Input, camera: Camera, arena: Arena): void {
+    this.invuln -= dt;
+    this.sinceHit += dt;
+    if (PLAYER.regenPerSecond > 0 && this.sinceHit > PLAYER.regenDelay)
+      this.heal(PLAYER.regenPerSecond * dt);
+    if (this.flash > 0) {
+      this.flash -= dt;
+      this.body.texture =
+        this.flash > 0 ? this.tex.playerFlash : this.tex.player;
+    }
+
     const axis = input.moveAxis();
     const blend = 1 - Math.exp(-dt * ACCEL);
     const speed = MOVE_SPEED * this.speedScale;

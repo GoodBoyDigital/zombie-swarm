@@ -1,9 +1,10 @@
 import type { PowerupId } from "./powerups";
 import type { WeaponId } from "./weapons";
 
-/** Rare pickups: a weapon on a crate, or a power-up as a glowing orb. */
+/** Rare pickups: a weapon or medkit on a crate, or a power-up as a glowing orb. */
 export type DropDef =
   | { id: string; kind: "weapon"; weapon: WeaponId; weight: number }
+  | { id: string; kind: "health"; heal: number; weight: number }
   | { id: string; kind: "powerup"; powerup: PowerupId; weight: number };
 
 export const DROPS = {
@@ -14,6 +15,7 @@ export const DROPS = {
   minigun: { id: "minigun", kind: "weapon", weapon: "minigun", weight: 1 },
   magnum: { id: "magnum", kind: "weapon", weapon: "magnum", weight: 2 },
   uzi: { id: "uzi", kind: "weapon", weapon: "uzi", weight: 3 },
+  medkit: { id: "medkit", kind: "health", heal: 40, weight: 4 },
   magnet: { id: "magnet", kind: "powerup", powerup: "magnet", weight: 2 },
   rapidFire: {
     id: "rapidFire",

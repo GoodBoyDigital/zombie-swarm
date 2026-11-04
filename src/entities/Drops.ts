@@ -99,6 +99,9 @@ export class Drops {
     if (def.kind === "weapon") {
       d.base.texture = this.tex.crate;
       d.icon.texture = this.tex.weaponIcons[def.weapon];
+    } else if (def.kind === "health") {
+      d.base.texture = this.tex.crate;
+      d.icon.texture = this.tex.medkit;
     } else {
       d.base.texture = this.tex.orb;
       d.icon.texture = this.tex.powerupIcons[def.powerup];
@@ -112,7 +115,9 @@ export class Drops {
 
   private collect(index: number): void {
     const d = this.live[index];
-    this.audio.play("pickupWeapon", { volume: 0.7 });
+    this.audio.play(d.def.kind === "health" ? "pickupHealth" : "pickupWeapon", {
+      volume: 0.7,
+    });
     this.fx.sparkle(d.x, d.y, SPARKLE, 14);
     this.onCollect(d.def);
     this.release(index);

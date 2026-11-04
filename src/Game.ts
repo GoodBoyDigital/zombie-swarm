@@ -1,12 +1,12 @@
 import { Application, Container, Text } from "pixi.js";
-import { Audio, type MusicName } from "./audio/Audio";
+import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import type { DropDef } from "./config/drops";
+import { PLAYER } from "./config/player";
 import { POWERUPS } from "./config/powerups";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
-import { pick } from "./core/random";
-import { setupTuning } from "./debug/TuningPanel";
+import { pick, rand } from "./core/random";
 import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
 import { Loot } from "./entities/Loot";
@@ -18,7 +18,10 @@ import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
 import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
+import { GameOver } from "./ui/GameOver";
+import { HealthBar } from "./ui/HealthBar";
 import { Reticle } from "./ui/Reticle";
+import { Vignette } from "./ui/Vignette";
 import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
@@ -30,6 +33,13 @@ const THEME_KEYS: Record<string, MusicName> = {
   F3: "chiptuneFrenzy",
 };
 const GROAN_INTERVAL = 0.35;
+/** Camera trauma per hit taken. */
+const HURT_TRAUMA = 0.45;
+/** Music level while the end card is up. */
+const DEATH_MUSIC_DUCK = 0.25;
+const HUD_TOP = 10;
+const HUD_LEFT = 12;
+const HEALTH_BAR_HEIGHT = 16;
 
 /** Keys typed into the tuning panel's fields must not reach the game. */
 export const isTyping = (e: KeyboardEvent): boolean =>
@@ -51,14 +61,22 @@ export class Game {
   private readonly powerups: Powerups;
   private readonly weapon: Weapon;
   private readonly hud: Text;
+  private readonly healthBar = new HealthBar();
+  private readonly vignette: Vignette;
+  private readonly gameOver: GameOver;
   private readonly reticle: Reticle;
   private hudTimer = 0;
-  private readonly audio = new Audio();
   private groanTimer = 0;
+  /** Seconds survived; stops at death. */
+  private elapsed = 0;
+  private readonly tick: (ticker: { deltaMS: number }) => void;
+  private readonly onKeyDown: (e: KeyboardEvent) => void;
 
   constructor(
     private readonly app: Application,
-    tex: GameTextures,
+    private readonly tex: GameTextures,
+    private readonly audio: Audio,
+    private readonly onRestart: () => void,
   ) {
     this.input = new Input(app);
     this.camera = new Camera(app, this.world);
@@ -88,12 +106,9 @@ export class Game {
       this.audio,
       this.casings,
     );
-    void this.audio.load().then(() => {
-      this.audio.loop("hordeAmbience", 0.35);
-      this.audio.playMusic("synthwaveDread");
-    });
-    window.addEventListener("keydown", (e) => this.hotkey(e));
-    setupTuning();
+    this.audio.duckMusic(1);
+    this.onKeyDown = (e) => this.hotkey(e);
+    window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
     // he gets swamped, with additive effects on top of everything.
@@ -119,13 +134,39 @@ export class Game {
         stroke: { color: 0x000000, width: 3 },
       },
     });
-    this.hud.position.set(12, 10);
+    this.hud.position.set(HUD_LEFT, HUD_TOP + HEALTH_BAR_HEIGHT + 6);
+    this.healthBar.view.position.set(HUD_LEFT, HUD_TOP);
+    this.vignette = new Vignette(app);
+    this.gameOver = new GameOver(app, onRestart);
     this.reticle = new Reticle(this.input);
-    app.stage.addChild(this.world, this.hud, this.reticle.view);
-
-    app.ticker.add((ticker) =>
-      this.step(Math.min(MAX_DT, ticker.deltaMS / 1000)),
+    app.stage.addChild(
+      this.world,
+      this.vignette.view,
+      this.healthBar.view,
+      this.hud,
+      this.gameOver.view,
+      this.reticle.view,
     );
+
+    this.tick = (ticker) => this.step(Math.min(MAX_DT, ticker.deltaMS / 1000));
+    app.ticker.add(this.tick);
+  }
+
+  /** Tear everything down so a new Game can be built on the same app. */
+  destroy(): void {
+    this.app.ticker.remove(this.tick);
+    window.removeEventListener("keydown", this.onKeyDown);
+    this.input.destroy();
+    this.floor.destroy();
+    for (const child of [
+      this.world,
+      this.vignette.view,
+      this.healthBar.view,
+      this.hud,
+      this.gameOver.view,
+      this.reticle.view,
+    ])
+      child.destroy({ children: true });
   }
 
   /** Pickups call this; number keys use it for testing. */
@@ -135,12 +176,16 @@ export class Game {
 
   private collectDrop(def: DropDef): void {
     if (def.kind === "weapon") this.equip(def.weapon);
+    else if (def.kind === "health") this.player.heal(def.heal);
     else this.powerups.apply(def.powerup);
   }
 
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
-    if (e.code === "KeyR") this.weapon.reload();
+    if (e.code === "KeyR") {
+      if (this.player.alive) this.weapon.reload();
+      else this.onRestart();
+    }
     if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
@@ -159,14 +204,23 @@ export class Game {
     this.weapon.fireIntervalScale = this.powerups.scale("fireInterval");
     this.weapon.spreadScale = this.powerups.scale("spread");
     this.weapon.damageScale = this.powerups.scale("damage");
-    this.player.update(dt, this.input, this.camera, this.arena);
-    this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
-    this.weapon.update(dt, this.input.firing);
-    this.loot.update(dt, this.player);
-    this.drops.update(dt, this.player);
+    const p = this.player;
+    if (p.alive) {
+      this.elapsed += dt;
+      p.update(dt, this.input, this.camera, this.arena);
+    }
+    this.horde.update(dt, p.x, p.y, p.radius);
+    if (p.alive) {
+      this.weapon.update(dt, this.input.firing);
+      this.loot.update(dt, p);
+      this.drops.update(dt, p);
+      this.takeContactDamage();
+    }
     this.fx.update(dt);
     this.casings.update(dt);
     this.camera.update(dt, this.player.x, this.player.y);
+    this.vignette.update(dt, p.health / PLAYER.maxHealth);
+    this.healthBar.update(p.health, PLAYER.maxHealth);
     this.reticle.update(dt, this.weapon);
     this.groan(dt);
     this.hudTimer -= dt;
@@ -188,7 +242,40 @@ export class Game {
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
-      `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
+      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
+  }
+
+  /** Zombies in contact bite as one lump per immunity window, so the feedback reads as discrete hits. */
+  private takeContactDamage(): void {
+    const p = this.player;
+    const scale = this.horde.contact(p.x, p.y, p.radius, PLAYER.contactMargin);
+    if (scale <= 0) return;
+    // Crowds hurt more than their headcount: one walker is a nuisance, eight are a death sentence.
+    const bite =
+      PLAYER.contactDamage *
+      Math.pow(scale, PLAYER.crowdPower) *
+      PLAYER.invulnSeconds;
+    if (!p.hurt(bite)) return;
+    this.audio.play("playerHurt", { pitch: rand(0.9, 1.1), volume: 0.9 });
+    this.camera.addTrauma(HURT_TRAUMA);
+    this.vignette.hit();
+    if (!p.alive) this.die();
+  }
+
+  /** The player goes down: body on the floor, the horde loses interest, music ducks, end card up. */
+  private die(): void {
+    const p = this.player;
+    this.floor.stampTexture(this.tex.playerCorpse, p.x, p.y, {
+      rotation: p.aim + rand(-0.4, 0.4),
+    });
+    p.view.visible = false;
+    this.horde.calm();
+    this.audio.duckMusic(DEATH_MUSIC_DUCK);
+    this.gameOver.show({
+      seconds: this.elapsed,
+      kills: this.horde.kills,
+      coins: this.loot.counters.coins,
+    });
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

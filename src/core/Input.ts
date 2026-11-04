@@ -19,17 +19,21 @@ export class Input {
   readonly pointer = { x: 0, y: 0 };
   firing = false;
 
-  constructor(app: Application) {
-    window.addEventListener("keydown", (e) => {
-      if (isTyping(e)) return;
-      if (e.code in MOVE_KEYS) e.preventDefault();
-      this.held.add(e.code);
-    });
-    window.addEventListener("keyup", (e) => this.held.delete(e.code));
-    window.addEventListener("blur", () => {
-      this.held.clear();
-      this.firing = false;
-    });
+  private readonly onKeyDown = (e: KeyboardEvent) => {
+    if (isTyping(e)) return;
+    if (e.code in MOVE_KEYS) e.preventDefault();
+    this.held.add(e.code);
+  };
+  private readonly onKeyUp = (e: KeyboardEvent) => this.held.delete(e.code);
+  private readonly onBlur = () => {
+    this.held.clear();
+    this.firing = false;
+  };
+
+  constructor(private readonly app: Application) {
+    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("blur", this.onBlur);
 
     app.stage.eventMode = "static";
     app.stage.hitArea = app.screen;
@@ -47,6 +51,14 @@ export class Input {
     });
     app.stage.on("pointerupoutside", () => (this.firing = false));
     app.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  }
+
+  /** Detach from the window and stage so a rebuilt game starts with clean input. */
+  destroy(): void {
+    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("blur", this.onBlur);
+    this.app.stage.removeAllListeners();
   }
 
   /** Normalised movement vector from whichever keys are down. */

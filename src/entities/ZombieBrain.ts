@@ -85,13 +85,26 @@ export class ZombieBrain {
       );
   }
 
-  /** Turns the zombie toward where it wants to go and returns its move speed for this frame, px/s. */
+  /** The player is gone: drop any chase and carry on wandering from the current heading. */
+  forget(z: Zombie): void {
+    if (this.mode === "wander" && this.reactIn < 0) return;
+    this.mode = "wander";
+    this.reactIn = -1;
+    this.sinceContact = 0;
+    this.pickLeg(z, z.facing + rand(-RESUME_SPREAD, RESUME_SPREAD));
+  }
+
+  /**
+   * Turns the zombie toward where it wants to go and returns its move speed for this frame, px/s.
+   * With `hunting` false the player is never noticed, so a fallen player is left alone.
+   */
   steer(
     dt: number,
     z: Zombie,
     playerX: number,
     playerY: number,
     playerRadius: number,
+    hunting: boolean,
   ): number {
     const ai = ZOMBIE_AI;
     if (this.reactIn >= 0) {
@@ -105,7 +118,8 @@ export class ZombieBrain {
     const py = playerY - z.y;
     const playerDist2 = px * px + py * py;
     const aggro = this.def.ai.aggroRadius ?? ai.aggroRadius;
-    if (this.mode === "wander" && playerDist2 < aggro * aggro) this.alert();
+    if (hunting && this.mode === "wander" && playerDist2 < aggro * aggro)
+      this.alert();
 
     // Still in the gate corridor: head for the entry point whatever the mood.
     if (!z.entered) {

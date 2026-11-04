@@ -47,6 +47,8 @@ export interface ZombieDef {
   voicePitch: number;
   /** Multiplier on how much loot a kill throws out. */
   lootScale: number;
+  /** Multiplier on PLAYER.contactDamage while touching the player. */
+  damageScale: number;
 }
 
 /** How fast knockback bleeds off, per second. Shared by the living and by sliding bodies. */
@@ -73,6 +75,7 @@ export const ZOMBIES = {
     groans: ["groan1", "groan2"],
     voicePitch: 1,
     lootScale: 1,
+    damageScale: 1,
   },
   runner: {
     id: "runner",
@@ -104,6 +107,7 @@ export const ZOMBIES = {
     groans: ["runnerShriek"],
     voicePitch: 1.15,
     lootScale: 1,
+    damageScale: 0.6,
   },
   brute: {
     id: "brute",
@@ -131,6 +135,7 @@ export const ZOMBIES = {
     groans: ["bruteGroan"],
     voicePitch: 0.8,
     lootScale: 3,
+    damageScale: 2.5,
   },
 } as const satisfies Record<string, ZombieDef>;
 

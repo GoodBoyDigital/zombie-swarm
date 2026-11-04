@@ -51,6 +51,8 @@ export class Horde {
   onKill: ((z: Zombie) => void) | null = null;
   /** How many of the living are still wandering, for the debug HUD. */
   wandering = 0;
+  /** False once the player is down: nobody notices him any more. */
+  hunting = true;
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
   private readonly pool: Zombie[] = [];
   private elapsed = 0;
@@ -76,7 +78,8 @@ export class Horde {
     this.spawnWave(dt);
     this.corpses.update(dt);
 
-    for (const z of this.alive) z.update(dt, playerX, playerY, playerRadius);
+    for (const z of this.alive)
+      z.update(dt, playerX, playerY, playerRadius, this.hunting);
 
     this.hash.clear();
     for (const z of this.alive) this.hash.insert(z);
@@ -89,6 +92,29 @@ export class Horde {
       if (z.brain.wandering) this.wandering++;
     }
     this.drawDebug(dt, playerX, playerY);
+  }
+
+  /**
+   * Summed `damageScale` of every zombie touching the player, i.e. within the two radii plus `margin`.
+   * Reads the hash built this frame, so call it after update.
+   */
+  contact(px: number, py: number, pr: number, margin: number): number {
+    const reach = pr + margin + MAX_ZOMBIE_RADIUS;
+    let total = 0;
+    this.hash.queryBox(px - reach, py - reach, px + reach, py + reach, (z) => {
+      if (z.dead) return;
+      const dx = z.x - px;
+      const dy = z.y - py;
+      const touch = z.def.radius + pr + margin;
+      if (dx * dx + dy * dy < touch * touch) total += z.def.damageScale;
+    });
+    return total;
+  }
+
+  /** The player is down: every zombie loses interest and nobody notices him again. */
+  calm(): void {
+    this.hunting = false;
+    for (const z of this.alive) z.brain.forget(z);
   }
 
   /** A sound at (x, y) alerts every zombie within `radius`; they start chasing after their reaction delay. */

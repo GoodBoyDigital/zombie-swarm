@@ -43,6 +43,17 @@ const LOOT_RANGES: Ranges = {
   bobSpeed: { min: 0, max: 10, step: 0.1 },
 };
 
+const PLAYER_RANGES: Ranges = {
+  ...LOOT_RANGES,
+  maxHealth: { min: 1, max: 500, step: 1 },
+  contactDamage: { min: 0, max: 30, step: 0.1 },
+  crowdPower: { min: 1, max: 3, step: 0.05 },
+  contactMargin: { min: 0, max: 30, step: 1 },
+  invulnSeconds: { min: 0, max: 2, step: 0.05 },
+  regenPerSecond: { min: 0, max: 50, step: 0.5 },
+  regenDelay: { min: 0, max: 20, step: 0.5 },
+};
+
 const CAMERA_RANGES: Ranges = {
   viewHeight: { min: 200, max: 720, step: 10 },
   followRate: { min: 0.5, max: 20, step: 0.5 },
@@ -245,7 +256,7 @@ export function setupTuning(): TuningPanel {
   panel.add("WEAPONS", "WeaponDef", WEAPONS, WEAPON_RANGES);
   panel.add("LOOT", "LootDef", LOOT, LOOT_RANGES);
   panel.add("LOOT_RULES", null, LOOT_RULES, LOOT_RANGES);
-  panel.add("PLAYER", null, PLAYER, LOOT_RANGES);
+  panel.add("PLAYER", null, PLAYER, PLAYER_RANGES);
   panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);

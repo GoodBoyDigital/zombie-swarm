@@ -233,7 +233,7 @@ export class Game {
     }
     if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
     if (e.code === "KeyP")
-      this.dropTestOrb(POWERUP_DEFS[this.testDrop++ % POWERUP_DEFS.length]);
+      this.dropOrb(POWERUP_DEFS[this.testDrop++ % POWERUP_DEFS.length]);
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
     if (theme) this.audio.playMusic(theme);
@@ -243,8 +243,8 @@ export class Game {
     if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
   }
 
-  /** An orb just ahead of the player, so every power-up can be tried on demand. */
-  private dropTestOrb(def: PowerupDef): void {
+  /** An orb just ahead of the player, so every power-up can be tried on demand (P key, tuning panel). */
+  dropOrb(def: PowerupDef): void {
     const p = this.player;
     this.drops.drop(
       def,

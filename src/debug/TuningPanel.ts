@@ -5,7 +5,12 @@ import { EXPLOSIONS } from "../config/explosions";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
-import { POWERUP_CATEGORIES, POWERUPS } from "../config/powerups";
+import {
+  POWERUP_CATEGORIES,
+  POWERUP_DEFS,
+  POWERUPS,
+  type PowerupDef,
+} from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { SPAWN, ZOMBIE_AI } from "../config/zombies";
 
@@ -107,6 +112,18 @@ const POWERUP_RANGES: Ranges = {
   magnetRadius: { min: 0.5, max: 10, step: 0.25 },
   magnetPull: { min: 0.5, max: 10, step: 0.25 },
   spread: { min: 0, max: 3, step: 0.05 },
+  warningSeconds: { min: 0, max: 2, step: 0.05 },
+  planeSpeed: { min: 200, max: 3000, step: 25 },
+  bombs: { min: 1, max: 24, step: 1 },
+  bombSpacing: { min: 20, max: 300, step: 5 },
+  bombDelay: { min: 0, max: 1.5, step: 0.05 },
+  bombSpread: { min: 0, max: 150, step: 5 },
+  bombJitter: { min: 0, max: 100, step: 5 },
+  lastBombScale: { min: 1, max: 3, step: 0.05 },
+  shakeBudget: { min: 0, max: 4, step: 0.05 },
+  strafeBursts: { min: 0, max: 8, step: 1 },
+  strafeRounds: { min: 1, max: 20, step: 1 },
+  strafeDamage: { min: 0, max: 20, step: 0.5 },
 };
 
 const EXPLOSION_RANGES: Ranges = {
@@ -238,6 +255,24 @@ export class TuningPanel {
     folder
       .addBinding(proxy, "count", { label: key, min: 1, max: 20, step: 1 })
       .on("change", apply);
+  }
+
+  /**
+   * A folder at the top with a button per power-up that drops its orb ahead of the player, plus the
+   * airstrike's settings and its bomb blast (the same live objects as POWERUPS and EXPLOSIONS).
+   */
+  addDrops(drop: (def: PowerupDef) => void): void {
+    const folder = this.pane.addFolder({ title: "Drop power-up", index: 0 });
+    for (const def of POWERUP_DEFS)
+      folder.addButton({ title: def.name }).on("click", () => drop(def));
+    const strike = this.pane.addFolder({
+      title: "Airstrike",
+      expanded: false,
+      index: 1,
+    });
+    this.bindNumbers(strike, POWERUPS.airstrike, POWERUP_RANGES);
+    const bomb = strike.addFolder({ title: "bomb blast", expanded: false });
+    this.bindNumbers(bomb, EXPLOSIONS.airstrikeBomb, EXPLOSION_RANGES);
   }
 
   private async copy(table: Table): Promise<void> {

@@ -22,6 +22,8 @@ const SFX = {
   shieldOpen: "/audio/sfx/shield-open.mp3",
   shieldClose: "/audio/sfx/shield-close.mp3",
   explosion: "/audio/sfx/explosion.mp3",
+  airstrikeWarning: "/audio/sfx/airstrike-warning.mp3",
+  airstrikeRoar: "/audio/sfx/airstrike-roar.mp3",
   zombieHit: "/audio/sfx/zombie-hit.mp3",
   zombieDeath: "/audio/sfx/zombie-death.mp3",
   groan1: "/audio/sfx/zombie-groan-1.mp3",
@@ -48,6 +50,14 @@ export interface PlayOptions {
   volume?: number;
   /** Playback rate multiplier. 1 = as recorded. */
   pitch?: number;
+  /** Stereo position, -1 left to 1 right, or a sweep across it, e.g. a plane flying over. */
+  pan?: number | PanSweep;
+}
+
+export interface PanSweep {
+  from: number;
+  to: number;
+  seconds: number;
 }
 
 export class Audio {
@@ -133,7 +143,19 @@ export class Audio {
     source.playbackRate.value = opts.pitch ?? 1;
     const gain = this.ctx.createGain();
     gain.gain.value = opts.volume ?? 1;
-    source.connect(gain).connect(bus);
+    source.connect(gain);
+    const pan = opts.pan;
+    if (pan === undefined) gain.connect(bus);
+    else {
+      const panner = this.ctx.createStereoPanner();
+      if (typeof pan === "number") panner.pan.value = pan;
+      else {
+        const now = this.ctx.currentTime;
+        panner.pan.setValueAtTime(pan.from, now);
+        panner.pan.linearRampToValueAtTime(pan.to, now + pan.seconds);
+      }
+      gain.connect(panner).connect(bus);
+    }
     source.start();
     return source;
   }

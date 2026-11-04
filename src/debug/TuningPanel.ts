@@ -17,6 +17,8 @@ interface Table {
 
 const LOOT_RANGES: Ranges = {
   value: { min: 1, max: 100, step: 1 },
+  size: { min: 4, max: 48, step: 1 },
+  inheritVelocity: { min: 0, max: 2, step: 0.05 },
   weight: { min: 0, max: 100, step: 1 },
   burstMin: { min: 0, max: 12, step: 1 },
   burstMax: { min: 0, max: 12, step: 1 },

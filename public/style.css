@@ -14,9 +14,14 @@ body {
     align-items: center;
 }
 
+/* The game draws its own reticle at the pointer. Pixi sets the canvas to `cursor: inherit`, so hide it on the parent. */
+#pixi-container,
+canvas {
+    cursor: none;
+}
+
 canvas {
     display: block;
-    cursor: crosshair;
 }
 
 /* Tweakpane tuning overlay */

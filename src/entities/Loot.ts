@@ -51,8 +51,8 @@ interface LootItem {
  * removed from the container so the per-frame loop never allocates or splices.
  *
  * Pixi bakes a particle's scale and anchor into the `vertex` attribute, so `vertex` must be
- * dynamic for the pop-in to animate; uvs stay static and are re-uploaded only when a reused
- * particle changes kind.
+ * dynamic for the pop-in to animate. Uvs and rotation stay static; a spawn marks the container
+ * dirty so they re-upload that frame.
  */
 export class Loot {
   readonly view = new ParticleContainer({
@@ -81,13 +81,22 @@ export class Loot {
     return this.live.length;
   }
 
-  /** The pinata: a handful of items thrown out of a kill. */
-  burst(x: number, y: number): void {
+  /** The pinata: a handful of items thrown out of a kill, carrying some of the body's momentum. */
+  burst(x: number, y: number, kx: number, ky: number): void {
     const n = Math.floor(rand(LOOT_RULES.burstMin, LOOT_RULES.burstMax + 1));
-    for (let i = 0; i < n; i++) this.spawn(pickWeighted(LOOT_DEFS), x, y);
+    const ix = kx * LOOT_RULES.inheritVelocity;
+    const iy = ky * LOOT_RULES.inheritVelocity;
+    for (let i = 0; i < n; i++)
+      this.spawn(pickWeighted(LOOT_DEFS), x, y, ix, iy);
   }
 
-  private spawn(def: LootDef, x: number, y: number): void {
+  private spawn(
+    def: LootDef,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+  ): void {
     while (this.live.length >= LOOT_RULES.maxItems) this.release(this.oldest());
     const item = this.pool.pop() ?? this.create();
     item.def = def;
@@ -96,20 +105,18 @@ export class Loot {
     item.z = 0;
     const a = rand(0, Math.PI * 2);
     const speed = rand(LOOT_RULES.scatterMin, LOOT_RULES.scatterMax);
-    item.vx = Math.cos(a) * speed;
-    item.vy = Math.sin(a) * speed;
+    item.vx = vx + Math.cos(a) * speed;
+    item.vy = vy + Math.sin(a) * speed;
     item.vz = rand(LOOT_RULES.hopMin, LOOT_RULES.hopMax);
     item.life = LOOT_RULES.lifetime;
     item.index = this.live.length;
     this.live.push(item);
     const p = item.particle;
-    const texture = this.tex.loot[def.id as LootId];
-    if (p.texture !== texture) {
-      p.texture = texture;
-      this.view.update();
-    }
+    p.texture = this.tex.loot[def.id as LootId];
+    p.rotation = rand(0, Math.PI * 2);
     p.alpha = 1;
     p.scaleX = p.scaleY = 0;
+    this.view.update();
   }
 
   update(dt: number, player: Player): void {
@@ -148,7 +155,8 @@ export class Loot {
       p.x = it.x;
       p.y = it.y - it.z;
       const age = lifetime - it.life;
-      const s = age < POP_IN ? age / POP_IN : 1;
+      const s =
+        (age < POP_IN ? age / POP_IN : 1) * (it.def.size / p.texture.width);
       p.scaleX = p.scaleY = s;
       if (it.life < blinkSeconds) p.alpha = (it.life * 10) % 2 < 1 ? 1 : 0.25;
     }

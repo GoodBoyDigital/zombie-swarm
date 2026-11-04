@@ -14,6 +14,7 @@ npm run dev     # opens http://localhost:8080
 - Left mouse button: fire (auto-fire while held)
 - 1-5: swap weapon (pistol, rifle, shotgun, railgun, minigun); R: reload early
 - F1-F3: music theme, F4: music off
+- Walk over a crate to equip its weapon. Coins and gems drift to you when close and count in the HUD.
 - Backtick: tuning panel. Edits apply instantly; "Copy ... as source" puts the table on the clipboard in the
   shape of its `src/config/*.ts` file, ready to paste over the original.
 
@@ -31,6 +32,9 @@ npm run dev     # opens http://localhost:8080
 | Hitscan | `src/combat/raycast.ts` | Ray vs zombie circles through the spatial hash, nearest first, capped by `pierce`. |
 | Weapon | `src/combat/Weapon.ts` | Fire timing, magazine and reload, feel effects per trigger pull. |
 | Shots | `src/combat/shots.ts` | How a pellet reaches zombies, per `WeaponDef.shot`. `applyHit` is the one place a zombie takes damage. |
+| Loot | `src/entities/Loot.ts` | Coins and gems. One ParticleContainer, pooled Particles, own SpatialHash for vacuum and collection, oldest-first cap. Kinds and the pinata rules in `src/config/loot.ts`, magnet numbers in `src/config/player.ts`. |
+| Drops | `src/entities/Drops.ts` | Weapon crates (power-ups later). Pooled sprites, per-kill chance and timed spawn in `src/config/drops.ts`. |
+| Reticle | `src/ui/Reticle.ts` | Screen-space crosshair with the reload ring, icon and timer. |
 | Tuning | `src/debug/TuningPanel.ts` | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`. |
 | Effects | `src/fx/Effects.ts` | Pooled muzzle flash, tracer, blood sparks. |
 | Camera | `src/fx/Camera.ts` | Fit-to-window, trauma shake, directional kick. |
@@ -66,4 +70,6 @@ magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35
 - **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts`, then pick it in `Horde.spawnWave`. Behaviour variations go in `Zombie.update`.
 - **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line.
 - **Shot type** (rocket, grenade, flame): add the name to `ShotType` and a handler to `SHOT_HANDLERS` in `src/combat/shots.ts`. `fire` launches one pellet; projectile types move and detonate in the optional `update`, then call `ctx.applyHit` for each zombie found with `horde.hash.queryBox` around the impact.
-- **Power-ups**: not started. Planned as timed modifiers over the player and weapon defs.
+- **Loot kind**: add an entry to `LOOT` in `src/config/loot.ts` with a `counter`, `value` and `weight`, plus its sprite in `LOOT_SPRITES` (`src/fx/textures.ts`); all loot is packed into one atlas at load.
+- **Drop kind**: `DROPS` in `src/config/drops.ts`. The `powerup` kind exists in the type only; `Game.collectDrop` is where it will be applied.
+- **Power-ups**: not started. Planned as timed modifiers over the player and weapon defs; `Player.magnetScale` is the first hook.

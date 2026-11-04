@@ -14,6 +14,7 @@ import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
 import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
+import { Reticle } from "./ui/Reticle";
 import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
@@ -45,6 +46,7 @@ export class Game {
   private readonly drops: Drops;
   private readonly weapon: Weapon;
   private readonly hud: Text;
+  private readonly reticle: Reticle;
   private hudTimer = 0;
   private readonly audio = new Audio();
   private groanTimer = 0;
@@ -66,8 +68,8 @@ export class Game {
     this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
       this.collectDrop(def),
     );
-    this.horde.onKill = (x, y) => {
-      this.loot.burst(x, y);
+    this.horde.onKill = (x, y, kx, ky) => {
+      this.loot.burst(x, y, kx, ky);
       this.drops.onKill(x, y);
     };
     this.weapon = new Weapon(
@@ -110,7 +112,8 @@ export class Game {
       },
     });
     this.hud.position.set(12, 10);
-    app.stage.addChild(this.world, this.hud);
+    this.reticle = new Reticle(tex, this.input);
+    app.stage.addChild(this.world, this.hud, this.reticle.view);
 
     app.ticker.add((ticker) =>
       this.step(Math.min(MAX_DT, ticker.deltaMS / 1000)),
@@ -148,6 +151,7 @@ export class Game {
     this.fx.update(dt);
     this.casings.update(dt);
     this.camera.update(dt);
+    this.reticle.update(dt, this.weapon);
     this.groan(dt);
     this.hudTimer -= dt;
     if (this.hudTimer > 0) return;

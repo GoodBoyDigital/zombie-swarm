@@ -6,14 +6,16 @@ export interface LootDef {
   counter: LootCounter;
   /** Added to the counter when collected. */
   value: number;
+  /** Width on the floor in world px. The sprite is scaled to match. */
+  size: number;
   /** Relative chance in the drop table. */
   weight: number;
 }
 
 export const LOOT = {
-  coin: { id: "coin", counter: "coins", value: 1, weight: 70 },
-  gem: { id: "gem", counter: "gems", value: 5, weight: 25 },
-  bigGem: { id: "bigGem", counter: "gems", value: 25, weight: 5 },
+  coin: { id: "coin", counter: "coins", value: 1, size: 14, weight: 70 },
+  gem: { id: "gem", counter: "gems", value: 5, size: 18, weight: 25 },
+  bigGem: { id: "bigGem", counter: "gems", value: 25, size: 24, weight: 5 },
 } as const satisfies Record<string, LootDef>;
 
 export type LootId = keyof typeof LOOT;
@@ -23,11 +25,13 @@ export const LOOT_DEFS: readonly LootDef[] = Object.values(LOOT);
 export const LOOT_RULES = {
   burstMin: 3,
   burstMax: 4,
-  /** Scatter speed in px/s, picked per item. */
-  scatterMin: 120,
-  scatterMax: 260,
+  /** Scatter speed in px/s, picked per item. Kept low so the pile lands by the body. */
+  scatterMin: 60,
+  scatterMax: 130,
+  /** Share of the body's knockback velocity every item inherits, so loot sprays along the shot. */
+  inheritVelocity: 0.5,
   /** Exponential drag on the scatter, per second. */
-  friction: 5,
+  friction: 7,
   /** Height the burst throws items to, as a vertical launch speed in px/s. */
   hopMin: 120,
   hopMax: 240,

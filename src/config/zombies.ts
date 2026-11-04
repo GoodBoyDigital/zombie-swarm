@@ -144,6 +144,20 @@ export const MAX_ZOMBIE_RADIUS = Math.max(
  * What spawns when. Each row gives relative weights per type at `at` seconds of play; weights are
  * interpolated between rows and held flat after the last one. Runners start at 30 s, brutes at 75 s.
  */
+/**
+ * Spawns per second at the start and after `rampSeconds` of play. The curve eases in (`rampPower`):
+ * the first minute feels sparse and harmless, then the rate climbs steeply so the arena fills before the
+ * player notices it happening. Roughly 2.7/s at 1 min, 6/s at 2 min, 12/s at 3 min, 20/s at 4 min.
+ * `maxAlive` caps the horde.
+ */
+export const SPAWN = {
+  rateStart: 1.5,
+  rateEnd: 20,
+  rampSeconds: 240,
+  rampPower: 2,
+  maxAlive: 600,
+};
+
 export const SPAWN_TABLE: readonly {
   at: number;
   weights: Record<ZombieId, number>;

@@ -7,6 +7,7 @@ import {
   type Texture,
 } from "pixi.js";
 import { ARENA } from "../config/arena";
+import { profiler } from "../debug/Profiler";
 import type { GameTextures } from "../fx/textures";
 
 /**
@@ -60,11 +61,14 @@ export class FloorCanvas {
     this.stamp.scale.set(opts.scaleX ?? s, opts.scaleY ?? s);
     this.stamp.tint = opts.tint ?? 0xffffff;
     this.stamp.alpha = opts.alpha ?? 1;
+    const t0 = performance.now();
     this.renderer.render({
       container: this.stamp,
       target: this.target,
       clear: false,
     });
+    // Stamps run inside horde, corpse and casing updates, so this time is also inside theirs.
+    profiler.add("floor", performance.now() - t0);
   }
 
   /** Dirt everywhere, concrete inside the walls. Tiled once into the render texture. */

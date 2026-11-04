@@ -5,7 +5,7 @@ import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { POWERUPS } from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
-import { ZOMBIE_AI } from "../config/zombies";
+import { SPAWN, ZOMBIE_AI } from "../config/zombies";
 
 /** Slider limits per numeric field. Fields without an entry get a plain number box. */
 type Ranges = Record<string, { min: number; max: number; step?: number }>;
@@ -75,6 +75,14 @@ const POWERUP_RANGES: Ranges = {
   magnetRadius: { min: 0.5, max: 10, step: 0.25 },
   magnetPull: { min: 0.5, max: 10, step: 0.25 },
   spread: { min: 0, max: 3, step: 0.05 },
+};
+
+const SPAWN_RANGES: Ranges = {
+  rateStart: { min: 0, max: 100, step: 0.5 },
+  rateEnd: { min: 0, max: 100, step: 0.5 },
+  rampSeconds: { min: 1, max: 600, step: 5 },
+  rampPower: { min: 0.5, max: 4, step: 0.1 },
+  maxAlive: { min: 10, max: 2000, step: 10 },
 };
 
 const CASING_RANGES: Ranges = {
@@ -243,6 +251,7 @@ export function setupTuning(): TuningPanel {
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
+  panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   return panel;
 }

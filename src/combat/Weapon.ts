@@ -27,6 +27,9 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
   rocket: "rocketLaunch",
 };
 
+/** Spin-down takes this many times longer than spin-up. */
+const SPIN_DOWN = 2.5;
+
 /**
  * The player's gun: fire timing, magazine and reload, plus the feel on each pull. How a pellet
  * reaches zombies is the shot handler's job (see shots.ts).
@@ -42,6 +45,10 @@ export class Weapon {
   private cooldown = 0;
   /** Extra spread built up by holding the trigger. See WeaponDef.spreadBloom. */
   bloom = 0;
+  /** Barrel wind-up, 0 at rest to 1 at full speed, for weapons with `spinUp`. Others sit at 1. */
+  spin = 1;
+  /** Trigger held with the barrels driven this frame (not while reloading or empty). */
+  private spinHeld = false;
   /** Power-up multipliers, set each frame by the game. Damage lives on the shot context. */
   fireIntervalScale = 1;
   spreadScale = 1;
@@ -90,7 +97,10 @@ export class Weapon {
     this.reloadLeft = 0;
     this.cooldown = 0;
     this.bloom = 0;
+    this.spin = this.def.spinUp ? 0 : 1;
+    this.player.barrelSpin = 0;
   }
+
 
   /** Current half-angle of spread, base plus bloom. */
   get spread(): number {
@@ -130,13 +140,14 @@ export class Weapon {
     this.bloom = firing
       ? Math.min(Math.max(0, spreadMax - spread), this.bloom + spreadBloom * dt)
       : Math.max(0, this.bloom - spreadBloom * 2 * dt);
+    const ready = this.windUp(dt, triggerHeld && !this.reloading);
     if (this.reloading) {
       this.reloadLeft -= dt;
       if (this.reloadLeft > 0) return;
       this.reloadLeft = 0;
       this.rounds = this.def.magazine;
     }
-    if (!triggerHeld) return;
+    if (!ready || !triggerHeld) return;
     // Carry the overshoot so the rate doesn't quantise to frames; fast weapons may fire twice a frame.
     while (this.cooldown <= 0 && this.rounds > 0) {
       this.cooldown += this.def.fireInterval * this.fireIntervalScale;
@@ -144,6 +155,29 @@ export class Weapon {
       this.fire();
     }
     if (this.rounds === 0) this.reload();
+  }
+
+  /**
+   * Spin the barrels up while the trigger is held, and down (slower) when it isn't, so short taps
+   * stay ready. Returns whether the barrels are at speed; weapons without `spinUp` always are.
+   */
+  private windUp(dt: number, driven: boolean): boolean {
+    const { spinUp } = this.def;
+    if (!spinUp) return true;
+    const wasHeld = this.spinHeld;
+    this.spinHeld = driven && this.rounds > 0;
+    if (this.spinHeld && !wasHeld && this.spin < 1)
+      this.audio.play("minigunSpinUp", {
+        pitch: rand(0.95, 1.05),
+        volume: 0.6,
+      });
+    this.spin = this.spinHeld
+      ? Math.min(1, this.spin + dt / spinUp)
+      : Math.max(0, this.spin - dt / (spinUp * SPIN_DOWN));
+    // No banked shots while winding up, or the first frame at speed fires a burst.
+    if (this.spin < 1) this.cooldown = 0;
+    this.player.barrelSpin = this.spin;
+    return this.spin >= 1;
   }
 
   /** The pickup is spent: back to the pistol, which never runs out. */

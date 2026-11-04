@@ -16,7 +16,7 @@ interface Particle {
   /** Flash only: the gun it's pinned to, and its small random tilt off the barrel. */
   source: MuzzleSource | null;
   tilt: number;
-  /** Blast parts: scale at birth and at full size. */
+  /** Blast parts: scale at birth and at full size. Tracers: thickness at birth in size0. */
   size0: number;
   size1: number;
 }
@@ -112,7 +112,7 @@ export class Effects {
       p.sprite.position.set(x0, y0);
       p.sprite.rotation = angle;
       p.sprite.width = length;
-      p.sprite.height = w * TRACER_WIDTH_SCALE;
+      p.sprite.height = p.size0 = w * TRACER_WIDTH_SCALE;
       p.sprite.tint = tint;
       p.sprite.alpha = 0.9;
     };
@@ -149,7 +149,7 @@ export class Effects {
         p.sprite.position.set(ax, ay);
         p.sprite.rotation = angle;
         p.sprite.width = run;
-        p.sprite.height = w * TRACER_WIDTH_SCALE;
+        p.sprite.height = p.size0 = w * TRACER_WIDTH_SCALE;
         p.sprite.tint = tint;
         p.sprite.alpha = 0.9;
       }
@@ -420,7 +420,8 @@ export class Effects {
           break;
         case "tracer":
           p.sprite.alpha = t * 0.9;
-          p.sprite.height = Math.max(0.5, p.sprite.height * (0.6 + t * 0.4));
+          // From its life left, not a per-frame shrink, so it thins the same at any frame rate.
+          p.sprite.height = Math.max(0.5, p.size0 * (0.3 + 0.7 * t));
           break;
         case "spark":
           p.sprite.x += p.vx * dt;

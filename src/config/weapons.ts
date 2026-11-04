@@ -63,6 +63,8 @@ export interface WeaponDef {
   tracerWidth: number;
   /** How far each shot is heard by wandering zombies, px. Defaults to `WEAPON_NOISE_RADIUS`. */
   noiseRadius?: number;
+  /** Seconds the barrels take to wind up from rest before the first shot. Omitted weapons fire at once. */
+  spinUp?: number;
 }
 
 /** Noise radius for weapons that don't set their own. */
@@ -211,6 +213,7 @@ export const WEAPONS = {
     shake: 0.06,
     tracerWidth: 2,
     noiseRadius: 450,
+    spinUp: 0.35,
   },
   magnum: {
     id: "magnum",

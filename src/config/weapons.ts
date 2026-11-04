@@ -31,7 +31,12 @@ export interface WeaponDef {
   /** Camera trauma added per shot, 0..1. */
   shake: number;
   tracerWidth: number;
+  /** How far each shot is heard by wandering zombies, px. Defaults to `WEAPON_NOISE_RADIUS`. */
+  noiseRadius?: number;
 }
+
+/** Noise radius for weapons that don't set their own. */
+export const WEAPON_NOISE_RADIUS = 300;
 
 export const WEAPONS = {
   rifle: {
@@ -52,6 +57,7 @@ export const WEAPONS = {
     range: 1600,
     shake: 0.22,
     tracerWidth: 3,
+    noiseRadius: 420,
   },
 } as const satisfies Record<string, WeaponDef>;
 

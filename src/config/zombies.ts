@@ -34,3 +34,45 @@ export type ZombieId = keyof typeof ZOMBIES;
 export const MAX_ZOMBIE_RADIUS = Math.max(
   ...Object.values(ZOMBIES).map((z) => z.radius),
 );
+
+/**
+ * Wander/chase tuning shared by every zombie. Kept flat and mutable so a tuning panel can bind straight to it.
+ * Zombies wander until the player comes within `aggroRadius` or a gunshot's noise reaches them, then chase for good.
+ */
+export const ZOMBIE_AI = {
+  /** Wander move speed as a fraction of the zombie's chase speed. */
+  wanderSpeedScale: 0.55,
+  /** Peak random turn rate while wandering, radians/s. The rate itself drifts slowly, so the heading meanders. */
+  turnNoise: 0.7,
+  /** Seconds between picking a new wander point, min..max per zombie. */
+  retargetIntervalMin: 2,
+  retargetIntervalMax: 4,
+  /**
+   * How far away each new wander point is, min..max px, in a random direction from where the zombie stands.
+   * A random walk like this diffuses the horde across the arena; aiming at uniformly random arena points
+   * instead would pull everyone back toward the middle on every retarget.
+   */
+  wanderLegMin: 200,
+  wanderLegMax: 500,
+  /** Distance at which a wanderer notices the player, px. */
+  aggroRadius: 260,
+  /** Seconds between noticing the player or a noise and starting to chase, min..max per zombie. */
+  reactionDelayMin: 0.1,
+  reactionDelayMax: 0.5,
+  /** A chaser stays interested while the player is within this, px. Larger than aggroRadius. */
+  loseRadius: 420,
+  /** Seconds outside loseRadius with no noise before a chaser goes back to wandering, +/- the jitter per zombie. */
+  loseInterestSeconds: 4,
+  loseInterestJitter: 1,
+  /** Pull toward the average position of nearby zombies while wandering. 0 = off. */
+  herdCohesion: 0.25,
+  /** Pull toward the average heading of nearby zombies while wandering. 0 = off. */
+  herdAlignment: 0.3,
+  /** Neighbour count at which cohesion fades to nothing, so herds stay loose instead of fusing into one blob. */
+  herdCrowdLimit: 5,
+  /** How quickly a zombie turns toward where it wants to go, per second. Low = lumbering. */
+  wanderTurnRate: 2.5,
+  chaseTurnRate: 8,
+  /** Hard cap on turning, radians/s, so the sprite never visibly snaps whatever the steering asks for. */
+  maxTurnRate: 6,
+} satisfies Record<string, number>;

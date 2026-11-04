@@ -12,6 +12,7 @@ npm run dev     # opens http://localhost:8080
 - Arrow keys or WASD: move
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
+- V: AI debug overlay (wanderers tinted blue, aggro radius and gunshot noise rings, wander/chase counts in the HUD)
 
 ## How it's built
 
@@ -23,7 +24,8 @@ npm run dev     # opens http://localhost:8080
 | Floor | `src/world/FloorCanvas.ts` | Persistent render texture. Corpses and blood are stamped in and forgotten. |
 | Player | `src/entities/Player.ts` | Movement, aim, recoil, gun kick. |
 | Horde | `src/entities/Horde.ts` | Pooling, gate spawning, crowd separation, wall containment, death stamping. |
-| Zombie | `src/entities/Zombie.ts` | Chase, knockback, hit flash. Per-instance state only. |
+| Zombie | `src/entities/Zombie.ts` | Movement, knockback, hit flash. Per-instance state only. |
+| Brain | `src/entities/ZombieBrain.ts` | Wander/chase per zombie: random-walk wandering with loose herding, aggro radius, gunshot noise, reaction delay. Tunables in `ZOMBIE_AI`. |
 | Hitscan | `src/combat/raycast.ts` | Ray vs zombie circles through the spatial hash, nearest first, capped by `pierce`. |
 | Weapon | `src/combat/Weapon.ts` | Fire timing, applies hits and triggers feel effects. |
 | Effects | `src/fx/Effects.ts` | Pooled muzzle flash, tracer, blood sparks. |
@@ -57,6 +59,6 @@ magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35
 
 ## Adding things
 
-- **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts`, then pick it in `Horde.spawnWave`. Behaviour variations go in `Zombie.update`.
-- **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line.
+- **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts`, then pick it in `Horde.spawnWave`. Behaviour variations go in `ZombieBrain.steer`; the numbers live in `ZOMBIE_AI`.
+- **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies.
 - **Power-ups**: not started. Planned as timed modifiers over the player and weapon defs.

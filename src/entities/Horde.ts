@@ -1,5 +1,10 @@
-import { Container } from "pixi.js";
-import { MAX_ZOMBIE_RADIUS, ZOMBIES, type ZombieDef } from "../config/zombies";
+import { Container, Graphics } from "pixi.js";
+import {
+  MAX_ZOMBIE_RADIUS,
+  ZOMBIE_AI,
+  ZOMBIES,
+  type ZombieDef,
+} from "../config/zombies";
 import { pick, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
 import type { Arena } from "../world/Arena";
@@ -7,6 +12,7 @@ import type { FloorCanvas } from "../world/FloorCanvas";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
+import { aiDebug } from "./ZombieBrain";
 
 const MAX_ALIVE = 400;
 const CELL_SIZE = 48;
@@ -20,6 +26,8 @@ const SPLAT_STRETCH = 1.1;
 const SPLAT_WIDTH = 0.45;
 const BLOOD = 0x5fcf3a;
 const BLOOD_DARK = 0x3f9a28;
+/** How long the debug overlay shows a gunshot's noise ring. */
+const NOISE_RING_SECONDS = 0.35;
 
 /** Owns every zombie: pooling, spawning through gates, crowd separation and death stamping. */
 export class Horde {
@@ -28,7 +36,12 @@ export class Horde {
   readonly hash = new SpatialHash<Zombie>(CELL_SIZE);
   /** Bodies still sliding. Drawn under the living so the crowd walks over them. */
   readonly corpses: Corpses;
+  /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
+  readonly debugView = new Graphics();
   kills = 0;
+  /** How many of the living are still wandering, for the debug HUD. */
+  wandering = 0;
+  private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
   private readonly pool: Zombie[] = [];
   private elapsed = 0;
   private spawnDebt = 0;
@@ -59,10 +72,52 @@ export class Horde {
     for (const z of this.alive) this.hash.insert(z);
     this.separate();
     this.pushOutOfPlayer(playerX, playerY, playerRadius);
+    this.wandering = 0;
     for (const z of this.alive) {
       this.contain(z);
       z.syncSprite();
+      if (z.brain.wandering) this.wandering++;
     }
+    this.drawDebug(dt, playerX, playerY);
+  }
+
+  /** A sound at (x, y) alerts every zombie within `radius`; they start chasing after their reaction delay. */
+  noise(x: number, y: number, radius: number): void {
+    const r2 = radius * radius;
+    this.hash.queryBox(x - radius, y - radius, x + radius, y + radius, (z) => {
+      if (z.dead) return;
+      const dx = z.x - x;
+      const dy = z.y - y;
+      if (dx * dx + dy * dy <= r2) z.brain.alert();
+    });
+    this.lastNoise.x = x;
+    this.lastNoise.y = y;
+    this.lastNoise.radius = radius;
+    this.lastNoise.age = 0;
+  }
+
+  private drawDebug(dt: number, playerX: number, playerY: number): void {
+    this.lastNoise.age += dt;
+    this.debugView.visible = aiDebug.enabled;
+    if (!aiDebug.enabled) return;
+    const g = this.debugView.clear();
+    g.circle(playerX, playerY, ZOMBIE_AI.aggroRadius).stroke({
+      width: 2,
+      color: 0x60a0ff,
+      alpha: 0.6,
+    });
+    g.circle(playerX, playerY, ZOMBIE_AI.loseRadius).stroke({
+      width: 2,
+      color: 0x60a0ff,
+      alpha: 0.25,
+    });
+    const fade = 1 - this.lastNoise.age / NOISE_RING_SECONDS;
+    if (fade <= 0) return;
+    g.circle(this.lastNoise.x, this.lastNoise.y, this.lastNoise.radius).stroke({
+      width: 3,
+      color: 0xffc040,
+      alpha: fade * 0.8,
+    });
   }
 
   /** Walls stop zombies once they're in; before that they're funnelled down their gate's corridor. */
@@ -150,14 +205,25 @@ export class Horde {
     this.pool.push(z);
   }
 
-  /** Soft-body crowding: overlapping zombies nudge each other apart so the swarm stays a swarm, not a stack. */
+  /**
+   * Soft-body crowding: overlapping zombies nudge each other apart so the swarm stays a swarm, not a stack.
+   * The same neighbour pass feeds wanderers' herd sums (everyone the query visits, so roughly a cell around them).
+   */
   private separate(): void {
     for (const a of this.alive) {
       const r = a.def.radius + MAX_ZOMBIE_RADIUS;
+      const herd = a.entered && a.brain.wandering ? a.brain : null;
       this.hash.queryBox(a.x - r, a.y - r, a.x + r, a.y + r, (b) => {
         if (b === a || b.dead) return;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
+        if (herd) {
+          herd.herdCount++;
+          herd.herdX += b.x;
+          herd.herdY += b.y;
+          herd.herdCos += Math.cos(b.facing);
+          herd.herdSin += Math.sin(b.facing);
+        }
         const min = a.def.radius + b.def.radius;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min || d2 === 0) return;

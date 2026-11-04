@@ -3,9 +3,14 @@ export const PLAYER = {
   maxHealth: 100,
   /**
    * Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`.
-   * Kept modest on purpose: one zombie is a nuisance, a crowd that built up unnoticed is the killer.
+   * Kept low on purpose: one zombie is a nuisance you can ignore for most of a minute.
    */
-  contactDamage: 6,
+  contactDamage: 1.8,
+  /**
+   * Exponent on the number of zombies in contact (summed damageScale). Above 1 a crowd hurts more
+   * than its headcount, so the threat is the pack that built up unnoticed: 8 walkers at 1.5 ≈ 23x.
+   */
+  crowdPower: 1.5,
   /** Reach beyond the two body radii at which a zombie counts as touching, px. */
   contactMargin: 4,
   /** Seconds of immunity after a hit. Contact damage lands as one lump per window. */

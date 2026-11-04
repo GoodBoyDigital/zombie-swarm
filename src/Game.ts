@@ -241,7 +241,7 @@ export class Game {
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
-      `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
+      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 
   /** Zombies in contact bite as one lump per immunity window, so the feedback reads as discrete hits. */
@@ -249,7 +249,11 @@ export class Game {
     const p = this.player;
     const scale = this.horde.contact(p.x, p.y, p.radius, PLAYER.contactMargin);
     if (scale <= 0) return;
-    const bite = scale * PLAYER.contactDamage * PLAYER.invulnSeconds;
+    // Crowds hurt more than their headcount: one walker is a nuisance, eight are a death sentence.
+    const bite =
+      PLAYER.contactDamage *
+      Math.pow(scale, PLAYER.crowdPower) *
+      PLAYER.invulnSeconds;
     if (!p.hurt(bite)) return;
     this.audio.play("playerHurt", { pitch: rand(0.9, 1.1), volume: 0.9 });
     this.camera.addTrauma(HURT_TRAUMA);

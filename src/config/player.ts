@@ -1,3 +1,4 @@
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 /** Player numbers: health and contact damage, plus the loot magnet pair a magnet power-up will scale. */
 export const PLAYER = {
   maxHealth: 100,
@@ -29,3 +30,9 @@ export const PLAYER = {
   /** Added to the body radius for the overlap that collects loot. */
   collectRadius: 6,
 };
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { PLAYER });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

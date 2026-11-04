@@ -1,5 +1,6 @@
 import type { ShotType } from "../combat/shots";
 import type { CasingId } from "./casings";
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 
 export interface WeaponSprite {
   /** Image under public/sprites, authored at 2x like the character art (see ART_SCALE). */
@@ -306,3 +307,9 @@ export type WeaponId = keyof typeof WEAPONS;
 /** The gun every run starts with and the one you fall back to when a pickup runs dry. Never drops. */
 export const BACKUP_WEAPON: WeaponId = "pistol";
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { WEAPONS });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

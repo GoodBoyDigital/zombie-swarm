@@ -1,3 +1,4 @@
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 /**
  * Shooting pieces off zombies. Part shapes live on each type's art (`ZombieArt.parts`); this is
  * the shared feel: how often a hit on an attached part takes it off, and how the piece flies.
@@ -40,3 +41,9 @@ export const DISMEMBER = {
   /** Oldest pieces are stamped early if more than this are flying. */
   maxLive: 60,
 } satisfies Record<string, number | boolean>;
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { DISMEMBER });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

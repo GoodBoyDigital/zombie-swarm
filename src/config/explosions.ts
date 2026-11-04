@@ -1,4 +1,5 @@
 import type { SfxName } from "../audio/Audio";
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 
 /**
  * One blast: damage and push radiating from a point, plus how it looks and feels. Damage and
@@ -88,3 +89,9 @@ export const EXPLOSIONS = {
 } as const satisfies Record<string, ExplosionDef>;
 
 export type ExplosionId = keyof typeof EXPLOSIONS;
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { EXPLOSIONS });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

@@ -104,6 +104,13 @@ Characters are drawn without weapons, hands empty and reaching forward. Each wea
 hand point, `muzzle` is the barrel tip where shots, flash and tracer start, `eject` the port casings leave
 from. Weapons are about 30 world px long; a weapon orb shows the held sprite as its icon.
 
+## Live config while the dev server runs
+
+Every table in `src/config/` (except the arena layout) hot-reloads: save the file, or use the
+backtick tuning panel or the `/weapon` card, and the running game picks up the new numbers on the
+next frame without a page reload (`src/debug/hotConfig.ts`). Adding or removing an entry, or
+changing a value's type, falls back to a normal reload. Dev only; production builds don't include it.
+
 ## Adding things
 
 - **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts` (art key, radius, speed, health, mass, brain overrides, groans) and give it a column in `SPAWN_TABLE`, which ramps the mix by elapsed time. Behaviour lives in `ZombieBrain.steer`; shared numbers in `ZOMBIE_AI`.

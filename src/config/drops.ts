@@ -1,3 +1,4 @@
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 /**
  * How orbs appear and look. Guns and power-ups roll separately on each kill; within each, which one
  * drops is a weighted pick over the POWERUPS entries of that kind (src/config/powerups.ts).
@@ -38,3 +39,9 @@ export const DROP_RULES = {
   /** Added to the player's body radius for the overlap that collects an orb. */
   collectRadius: 16,
 };
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { DROP_RULES });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

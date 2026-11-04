@@ -1,3 +1,4 @@
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 /** Follow camera. All distances are world pixels. */
 export const CAMERA = {
   /** How much of the arena is visible top to bottom. The arena is 720 tall, so this zooms in. */
@@ -10,3 +11,9 @@ export const CAMERA = {
    */
   edgeReveal: 40,
 };
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { CAMERA });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

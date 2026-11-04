@@ -2,6 +2,7 @@ import type { SfxName } from "../audio/Audio";
 import type { ExplosionId } from "./explosions";
 import { PLAYER } from "./player";
 import type { WeaponId } from "./weapons";
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 
 /** Blue arms you, green helps you out, red hurts everything around you. */
 export type PowerupCategory = "weapon" | "support" | "destructive";
@@ -274,3 +275,9 @@ export const WEAPON_DROPS = POWERUP_DEFS.filter((d) => d.category === "weapon");
 export const POWERUP_DROPS = POWERUP_DEFS.filter(
   (d) => d.category !== "weapon",
 );
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { POWERUP_CATEGORIES, POWERUPS });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

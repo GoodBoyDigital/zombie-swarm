@@ -1,4 +1,5 @@
 import { Pane, type FolderApi } from "tweakpane";
+import { CONFIG_UPDATED } from "./hotConfig";
 import { CASINGS } from "../config/casings";
 import { DISMEMBER } from "../config/dismember";
 import { DROP_RULES } from "../config/drops";
@@ -216,6 +217,8 @@ export class TuningPanel {
 
   constructor() {
     this.pane.hidden = true;
+    // Config hot-reloaded from disk: show the new values in the bound sliders.
+    window.addEventListener(CONFIG_UPDATED, () => this.pane.refresh());
     window.addEventListener("keydown", (e) => {
       if (e.code === "Backquote") this.pane.hidden = !this.pane.hidden;
     });

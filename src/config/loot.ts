@@ -1,3 +1,4 @@
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 /** Which HUD counter a pickup feeds. */
 export type LootCounter = "coins" | "gems";
 
@@ -42,3 +43,9 @@ export const LOOT_RULES = {
   /** Hard cap; past it the oldest item is recycled first. */
   maxItems: 3000,
 };
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, { LOOT, LOOT_RULES });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

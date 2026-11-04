@@ -1,4 +1,5 @@
 import type { SfxName } from "../audio/Audio";
+import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 
 export interface ZombieArt {
   /** Sprite set in public/sprites: zombie-<key>.png and zombie-<key>-flash.png. */
@@ -348,3 +349,14 @@ export const ZOMBIE_AI = {
   speedWobblePeriodMin: 2.5,
   speedWobblePeriodMax: 6,
 } satisfies Record<string, number>;
+
+// Dev only: edits to this file update the running game in place, no reload (src/debug/hotConfig.ts).
+if (import.meta.hot) {
+  trackHotConfig(import.meta.hot, {
+    ZOMBIES,
+    SPAWN,
+    SPAWN_TABLE,
+    ZOMBIE_AI,
+  });
+  import.meta.hot.accept((next) => applyHotConfig(import.meta.hot, next));
+}

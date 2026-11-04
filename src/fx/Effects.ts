@@ -56,7 +56,7 @@ const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
 
 /** Short-lived visuals: muzzle flash, hitscan tracer, blood sparks, explosions. Sprites are pooled. */
 export class Effects {
-  readonly view = new Container();
+  readonly view = new Container({ sortableChildren: true });
   private readonly live: Particle[] = [];
   private readonly pool: Sprite[] = [];
   private readonly rails: RailBeam[] = [];
@@ -383,6 +383,9 @@ export class Effects {
   private spawn(kind: Kind, texture: Texture, life: number): Particle {
     const sprite = this.pool.pop() ?? new Sprite();
     sprite.texture = texture;
+    sprite.label = kind;
+    // Keep muzzle flashes over shot lines, including when a pooled sprite changes kind.
+    sprite.zIndex = kind === "flash" ? 1 : 0;
     // The flash is an outlined vector star, so it draws normally; only the tracer glows additively.
     sprite.blendMode = kind === "tracer" ? "add" : "normal";
     sprite.visible = true;

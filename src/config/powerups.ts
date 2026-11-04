@@ -159,7 +159,7 @@ export const POWERUPS = {
     category: "support",
     mode: "instant",
     effect: "heal",
-    heal: 40,
+    heal: 15,
     icon: "/sprites/icon-medkit.png",
     weight: 4,
     sound: "pickupHealth",

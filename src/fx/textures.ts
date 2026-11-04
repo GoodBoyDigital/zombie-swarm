@@ -1,5 +1,6 @@
 import { Assets, Graphics, type Renderer, type Texture } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
+import { WEAPONS } from "../config/weapons";
 import { rand } from "../core/random";
 
 export interface GameTextures {
@@ -8,6 +9,8 @@ export interface GameTextures {
   zombieFlash: Texture;
   zombieCorpse: Texture;
   player: Texture;
+  /** Held weapon art by weapon id, from each WeaponDef's sprite path. */
+  weapons: Record<string, Texture>;
   muzzleFlash: Texture;
   spark: Texture;
   splats: Texture[];
@@ -37,8 +40,15 @@ const PIXEL_SCALE = 0.25;
 export async function createTextures(
   renderer: Renderer,
 ): Promise<GameTextures> {
-  const loaded = await Assets.load<Texture>(Object.values(SPRITES));
+  const weaponDefs = Object.values(WEAPONS);
+  const loaded = await Assets.load<Texture>([
+    ...Object.values(SPRITES),
+    ...weaponDefs.map((w) => w.sprite.path),
+  ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
+  const weapons = Object.fromEntries(
+    weaponDefs.map((w) => [w.id, pixelate(loaded[w.sprite.path])]),
+  );
 
   const make = (g: Graphics) => {
     const texture = renderer.generateTexture({
@@ -95,6 +105,7 @@ export async function createTextures(
     zombieFlash: sprite("zombieFlash"),
     zombieCorpse: sprite("zombieCorpse"),
     player: sprite("player"),
+    weapons,
     muzzleFlash: sprite("muzzleFlash"),
     spark: make(spark),
     splats,

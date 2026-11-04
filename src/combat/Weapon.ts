@@ -22,7 +22,9 @@ export class Weapon {
     private readonly camera: Camera,
     private readonly audio: Audio,
     private readonly casings: Casings,
-  ) {}
+  ) {
+    player.equip(def);
+  }
 
   update(dt: number, triggerHeld: boolean): void {
     this.cooldown = Math.max(0, this.cooldown - dt);
@@ -60,14 +62,8 @@ export class Weapon {
     this.fx.tracer(m.x, m.y, endX, endY, def.tracerWidth);
     this.player.recoil(dirX, dirY, def.recoil);
     if (def.casing) {
-      // Port sits a little way up the barrel from the body, not at the muzzle.
-      const port = 14;
-      this.casings.eject(
-        this.player.x + dirX * port,
-        this.player.y + dirY * port,
-        angle,
-        def.casing,
-      );
+      const port = this.player.ejectPort();
+      this.casings.eject(port.x, port.y, angle, def.casing);
     }
     this.camera.addTrauma(def.shake);
     this.camera.kick(dirX * 3, dirY * 3);

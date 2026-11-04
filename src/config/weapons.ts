@@ -1,7 +1,19 @@
 import type { CasingId } from "./casings";
 
+export interface WeaponSprite {
+  /** Image under public/sprites, point-sampled like the character art. */
+  path: string;
+  /** Point the player's hands hold, as fractions of the sprite. It is pinned to the player's hand point. */
+  grip: { x: number; y: number };
+  /** Barrel tip as fractions of the sprite. Shots, flash and tracer originate here. */
+  muzzle: { x: number; y: number };
+  /** Ejection port as fractions of the sprite, on the receiver. Casings leave from here. */
+  eject: { x: number; y: number };
+}
+
 export interface WeaponDef {
   id: string;
+  sprite: WeaponSprite;
   /** Shell ejected per shot, or null for weapons that leave nothing behind. */
   casing: CasingId | null;
   /** Seconds between shots while the trigger is held. */
@@ -29,6 +41,12 @@ export const WEAPON_NOISE_RADIUS = 300;
 export const WEAPONS = {
   rifle: {
     id: "rifle",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     casing: "rifle",
     fireInterval: 0.11,
     damage: 1,

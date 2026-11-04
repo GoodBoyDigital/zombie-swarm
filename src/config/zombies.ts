@@ -9,6 +9,46 @@ export interface ZombieArt {
   radius: number;
   /** Where the body centre sits in the texture, as fractions; the arms reach ahead of it. */
   anchor: { x: number; y: number };
+  /** Pieces a shot can take off. Types without parts never lose any. */
+  parts?: Partial<Record<PartId, ZombiePart>>;
+}
+
+/** Severable pieces, in bit order of a zombie's missing-parts mask. */
+export const PART_IDS = ["leftArm", "rightArm", "head"] as const;
+export type PartId = (typeof PART_IDS)[number];
+
+/**
+ * An outline in a sprite's own pixels (the 2x source file): a polygon as flat x,y pairs, or a circle.
+ * A polygon lists the edges where the part tears from the body first; `cut` counts them, and only
+ * those get a stump. Its other edges run through empty space past the part's own outline.
+ */
+export type PartShape =
+  | { poly: readonly number[]; cut: number }
+  | { circle: readonly [x: number, y: number, r: number] };
+
+export interface ZombiePart {
+  /** Where the part sits on the standing body sprite; shots are tested against this. */
+  body: PartShape;
+  /** The same part on each corpse pose, ordered like `ZombieArt.corpses`. */
+  corpses: readonly PartShape[];
+  /** Losing this part leaves a neck stump instead of a torn edge: where it sits on the body and each corpse pose. */
+  neck?: { body: NeckCap; corpses: readonly NeckCap[] };
+  /**
+   * Sprites thrown in place of the cut-out piece, one picked per detach, drawn upright with the
+   * top of the part along the facing. A whole head with a face reads better than a cut-out disc.
+   */
+  pieces?: readonly string[];
+}
+
+/**
+ * A neck stump in a sprite's source pixels. `back`, when set, first fills a disc of that radius with
+ * the upper back: top-down, the head was hiding the shoulders.
+ */
+export interface NeckCap {
+  x: number;
+  y: number;
+  r: number;
+  back?: number;
 }
 
 /** Brain numbers a type may override; anything left out comes from ZOMBIE_AI. */
@@ -62,6 +102,59 @@ export const ZOMBIES = {
       corpses: [1, 2, 3],
       radius: 12,
       anchor: { x: 0.28, y: 0.52 },
+      // Faces right, so the left arm is the upper one. Outer edges run past the sprite so the torn
+      // wobble never leaves slivers. Arms tear off at the sleeve; the head comes off whole and
+      // leaves a neck stump. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
+      parts: {
+        leftArm: {
+          body: {
+            poly: [60, 34, 52, 31, 46, 17, 46, -4, 96, -4, 96, 34],
+            cut: 3,
+          },
+          corpses: [
+            { poly: [62, 29, 50, 29, 40, 22, 40, -4, 82, -4, 80, 20], cut: 2 },
+            { poly: [63, 22, 64, 45, 48, 47, 39, 28, 39, 2, 58, 2], cut: 2 },
+            {
+              poly: [98, 33, 88, 22, 70, 20, 70, -4, 124, -4, 124, 36],
+              cut: 3,
+            },
+          ],
+        },
+        rightArm: {
+          body: {
+            poly: [60, 35, 52, 40, 46, 46, 46, 73, 96, 73, 96, 34],
+            cut: 3,
+          },
+          corpses: [
+            { poly: [34, 76, 58, 74, 72, 82, 74, 111, 34, 111], cut: 2 },
+            { poly: [108, 46, 78, 46, 73, 22, 75, -4, 108, -4], cut: 3 },
+            {
+              poly: [70, 82, 70, 58, 86, 56, 96, 46, 124, 38, 124, 82],
+              cut: 3,
+            },
+          ],
+        },
+        head: {
+          body: { circle: [26, 31, 23] },
+          corpses: [
+            { circle: [21, 48, 27] },
+            { circle: [21, 23, 25] },
+            { circle: [79, 38, 20.5] },
+          ],
+          neck: {
+            body: { x: 26, y: 31, r: 9, back: 22 },
+            corpses: [
+              { x: 44, y: 48, r: 8 },
+              { x: 41, y: 39, r: 8 },
+              { x: 61, y: 39, r: 8 },
+            ],
+          },
+          pieces: [
+            "/sprites/zombie-walker-head-1.png",
+            "/sprites/zombie-walker-head-2.png",
+          ],
+        },
+      },
     },
     radius: 12,
     speed: 34,

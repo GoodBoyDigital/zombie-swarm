@@ -12,6 +12,7 @@ import { pick, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
 import type { Arena } from "../world/Arena";
 import type { FloorCanvas } from "../world/FloorCanvas";
+import { Limbs } from "../fx/Limbs";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
@@ -44,6 +45,8 @@ export class Horde {
   readonly hash = new SpatialHash<Zombie>(CELL_SIZE);
   /** Bodies still sliding. Drawn under the living so the crowd walks over them. */
   readonly corpses: Corpses;
+  /** Pieces shot off zombies, tumbling to the floor. Game draws them over the living and the effects so they fly clear of the crowd and the spray. */
+  readonly limbs: Limbs;
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
@@ -69,6 +72,7 @@ export class Horde {
     // Zombies are added and removed most frames; keep that from rebuilding the whole stage.
     this.view.isRenderGroup = true;
     this.corpses = new Corpses(tex, floor);
+    this.limbs = new Limbs(tex, floor);
   }
 
   update(
@@ -80,6 +84,7 @@ export class Horde {
     this.elapsed += dt;
     this.spawnWave(dt);
     this.corpses.update(dt);
+    this.limbs.update(dt);
 
     for (const z of this.alive)
       z.update(dt, playerX, playerY, playerRadius, this.hunting);
@@ -226,6 +231,7 @@ export class Horde {
       z.kx,
       z.ky,
       z.def,
+      z.missing,
       shadeTint(z.tint, CORPSE_TINT_FACTOR),
     );
     this.release(z);

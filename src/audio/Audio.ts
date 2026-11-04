@@ -26,6 +26,8 @@ const SFX = {
   airstrikeRoar: "/audio/sfx/airstrike-roar.mp3",
   zombieHit: "/audio/sfx/zombie-hit.mp3",
   zombieDeath: "/audio/sfx/zombie-death.mp3",
+  zombieTear: "/audio/sfx/zombie-tear.mp3",
+  zombieHeadPop: "/audio/sfx/zombie-head-pop.mp3",
   groan1: "/audio/sfx/zombie-groan-1.mp3",
   groan2: "/audio/sfx/zombie-groan-2.mp3",
   bruteGroan: "/audio/sfx/zombie-groan-brute.mp3",

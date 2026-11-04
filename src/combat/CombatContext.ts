@@ -1,4 +1,6 @@
 import type { Audio } from "../audio/Audio";
+import { DISMEMBER } from "../config/dismember";
+import { PART_IDS } from "../config/zombies";
 import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Zombie } from "../entities/Zombie";
@@ -17,6 +19,7 @@ export class CombatContext {
   /** Sound throttles: one hit and one death sound per volley, or a shotgun or a blast stacks dozens. */
   hitSoundPlayed = false;
   deathSoundPlayed = false;
+  tearSoundPlayed = false;
   /** Damage multiplier on every applyHit through this context (the weapon's is double damage). */
   damageScale = 1;
 
@@ -28,10 +31,14 @@ export class CombatContext {
     readonly audio: Audio,
   ) {}
 
+  /** Where the last severed piece left the body, for its blood spurt. */
+  private readonly stump = { x: 0, y: 0 };
+
   /** Start a new trigger pull or blast: the next hit and kill may each play their sound again. */
   beginVolley(): void {
     this.hitSoundPlayed = false;
     this.deathSoundPlayed = false;
+    this.tearSoundPlayed = false;
   }
 
   /**
@@ -47,7 +54,13 @@ export class CombatContext {
     damage: number,
     knockback: number,
   ): void {
-    const killed = zombie.hit(damage * this.damageScale, dirX, dirY, knockback);
+    let killed = zombie.hit(damage * this.damageScale, dirX, dirY, knockback);
+    // Before the kill, so the corpse lies down without the piece too.
+    const severed = this.dismember(zombie, hitX, hitY, dirX, dirY);
+    if (PART_IDS[severed] === "head" && DISMEMBER.headKills && !zombie.dead) {
+      zombie.drop();
+      killed = true;
+    }
     this.fx.bloodBurst(hitX, hitY, dirX, dirY, killed ? 12 : 6, BLOOD_SPRAY);
     this.horde.splat(hitX, hitY, dirX, dirY);
     if (killed) {
@@ -63,5 +76,35 @@ export class CombatContext {
         this.audio.play("zombieHit", { pitch: rand(0.9, 1.2), volume: 0.6 });
       this.hitSoundPlayed = true;
     }
+  }
+
+  /**
+   * Maybe tear off the part the hit struck: the piece flies along `dir` and the stump spurts.
+   * A head pops off with a bigger burst from the neck. Returns the severed part's bit, or -1.
+   */
+  private dismember(
+    zombie: Zombie,
+    hitX: number,
+    hitY: number,
+    dirX: number,
+    dirY: number,
+  ): number {
+    const bit = zombie.partOnRay(hitX, hitY, dirX, dirY);
+    if (bit < 0 || Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`])
+      return -1;
+    this.horde.limbs.launch(zombie, bit, dirX, dirY, this.stump);
+    zombie.sever(bit);
+    const { x, y } = this.stump;
+    // One burst at the moment of the tear; a lingering spray would stay put while the body moves on.
+    const head = PART_IDS[bit] === "head";
+    const sparks = head ? DISMEMBER.headSpurt : DISMEMBER.spurt;
+    this.fx.bloodBurst(x, y, dirX, dirY, sparks, BLOOD_SPRAY);
+    if (!this.tearSoundPlayed)
+      this.audio.play(head ? "zombieHeadPop" : "zombieTear", {
+        pitch: rand(0.85, 1.2),
+        volume: 0.8,
+      });
+    this.tearSoundPlayed = true;
+    return bit;
   }
 }

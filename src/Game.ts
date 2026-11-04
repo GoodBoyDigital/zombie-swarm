@@ -1,4 +1,4 @@
-import { Application, Container, Text } from "pixi.js";
+import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import type { DropDef } from "./config/drops";
@@ -7,6 +7,7 @@ import { POWERUPS } from "./config/powerups";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { pick, rand } from "./core/random";
+import { profiler } from "./debug/Profiler";
 import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
 import { Loot } from "./entities/Loot";
@@ -70,6 +71,7 @@ export class Game {
   /** Seconds survived; stops at death. */
   private elapsed = 0;
   private readonly tick: (ticker: { deltaMS: number }) => void;
+  private readonly endRender = (): void => profiler.endRender();
   private readonly onKeyDown: (e: KeyboardEvent) => void;
 
   constructor(
@@ -150,11 +152,14 @@ export class Game {
 
     this.tick = (ticker) => this.step(Math.min(MAX_DT, ticker.deltaMS / 1000));
     app.ticker.add(this.tick);
+    // Pixi renders in its own LOW-priority listener; one below it sees the render's CPU cost.
+    app.ticker.add(this.endRender, undefined, UPDATE_PRIORITY.LOW - 1);
   }
 
   /** Tear everything down so a new Game can be built on the same app. */
   destroy(): void {
     this.app.ticker.remove(this.tick);
+    this.app.ticker.remove(this.endRender);
     window.removeEventListener("keydown", this.onKeyDown);
     this.input.destroy();
     this.floor.destroy();
@@ -197,6 +202,7 @@ export class Game {
   }
 
   private step(dt: number): void {
+    profiler.beginFrame();
     this.powerups.update(dt);
     this.player.speedScale = this.powerups.scale("moveSpeed");
     this.player.magnetRadiusScale = this.powerups.scale("magnetRadius");
@@ -209,20 +215,28 @@ export class Game {
       this.elapsed += dt;
       p.update(dt, this.input, this.camera, this.arena);
     }
+    profiler.lap("player");
     this.horde.update(dt, p.x, p.y, p.radius);
+    profiler.lap("horde");
     if (p.alive) {
       this.weapon.update(dt, this.input.firing);
+      profiler.lap("weapon");
       this.loot.update(dt, p);
+      profiler.lap("loot");
       this.drops.update(dt, p);
       this.takeContactDamage();
     }
     this.fx.update(dt);
+    profiler.lap("fx");
     this.casings.update(dt);
+    profiler.lap("casings");
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.reticle.update(dt, this.weapon);
     this.groan(dt);
+    profiler.lap("misc");
+    profiler.endFrame();
     this.hudTimer -= dt;
     if (this.hudTimer > 0) return;
     this.hudTimer = 0.25;
@@ -234,15 +248,16 @@ export class Game {
       )
       .join("");
     const ai = aiDebug.enabled
-      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}`
+      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
       : "";
+    const step = `   step ${(profiler.smoothed.step ?? 0).toFixed(1)} ms   render ${(profiler.smoothed.render ?? 0).toFixed(1)} ms`;
     const ammo = w.reloading
       ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
-      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
+      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
   }
 
   /** Zombies in contact bite as one lump per immunity window, so the feedback reads as discrete hits. */

@@ -114,6 +114,7 @@ export class ZombieBrain {
         z.gate.entry.x - z.x,
         z.gate.entry.y - z.y,
         ai.chaseTurnRate,
+        ai.maxTurnRate,
         dt,
       );
       return z.speed;
@@ -128,7 +129,7 @@ export class ZombieBrain {
         this.sinceContact = 0;
         this.pickLeg(z, z.facing + rand(-RESUME_SPREAD, RESUME_SPREAD));
       } else {
-        turnToward(z, px, py, ai.chaseTurnRate, dt);
+        turnToward(z, px, py, ai.chaseTurnRate, faceCap(playerDist2), dt);
         // Slow to a stop when touching the player instead of overlapping them.
         const stopAt = z.def.radius + playerRadius;
         return playerDist2 > stopAt * stopAt ? z.speed : 0;
@@ -161,7 +162,7 @@ export class ZombieBrain {
       this.clearHerd();
     }
 
-    turnToward(z, vx, vy, ai.wanderTurnRate, dt);
+    turnToward(z, vx, vy, ai.wanderTurnRate, ai.farMaxTurnRate, dt);
     // Meander: a random turn rate that itself drifts slowly. Fresh noise every frame made the sprite twitch.
     this.driftIn -= dt;
     if (this.driftIn <= 0) {
@@ -200,17 +201,28 @@ export class ZombieBrain {
   }
 }
 
-/** Ease the facing toward a direction vector, capped at maxTurnRate so direction changes never snap. */
+/**
+ * Turn cap for a chaser at this squared distance from the player: full `maxTurnRate` inside
+ * `faceRadius` so it can face you, easing down to the lumbering `farMaxTurnRate` across `faceBlend`.
+ */
+function faceCap(dist2: number): number {
+  const ai = ZOMBIE_AI;
+  const t = clamp((Math.sqrt(dist2) - ai.faceRadius) / ai.faceBlend, 0, 1);
+  return ai.maxTurnRate + (ai.farMaxTurnRate - ai.maxTurnRate) * t;
+}
+
+/** Ease the facing toward a direction vector, capped at `cap` radians/s so direction changes never snap. */
 function turnToward(
   z: Zombie,
   dx: number,
   dy: number,
   rate: number,
+  cap: number,
   dt: number,
 ): void {
   let turn = Math.atan2(dy, dx) - z.facing;
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-  const maxTurn = ZOMBIE_AI.maxTurnRate * dt;
+  const maxTurn = cap * dt;
   z.facing += clamp(turn * Math.min(1, dt * rate), -maxTurn, maxTurn);
 }
 

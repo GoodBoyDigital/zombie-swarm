@@ -8,7 +8,7 @@ export const PLAYER = {
    * Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`.
    * A lone zombie chips away at health; crowds multiply the danger through crowdPower.
    */
-  contactDamage: 3.6,
+  contactDamage: 7.2,
   /**
    * Exponent on the number of zombies in contact (summed damageScale). Above 1 a crowd hurts more
    * than its headcount, so the threat is the pack that built up unnoticed: 8 walkers at 1.5 ≈ 23x.

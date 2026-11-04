@@ -1,5 +1,5 @@
 import type { Audio } from "../audio/Audio";
-import type { WeaponDef } from "../config/weapons";
+import { WEAPON_NOISE_RADIUS, type WeaponDef } from "../config/weapons";
 import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
@@ -59,6 +59,7 @@ export class Weapon {
     this.player.recoil(dirX, dirY, def.recoil);
     this.camera.addTrauma(def.shake);
     this.camera.kick(dirX * 3, dirY * 3);
+    this.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
     for (const hit of hits) {
       const killed = hit.zombie.hit(def.damage, dirX, dirY, def.knockback);

@@ -5,6 +5,7 @@ import { WEAPONS } from "./config/weapons";
 import { Input } from "./core/Input";
 import { Horde } from "./entities/Horde";
 import { Player } from "./entities/Player";
+import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
 import { Camera } from "./fx/Camera";
 import { Effects } from "./fx/Effects";
@@ -62,6 +63,7 @@ export class Game {
     });
     window.addEventListener("keydown", (e) => {
       if (e.code === "Digit0") this.audio.stopMusic();
+      if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
       const theme = THEME_KEYS[Number(e.key) - 1];
       if (theme) this.audio.playMusic(theme);
     });
@@ -74,6 +76,7 @@ export class Game {
       this.horde.view,
       this.player.view,
       this.fx.view,
+      this.horde.debugView,
     );
 
     this.hud = new Text({

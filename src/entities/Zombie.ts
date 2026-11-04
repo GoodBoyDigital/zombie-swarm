@@ -7,8 +7,11 @@ import {
 } from "../config/zombies";
 import { rand } from "../core/random";
 import type { Gate } from "../world/Arena";
+import { aiDebug, ZombieBrain } from "./ZombieBrain";
 
 const HIT_FLASH_SECONDS = 0.07;
+/** Debug tint for wanderers: red and green pulled down so the body reads blue. */
+const WANDER_TINT_FACTOR = 0.55;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -23,7 +26,9 @@ export class Zombie {
   ky = 0;
   facing = 0;
   tint = 0xffffff;
+  private wanderTint = 0xffffff;
   private flash = 0;
+  readonly brain = new ZombieBrain();
   gate!: Gate;
   /** Set once the zombie has fully crossed its gate; from then on walls contain it. */
   entered = false;
@@ -54,7 +59,9 @@ export class Zombie {
     this.y = gate.spawn.y + (horizontal ? rand(-30, 30) : along);
     this.facing = Math.atan2(gate.entry.y - this.y, gate.entry.x - this.x);
     this.tint = shade(def.color, rand(0.8, 1));
+    this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.sprite.tint = this.tint;
+    this.brain.reset();
     this.sprite.texture = this.texture;
     this.sprite.scale.set(def.radius / ZOMBIE_SPRITE_RADIUS);
     this.sprite.visible = true;
@@ -78,19 +85,7 @@ export class Zombie {
     playerY: number,
     playerRadius: number,
   ): void {
-    const target = this.entered ? { x: playerX, y: playerY } : this.gate.entry;
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const desired = Math.atan2(dy, dx);
-    // Turn toward the target rather than snapping, so direction changes read as lumbering.
-    let turn = desired - this.facing;
-    turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-    this.facing += turn * Math.min(1, dt * 8);
-
-    // Slow to a stop when touching the player instead of overlapping them.
-    const stopAt = this.def.radius + playerRadius;
-    const move = dist > stopAt ? this.speed : 0;
+    const move = this.brain.steer(dt, this, playerX, playerY, playerRadius);
     this.x += (Math.cos(this.facing) * move + this.kx) * dt;
     this.y += (Math.sin(this.facing) * move + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);
@@ -99,10 +94,15 @@ export class Zombie {
 
     if (this.flash > 0) {
       this.flash -= dt;
-      const flashing = this.flash > 0;
-      this.sprite.texture = flashing ? this.flashTexture : this.texture;
-      this.sprite.tint = flashing ? 0xffffff : this.tint;
+      this.sprite.texture = this.flash > 0 ? this.flashTexture : this.texture;
     }
+    const flashing = this.flash > 0;
+    const tint = flashing
+      ? 0xffffff
+      : aiDebug.enabled && this.brain.wandering
+        ? this.wanderTint
+        : this.tint;
+    if (this.sprite.tint !== tint) this.sprite.tint = tint;
   }
 
   /** Push the resolved position to the sprite. Runs after crowding and wall clamps. */
@@ -117,4 +117,10 @@ function shade(color: number, factor: number): number {
   const g = Math.min(255, Math.round(((color >> 8) & 0xff) * factor));
   const b = Math.min(255, Math.round((color & 0xff) * factor));
   return (r << 16) | (g << 8) | b;
+}
+
+function blueShade(color: number, factor: number): number {
+  const r = Math.round(((color >> 16) & 0xff) * factor);
+  const g = Math.round(((color >> 8) & 0xff) * factor);
+  return (r << 16) | (g << 8) | (color & 0xff);
 }

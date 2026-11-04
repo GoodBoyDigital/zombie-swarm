@@ -4,6 +4,7 @@ import { rand } from "../core/random";
 import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
 import type { Camera } from "../fx/Camera";
+import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import { raycastZombies } from "./raycast";
 
@@ -20,6 +21,7 @@ export class Weapon {
     private readonly fx: Effects,
     private readonly camera: Camera,
     private readonly audio: Audio,
+    private readonly casings: Casings,
   ) {
     player.equip(def);
   }
@@ -59,6 +61,10 @@ export class Weapon {
     this.fx.muzzleFlash(m.x, m.y, angle);
     this.fx.tracer(m.x, m.y, endX, endY, def.tracerWidth);
     this.player.recoil(dirX, dirY, def.recoil);
+    if (def.casing) {
+      const port = this.player.ejectPort();
+      this.casings.eject(port.x, port.y, angle, def.casing);
+    }
     this.camera.addTrauma(def.shake);
     this.camera.kick(dirX * 3, dirY * 3);
 

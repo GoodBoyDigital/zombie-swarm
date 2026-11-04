@@ -38,9 +38,11 @@ export class Player {
   /** Hand point offset from the torso centre in sprite-local px, before rotation. */
   private readonly handX: number;
   private readonly handY: number;
-  /** Muzzle offset from the torso centre in sprite-local px, before rotation. Set by equip. */
+  /** Muzzle and ejection port offsets from the torso centre in sprite-local px, before rotation. Set by equip. */
   private muzzleX = 0;
   private muzzleY = 0;
+  private ejectX = 0;
+  private ejectY = 0;
 
   constructor(
     private readonly tex: GameTextures,
@@ -60,22 +62,34 @@ export class Player {
 
   /** Swap the held weapon art. The sprite's grip sits on the hand point; the muzzle follows from its size. */
   equip(def: WeaponDef): void {
-    const { grip, muzzle } = def.sprite;
+    const { grip, muzzle, eject } = def.sprite;
     const texture = this.tex.weapons[def.id];
     this.gun.texture = texture;
     this.gun.anchor.set(grip.x, grip.y);
     this.muzzleX = this.handX + (muzzle.x - grip.x) * texture.width;
     this.muzzleY = this.handY + (muzzle.y - grip.y) * texture.height;
+    this.ejectX = this.handX + (eject.x - grip.x) * texture.width;
+    this.ejectY = this.handY + (eject.y - grip.y) * texture.height;
   }
 
   /** World position of the gun barrel tip, where shots and flashes originate. */
   muzzle(): { x: number; y: number } {
-    const d = this.muzzleX - this.gunKick;
+    return this.gunPoint(this.muzzleX, this.muzzleY);
+  }
+
+  /** World position of the ejection port, where casings leave the gun. */
+  ejectPort(): { x: number; y: number } {
+    return this.gunPoint(this.ejectX, this.ejectY);
+  }
+
+  /** A gun-local point to world space, following the kick and the aim. */
+  private gunPoint(localX: number, localY: number): { x: number; y: number } {
+    const d = localX - this.gunKick;
     const cos = Math.cos(this.aim);
     const sin = Math.sin(this.aim);
     return {
-      x: this.x + cos * d - sin * this.muzzleY,
-      y: this.y + sin * d + cos * this.muzzleY,
+      x: this.x + cos * d - sin * localY,
+      y: this.y + sin * d + cos * localY,
     };
   }
 

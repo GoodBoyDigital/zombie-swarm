@@ -24,6 +24,7 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
   minigun: "shotMinigun",
   magnum: "shotMagnum",
   uzi: "shotUzi",
+  rocket: "rocketLaunch",
 };
 
 /**

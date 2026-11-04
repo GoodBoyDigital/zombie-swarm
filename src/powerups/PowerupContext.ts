@@ -56,6 +56,8 @@ const noModifiers = (): Modifiers => ({
 /** One pickup in progress. */
 export interface ActivePowerup<S = unknown> {
   readonly def: PowerupDef;
+  /** Orb position at collection, retained even after its pooled view is released. */
+  readonly origin: { x: number; y: number };
   /**
    * Seconds left; `end` runs when it reaches 0. Timed: `def.seconds`, refreshed by another pickup of
    * the same id. Instant: 0, so it ends straight after `start` unless start sets it to keep

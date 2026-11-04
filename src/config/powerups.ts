@@ -151,6 +151,7 @@ export const POWERUPS = {
   minigun: gun("minigun", "Minigun", 1),
   magnum: gun("magnum", "Magnum", 2),
   uzi: gun("uzi", "Uzi", 3),
+  rocket: gun("rocket", "Rocket launcher", 1.5),
   medkit: {
     id: "medkit",
     name: "Medkit",

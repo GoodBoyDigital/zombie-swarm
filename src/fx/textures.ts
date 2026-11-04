@@ -86,6 +86,7 @@ const SPRITES = {
   player: "/sprites/player.png",
   playerFlash: "/sprites/player-flash.png",
   playerCorpse: "/sprites/player-corpse.png",
+  rocket: "/sprites/projectile-rocket.png",
   tileConcrete: "/sprites/tile-concrete.png",
   tileWall: "/sprites/tile-wall.png",
 } as const;

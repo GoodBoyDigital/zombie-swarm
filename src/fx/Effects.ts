@@ -145,7 +145,8 @@ export class Effects {
    */
   explosion(x: number, y: number, def: ExplosionDef): void {
     const R = BLAST_TEXTURE_RADIUS;
-    const size = (def.radius * def.flash) / R;
+    const radius = def.visualRadius ?? def.radius;
+    const size = (radius * def.flash) / R;
     const glow = this.blastPart(
       "glow",
       this.tex.blast.glow,
@@ -173,13 +174,13 @@ export class Effects {
         x,
         y,
       );
-      ring.size0 = (def.radius * 0.1) / R;
-      ring.size1 = (def.radius * def.ring) / R;
+      ring.size0 = (radius * 0.1) / R;
+      ring.size1 = (radius * def.ring) / R;
     }
     for (let i = 0; i < def.debris; i++) {
       const p = this.spawn("spark", this.tex.spark, rand(0.3, 0.7));
       const a = rand(0, Math.PI * 2);
-      const speed = rand(1.5, 4) * def.radius;
+      const speed = rand(1.5, 4) * radius;
       p.vx = Math.cos(a) * speed;
       p.vy = Math.sin(a) * speed;
       p.sprite.anchor.set(0.5);

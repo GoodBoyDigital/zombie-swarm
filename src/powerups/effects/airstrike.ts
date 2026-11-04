@@ -19,6 +19,7 @@ const SHADOW_Y = 22;
 const SHADOW_ALPHA = 0.28;
 /** Motion stretch along the flight line, and the faint trailing copies behind the plane. */
 const STRETCH = 1.12;
+const PLANE_SCALE = 1.5;
 const GHOSTS = [
   { gap: 22, alpha: 0.12 },
   { gap: 44, alpha: 0.05 },
@@ -27,13 +28,6 @@ const GHOSTS = [
 const MIN_SPREAD = 0.35;
 /** Bombs keep this fraction of the plane's speed as they fall. */
 const BOMB_CARRY = 0.3;
-/** Candidate strike lines are this far apart across the view. */
-const LINE_STEP = 12;
-/** Lines are kept this far inside the arena's top and bottom edges, and inside the view's so the plane shows. */
-const LINE_INSET = 30;
-const VIEW_INSET = 110;
-/** Fewer zombies than this on the best line and the strike runs through the player instead. */
-const MIN_CROWD = 3;
 /** Strafing: rounds hit the floor this far ahead of the plane, a short raycast long, this often. */
 const STRAFE_LEAD = 190;
 const STRAFE_RAY = 60;
@@ -84,15 +78,15 @@ interface Strike {
 }
 
 /**
- * A plane flies left to right across the view along the line through the most zombies, strafes the
+ * A plane flies left to right across the view along the pickup's horizontal line, strafes the
  * ground ahead and drops a stick of bombs that blow up one after another behind it.
  */
 export const airstrike: PowerupEffect<Def, Strike> = {
   start(ctx, def, active) {
     const tex = Assets.get<Texture>(def.sprite);
     const view = visibleView(ctx);
-    const y = strikeLine(ctx, view);
-    const length = tex.width * STRETCH;
+    const y = Math.min(ARENA.height, Math.max(0, active.origin.y));
+    const length = tex.width * STRETCH * PLANE_SCALE;
     const x0 = view.left - length;
     const x1 = view.right + length;
     const enter = def.warningSeconds;
@@ -152,7 +146,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     );
     const shadow = new Sprite({ texture: tex, anchor: 0.5, tint: 0x000000 });
     shadow.alpha = SHADOW_ALPHA;
-    shadow.scale.set(STRETCH * 0.92, 0.92);
+    shadow.scale.set(STRETCH * 0.92 * PLANE_SCALE, 0.92 * PLANE_SCALE);
     const plane = new Container({ label: "airstrikePlane" });
     for (const g of [...GHOSTS].reverse()) {
       const ghost = new Sprite({ texture: tex, anchor: 0.5 });
@@ -161,7 +155,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
       plane.addChild(ghost);
     }
     plane.addChild(new Sprite({ texture: tex, anchor: 0.5 }));
-    plane.scale.set(STRETCH, 1 / STRETCH ** 0.5);
+    plane.scale.set(STRETCH * PLANE_SCALE, PLANE_SCALE / STRETCH ** 0.5);
     plane.visible = shadow.visible = false;
     root.addChild(warning, shadow, plane);
     ctx.world.addChild(root);
@@ -271,56 +265,6 @@ function visibleView(ctx: PowerupContext) {
     ctx.screenRect.height,
   );
   return { left: tl.x, top: tl.y, right: br.x, bottom: br.y };
-}
-
-/**
- * The horizontal line through the most zombies on screen: each live zombie within a bomb radius of
- * a candidate line counts, nearer ones more. Too few anywhere and it's the player's row, so the
- * strike still lands where the player is looking. Ties go to the line nearer the player.
- */
-function strikeLine(
-  ctx: PowerupContext,
-  view: ReturnType<typeof visibleView>,
-): number {
-  const p = ctx.player;
-  const band = EXPLOSIONS.airstrikeBomb.radius;
-  const top = Math.max(LINE_INSET, view.top + VIEW_INSET);
-  const bottom = Math.max(
-    top,
-    Math.min(ARENA.height - LINE_INSET, view.bottom - VIEW_INSET),
-  );
-  const clampY = (y: number) => Math.min(bottom, Math.max(top, y));
-  const lines = Math.max(1, Math.floor((bottom - top) / LINE_STEP) + 1);
-  const score = new Float32Array(lines);
-  const counts = new Uint16Array(lines);
-  for (const z of ctx.horde.alive) {
-    if (z.x < view.left || z.x > view.right) continue;
-    if (z.y < view.top || z.y > view.bottom) continue;
-    const first = Math.max(0, Math.ceil((z.y - band - top) / LINE_STEP));
-    const last = Math.min(
-      lines - 1,
-      Math.floor((z.y + band - top) / LINE_STEP),
-    );
-    for (let i = first; i <= last; i++) {
-      score[i] += 1 - Math.abs(z.y - (top + i * LINE_STEP)) / band;
-      counts[i]++;
-    }
-  }
-  let best = -1;
-  for (let i = 0; i < lines; i++) {
-    if (counts[i] < MIN_CROWD) continue;
-    const nearer =
-      best >= 0 &&
-      Math.abs(top + i * LINE_STEP - p.y) <
-        Math.abs(top + best * LINE_STEP - p.y);
-    if (
-      best < 0 ||
-      score[i] > score[best] ||
-      (score[i] === score[best] && nearer)
-    )
-      best = i;
-  }
-  return best < 0 ? clampY(p.y) : top + best * LINE_STEP;
 }
 
 /** One round from the plane's guns: a tracer down to the floor ahead, hitting what's on a short stretch there. */

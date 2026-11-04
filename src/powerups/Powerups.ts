@@ -20,7 +20,7 @@ export class Powerups {
 
   constructor(readonly ctx: PowerupContext) {}
 
-  apply(def: PowerupDef): void {
+  apply(def: PowerupDef, x = this.ctx.player.x, y = this.ctx.player.y): void {
     const ctx = this.ctx;
     ctx.audio.play(def.sound ?? POWERUP_CATEGORIES[def.category].sound, {
       volume: 0.7,
@@ -34,6 +34,7 @@ export class Powerups {
     }
     const active: ActivePowerup = {
       def,
+      origin: { x, y },
       left: def.mode === "timed" ? def.seconds : 0,
       age: 0,
       state: undefined,

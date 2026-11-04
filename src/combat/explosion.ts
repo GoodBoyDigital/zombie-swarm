@@ -43,7 +43,8 @@ export function explode(
     });
   }
   ctx.fx.explosion(x, y, def);
-  if (def.scorch > 0) ctx.floor.scorch(x, y, r * def.scorch);
+  if (def.scorch > 0)
+    ctx.floor.scorch(x, y, (def.visualRadius ?? r) * def.scorch);
   ctx.camera.addTrauma(def.shake, Math.max(1, def.shake));
   if (def.noiseRadius > 0) ctx.horde.noise(x, y, def.noiseRadius);
   ctx.audio.play(def.sound, {

@@ -2,6 +2,7 @@ import { assetUrl } from "../core/assetUrl";
 /** Web Audio playback: pooled one-shots with pitch variation, a looping bed, and switchable music. */
 
 const SFX = {
+  rocketLaunch: "/audio/sfx/rocket_launch.mp3",
   shotPistol: "/audio/sfx/shot-pistol.mp3",
   shotRifle: "/audio/sfx/gunshot.mp3",
   shotShotgun: "/audio/sfx/shot-shotgun.mp3",

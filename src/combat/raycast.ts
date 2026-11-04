@@ -12,6 +12,7 @@ export interface RayHit {
 
 /**
  * Hitscan against every zombie near the segment, nearest first.
+ * `sweepRadius` expands zombie circles for a moving projectile.
  * `maxHits` caps how many are returned; pass Infinity for piercing weapons.
  */
 export function raycastZombies(
@@ -22,10 +23,11 @@ export function raycastZombies(
   dirY: number,
   range: number,
   maxHits: number,
+  sweepRadius = 0,
 ): RayHit[] {
   const ex = ox + dirX * range;
   const ey = oy + dirY * range;
-  const pad = MAX_ZOMBIE_RADIUS;
+  const pad = MAX_ZOMBIE_RADIUS + sweepRadius;
   const hits: RayHit[] = [];
 
   hash.queryBox(
@@ -38,7 +40,7 @@ export function raycastZombies(
       if (z.dead) return;
       const rx = z.x - ox;
       const ry = z.y - oy;
-      const r = z.def.radius;
+      const r = z.def.radius + sweepRadius;
       const along = rx * dirX + ry * dirY;
       if (along > range + r) return;
       // Behind the muzzle only counts if the muzzle is actually inside the zombie.

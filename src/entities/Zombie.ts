@@ -121,11 +121,13 @@ export class Zombie {
   /**
    * Which attached part a shot through (x, y) along the unit direction strikes first, as a part
    * bit index, or -1. Walks the line from an arm's length in front of the hit point to the far side
-   * of the body, so arms reaching past the hit circle are caught and a shot can exit through the head.
+   * of the body, so arms reaching past the hit circle are caught and a shot can exit through the
+   * head. Only solid pixels of the current body count, so a shot between the arms reaches the head.
    */
   partOnRay(x: number, y: number, dirX: number, dirY: number): number {
     const parts = this.def.art.parts;
-    if (!parts) return -1;
+    const opaque = this.look.opaque;
+    if (!parts || !opaque) return -1;
     const s = this.sprite;
     const cos = Math.cos(s.rotation);
     const sin = Math.sin(s.rotation);
@@ -138,6 +140,11 @@ export class Zombie {
       // Into the sprite's own source pixels: undo rotation, scale and anchor, then ART_SCALE.
       const u = ((dx * cos + dy * sin) / s.scale.x + ax) / ART_SCALE;
       const v = ((dy * cos - dx * sin) / s.scale.y + ay) / ART_SCALE;
+      const px = Math.floor(u);
+      const py = Math.floor(v);
+      if (px < 0 || py < 0 || px >= opaque.width || py >= opaque.height)
+        continue;
+      if (!opaque.solid[py * opaque.width + px]) continue;
       for (let bit = 0; bit < PART_IDS.length; bit++) {
         const part = parts[PART_IDS[bit]];
         if (part && !(this.missing & (1 << bit)) && inside(part.body, u, v))

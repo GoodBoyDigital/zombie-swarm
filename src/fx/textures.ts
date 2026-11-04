@@ -25,6 +25,15 @@ export interface ZombieLook {
   flash: Texture;
   /** Lying-down poses, one picked at random per death. */
   corpses: Texture[];
+  /** Solid pixels of `body`, for finding which part a shot struck; null for types without parts. */
+  opaque: OpacityMask | null;
+}
+
+/** One flag per source pixel of a texture: 1 where it is solid. Row-major from the top-left. */
+export interface OpacityMask {
+  width: number;
+  height: number;
+  solid: Uint8Array;
 }
 
 /** One part on its own, for the piece that flies off. */
@@ -174,6 +183,7 @@ export async function createTextures(
         body: loaded[paths.body],
         flash: loaded[paths.flash],
         corpses: paths.corpses.map((path) => loaded[path]),
+        opaque: null,
       };
       return [
         art.key,
@@ -338,12 +348,14 @@ function carveParts(
       ? { body: tornOutline(part.body), corpses: part.corpses.map(tornOutline) }
       : null;
   });
-  const looks = [whole];
+  const looks = [{ ...whole, opaque: opacityOf(renderer, whole.body) }];
   for (let mask = 1; mask < 1 << PART_IDS.length; mask++) {
     const gone = torn.filter((t, bit) => t && mask & (1 << bit));
     const bodyCuts = gone.map((t) => t!.body);
+    const body = carve(renderer, whole.body, bodyCuts, true);
     looks.push({
-      body: carve(renderer, whole.body, bodyCuts, true),
+      body,
+      opaque: opacityOf(renderer, body),
       flash: carve(renderer, whole.flash, bodyCuts, false),
       corpses: whole.corpses.map((pose, i) =>
         carve(
@@ -359,6 +371,15 @@ function carveParts(
     looks,
     parts: torn.map((t) => t && sever(renderer, whole.body, t.body)),
   };
+}
+
+/** Read a texture back once at load and keep which of its source pixels are more than half opaque. */
+function opacityOf(renderer: Renderer, texture: Texture): OpacityMask {
+  const { pixels, width, height } = renderer.extract.pixels(texture);
+  const solid = new Uint8Array(width * height);
+  for (let i = 0; i < solid.length; i++)
+    solid[i] = pixels[i * 4 + 3] > 127 ? 1 : 0;
+  return { width, height, solid };
 }
 
 /** A part's region as flat source-px points, and the stretch of it that tears from the body. */

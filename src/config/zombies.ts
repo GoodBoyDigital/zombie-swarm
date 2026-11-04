@@ -85,8 +85,8 @@ export const ZOMBIES = {
       radius: 12,
       anchor: { x: 0.28, y: 0.52 },
       // Faces right, so the left arm is the upper one. Outer edges run past the sprite so the torn
-      // wobble never leaves slivers. Arms tear off at the sleeve; the head chunk
-      // is the back-left of the skull. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
+      // wobble never leaves slivers. Arms tear off at the sleeve; the head chunk is the front
+      // of the scalp, between the arms, where a shot from ahead lands. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
       parts: {
         leftArm: {
           body: {
@@ -117,11 +117,11 @@ export const ZOMBIES = {
           ],
         },
         headChunk: {
-          body: { circle: [13, 19, 10] },
+          body: { circle: [37, 30, 10] },
           corpses: [
-            { circle: [8, 36, 10] },
-            { circle: [16, 14, 10] },
-            { circle: [65, 27, 10] },
+            { circle: [8, 47, 10] },
+            { circle: [12, 24, 10] },
+            { circle: [90, 39, 10] },
           ],
         },
       },

@@ -35,7 +35,10 @@ const hitscan: ShotHandler = {
     const stoppedBy = hits.length >= def.pierce ? hits[hits.length - 1] : null;
     const endX = stoppedBy ? stoppedBy.x : ox + dirX * def.range;
     const endY = stoppedBy ? stoppedBy.y : oy + dirY * def.range;
-    ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth, ctx.shotPower);
+    if (def.beam === "rail") {
+      ctx.fx.railBeam(ox, oy, endX, endY, hits);
+      ctx.floor.railScorch(ox, oy, endX, endY);
+    } else ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth, ctx.shotPower);
     for (const hit of hits)
       ctx.applyHit(
         hit.zombie,

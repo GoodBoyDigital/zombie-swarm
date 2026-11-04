@@ -1,6 +1,8 @@
 /** Player numbers: health and contact damage, plus the loot magnet pair a magnet power-up will scale. */
 export const PLAYER = {
   maxHealth: 100,
+  /** Recoil velocity lost per second. Lower grip lets a shot slide further. */
+  recoilGrip: 15,
   /**
    * Damage per second from one walker-strength zombie in contact. Types scale it by `damageScale`.
    * Kept low on purpose: one zombie is a nuisance you can ignore for most of a minute.

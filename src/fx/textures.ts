@@ -69,6 +69,8 @@ export interface GameTextures {
   muzzleFlash: Texture;
   /** Soft-edged band stretched along each hitscan shot. */
   tracer: Texture;
+  /** Seamless electric filaments, blue starburst and the persistent rail burn. */
+  rail: { glow: Texture; energy: Texture; burst: Texture; scorch: Texture };
   spark: Texture;
   splats: Texture[];
   casings: Record<CasingId, Texture>;
@@ -239,6 +241,52 @@ export async function createTextures(
     tracer.rect(0, row - 4, 2, 1).fill({ color: 0xffffff, alpha }),
   );
 
+  // The wider rail glow needs fully transparent edges, unlike the thin tracer band.
+  const railGlow = new Graphics();
+  for (let row = 0; row < 32; row++) {
+    const alpha = (1 - Math.abs(row - 15.5) / 15.5) ** 2;
+    railGlow.rect(0, row, 2, 1).fill({ color: 0xffffff, alpha });
+  }
+
+  // A seamless 128x32 tile. Both ends meet at the same y so filaments scroll without a seam.
+  const energy = new Graphics()
+    .rect(0, 0, 128, 32)
+    .fill({ color: 0xffffff, alpha: 0 });
+  energy
+    .moveTo(0, 16)
+    .lineTo(16, 7)
+    .lineTo(34, 7)
+    .lineTo(51, 16)
+    .lineTo(77, 16)
+    .lineTo(94, 25)
+    .lineTo(112, 25)
+    .lineTo(128, 16)
+    .stroke({ width: 3.5, color: 0xffffff, alpha: 0.85 });
+  energy
+    .moveTo(0, 16)
+    .lineTo(20, 23)
+    .lineTo(38, 23)
+    .lineTo(58, 16)
+    .lineTo(76, 16)
+    .lineTo(98, 9)
+    .lineTo(114, 9)
+    .lineTo(128, 16)
+    .stroke({ width: 1.2, color: 0xffffff, alpha: 0.65 });
+  energy
+    .rect(12, 3, 16, 1.5)
+    .rect(86, 28, 18, 1.5)
+    .fill({ color: 0xffffff, alpha: 0.5 });
+  const railBurst = new Graphics()
+    .star(0, 0, 8, 28, 7)
+    .fill({ color: 0x268aff, alpha: 0.5 })
+    .star(0, 0, 4, 19, 5)
+    .fill(0x6deaff)
+    .circle(0, 0, 5)
+    .fill(0xffffff);
+  const railScorch = new Graphics()
+    .poly([0, -2, 36, -1, 76, -2, 128, 0, 92, 2, 44, 1, 0, 2])
+    .fill(0xffffff);
+
   // Casings are tiny, so they're baked at a higher resolution: a rounded shell, rim and glint.
   const casings = Object.fromEntries(
     Object.entries(CASINGS).map(([id, def]) => {
@@ -339,6 +387,12 @@ export async function createTextures(
     weapons,
     muzzleFlash: make(flash),
     tracer: make(tracer, 1),
+    rail: {
+      glow: make(railGlow, 1),
+      energy: make(energy, 1),
+      burst: make(railBurst),
+      scorch: make(railScorch, 1),
+    },
     spark: make(spark),
     splats,
     casings,

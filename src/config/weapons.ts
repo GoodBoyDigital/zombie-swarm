@@ -19,6 +19,8 @@ export interface WeaponDef {
   sprite: WeaponSprite;
   /** How a pellet reaches its target. See `SHOT_HANDLERS`. */
   shot: ShotType;
+  /** Custom hitscan visual. Damage and piercing still use the normal raycast. */
+  beam?: "rail";
   /** Shell ejected per trigger pull, or null for weapons that leave nothing behind. */
   casing: CasingId | null;
   /** Raycasts per trigger pull. A shotgun fires several at once. */
@@ -48,6 +50,10 @@ export interface WeaponDef {
   knockback: number;
   /** Impulse applied to the player on each shot, in px/s. */
   recoil: number;
+  /** Camera nudge in world px. Omitted weapons keep the normal 3 px kick. */
+  cameraKick?: number;
+  /** Held sprite kick in world px. Omitted weapons keep the normal 4 px snap. */
+  gunKick?: number;
   /** Max zombies one pellet can hit, nearest first. 1 = stops at the first. Infinity = everything on the line. */
   pierce: number;
   range: number;
@@ -167,7 +173,10 @@ export const WEAPONS = {
     reloadSeconds: 1.26,
     damage: 12,
     knockback: 900,
-    recoil: 320,
+    recoil: 600,
+    cameraKick: 10,
+    gunKick: 12,
+    beam: "rail",
     pierce: Infinity,
     range: 2400,
     shake: 0.7,
@@ -223,7 +232,9 @@ export const WEAPONS = {
     reloadSeconds: 0.98,
     damage: 6,
     knockback: 700,
-    recoil: 180,
+    recoil: 420,
+    cameraKick: 7,
+    gunKick: 10,
     pierce: 2,
     range: 1800,
     shake: 0.45,
@@ -279,7 +290,9 @@ export const WEAPONS = {
     reloadSeconds: 1.8,
     damage: 8,
     knockback: 650,
-    recoil: 300,
+    recoil: 520,
+    cameraKick: 8,
+    gunKick: 12,
     pierce: 1,
     range: 1000,
     shake: 0.4,

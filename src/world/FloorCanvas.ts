@@ -91,6 +91,32 @@ export class FloorCanvas {
     });
   }
 
+  /** A faint blue burn, clipped at the wall so the black beyond the arena stays black. */
+  railScorch(x0: number, y0: number, x1: number, y1: number): void {
+    if (x0 < 0 || y0 < 0 || x0 > ARENA.width || y0 > ARENA.height) return;
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    if (length === 0) return;
+    const dx = (x1 - x0) / length;
+    const dy = (y1 - y0) / length;
+    const wallX =
+      dx > 0 ? (ARENA.width - x0) / dx : dx < 0 ? -x0 / dx : Infinity;
+    const wallY =
+      dy > 0 ? (ARENA.height - y0) / dy : dy < 0 ? -y0 / dy : Infinity;
+    const run = Math.min(length, wallX, wallY);
+    this.stampTexture(
+      this.tex.rail.scorch,
+      x0 + (dx * run) / 2,
+      y0 + (dy * run) / 2,
+      {
+        rotation: Math.atan2(dy, dx),
+        scaleX: run / this.tex.rail.scorch.width,
+        scaleY: 1.2,
+        tint: 0x3689ca,
+        alpha: 0.28,
+      },
+    );
+  }
+
   /** Dirt everywhere, concrete inside the walls. Tiled once into the render texture. */
   private paintBase(width: number, height: number, tex: GameTextures): void {
     const m = ARENA.margin;

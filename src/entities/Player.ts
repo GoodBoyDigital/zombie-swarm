@@ -17,7 +17,7 @@ const GUN_KICK = 4;
  */
 const SPRITE = {
   anchor: { x: 0.5, y: 0.5 },
-  hand: { x: 0.9, y: 0.56 },
+  hand: { x: 0.86, y: 0.52 },
 } as const;
 
 export class Player {

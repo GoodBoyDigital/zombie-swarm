@@ -19,6 +19,7 @@ import { Casings } from "./fx/Casings";
 import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
 import { Reticle } from "./ui/Reticle";
+import { UI_FONT } from "./ui/font";
 import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
@@ -112,10 +113,18 @@ export class Game {
     this.hud = new Text({
       text: "",
       style: {
-        fontFamily: "monospace",
-        fontSize: 16,
-        fill: 0xf0ead8,
-        stroke: { color: 0x000000, width: 3 },
+        ...UI_FONT,
+        fontSize: 17,
+        lineHeight: 24,
+        fill: 0xfff6e0,
+        stroke: { color: 0x151a15, width: 5, join: "round" },
+        dropShadow: {
+          color: 0x151a15,
+          alpha: 0.6,
+          angle: Math.PI / 2,
+          distance: 2,
+          blur: 0,
+        },
       },
     });
     this.hud.position.set(12, 10);

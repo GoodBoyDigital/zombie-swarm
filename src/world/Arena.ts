@@ -12,6 +12,14 @@ export interface Gate {
   halfWidth: number;
 }
 
+const INK = 0x151a15;
+const HAZARD_YELLOW = 0xf2c230;
+const HAZARD_DARK = 0x2b2a26;
+/** Length of each hazard stripe along a barricade, px. */
+const STRIPE = 14;
+const POST = 0x8a8f8c;
+const POST_RADIUS = 8;
+
 /** Static walls and gates. Also owns the player-clamp rectangle. */
 export class Arena {
   readonly view = new Container();
@@ -78,16 +86,22 @@ export class Arena {
     const open = new Set(GATES);
     const half = gateWidth / 2;
 
-    // Each wall run is a brick tile strip with a dark edge so it reads as raised.
+    // Each wall run is a block tile strip with a light bevel just inside a heavy ink outline,
+    // so the top edge reads as raised above the floor.
     const segment = (x: number, y: number, sw: number, sh: number) => {
-      const bricks = new TilingSprite({
+      const blocks = new TilingSprite({
         texture: tex.tiles.wall,
         width: sw,
         height: sh,
       });
-      bricks.position.set(x, y);
-      walls.addChild(bricks);
-      g.rect(x, y, sw, sh).stroke({ width: 2, color: 0x0d0b09 });
+      blocks.position.set(x, y);
+      walls.addChild(blocks);
+      g.rect(x + 3, y + 3, sw - 6, sh - 6).stroke({
+        width: 2,
+        color: 0xffffff,
+        alpha: 0.18,
+      });
+      g.rect(x, y, sw, sh).stroke({ width: 4, color: INK });
     };
 
     // Horizontal walls (top / bottom), split around a gate if one is open.
@@ -114,17 +128,36 @@ export class Arena {
       }
     }
 
-    // Low barricade across each gate: zombies step over it, the player can't.
-    const barricade = 0x7a5a2e;
+    // Low hazard-striped barricade across each gate: zombies step over it, the player can't.
+    // Posts cap the wall ends either side so each opening reads at a glance.
+    const barricade = (x: number, y: number, bw: number, bh: number) => {
+      const along = bw > bh;
+      const length = along ? bw : bh;
+      g.rect(x, y, bw, bh).fill(HAZARD_YELLOW);
+      for (let d = 0; d < length; d += STRIPE * 2) {
+        const run = Math.min(STRIPE, length - d);
+        if (along) g.rect(x + d, y, run, bh).fill(HAZARD_DARK);
+        else g.rect(x, y + d, bw, run).fill(HAZARD_DARK);
+      }
+      g.rect(x, y, bw, bh).stroke({ width: 3, color: INK });
+      const [ax, ay, bx, by] = along
+        ? [x, y + bh / 2, x + bw, y + bh / 2]
+        : [x + bw / 2, y, x + bw / 2, y + bh];
+      for (const [px, py] of [
+        [ax, ay],
+        [bx, by],
+      ])
+        g.circle(px, py, POST_RADIUS)
+          .fill(POST)
+          .stroke({ width: 3, color: INK })
+          .circle(px - 1.5, py - 1.5, POST_RADIUS * 0.45)
+          .fill({ color: 0xffffff, alpha: 0.3 });
+    };
     for (const side of open) {
-      if (side === "top")
-        g.rect(w / 2 - half, -8, gateWidth, 8).fill(barricade);
-      if (side === "bottom")
-        g.rect(w / 2 - half, h, gateWidth, 8).fill(barricade);
-      if (side === "left")
-        g.rect(-8, h / 2 - half, 8, gateWidth).fill(barricade);
-      if (side === "right")
-        g.rect(w, h / 2 - half, 8, gateWidth).fill(barricade);
+      if (side === "top") barricade(w / 2 - half, -8, gateWidth, 8);
+      if (side === "bottom") barricade(w / 2 - half, h, gateWidth, 8);
+      if (side === "left") barricade(-8, h / 2 - half, 8, gateWidth);
+      if (side === "right") barricade(w, h / 2 - half, 8, gateWidth);
     }
     walls.addChild(g);
     return walls;

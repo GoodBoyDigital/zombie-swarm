@@ -93,8 +93,18 @@ export class ZombieBrain {
     let tx = this.targetX - z.x;
     let ty = this.targetY - z.y;
     if (this.retargetIn <= 0 || tx * tx + ty * ty < ARRIVE_DIST * ARRIVE_DIST) {
-      this.targetX = rand(WANDER_INSET, ARENA.width - WANDER_INSET);
-      this.targetY = rand(WANDER_INSET, ARENA.height - WANDER_INSET);
+      const heading = rand(0, Math.PI * 2);
+      const leg = rand(ai.wanderLegMin, ai.wanderLegMax);
+      this.targetX = clamp(
+        z.x + Math.cos(heading) * leg,
+        WANDER_INSET,
+        ARENA.width - WANDER_INSET,
+      );
+      this.targetY = clamp(
+        z.y + Math.sin(heading) * leg,
+        WANDER_INSET,
+        ARENA.height - WANDER_INSET,
+      );
       this.retargetIn = rand(ai.retargetIntervalMin, ai.retargetIntervalMax);
       tx = this.targetX - z.x;
       ty = this.targetY - z.y;
@@ -103,14 +113,17 @@ export class ZombieBrain {
     let vx = tx / td;
     let vy = ty / td;
 
-    // Loose herding: lean toward the neighbours' centre and share their heading.
+    // Loose herding: lean toward the neighbours' centre and share their heading. Cohesion fades as the
+    // zombie gets crowded, otherwise a few hundred wanderers pull themselves into a single clump.
     if (this.herdCount > 0) {
       const inv = 1 / this.herdCount;
       const cx = this.herdX * inv - z.x;
       const cy = this.herdY * inv - z.y;
       const cd = Math.hypot(cx, cy) || 1;
-      vx += (cx / cd) * ai.herdCohesion + this.herdCos * inv * ai.herdAlignment;
-      vy += (cy / cd) * ai.herdCohesion + this.herdSin * inv * ai.herdAlignment;
+      const cohesion =
+        ai.herdCohesion * Math.max(0, 1 - this.herdCount / ai.herdCrowdLimit);
+      vx += (cx / cd) * cohesion + this.herdCos * inv * ai.herdAlignment;
+      vy += (cy / cd) * cohesion + this.herdSin * inv * ai.herdAlignment;
       this.clearHerd();
     }
 
@@ -141,3 +154,6 @@ function turnToward(
   turn = Math.atan2(Math.sin(turn), Math.cos(turn));
   z.facing += turn * Math.min(1, dt * rate);
 }
+
+const clamp = (v: number, lo: number, hi: number): number =>
+  Math.min(hi, Math.max(lo, v));

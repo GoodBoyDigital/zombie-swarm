@@ -114,7 +114,10 @@ export class Game {
     if (this.hudTimer > 0) return;
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
-    this.hud.text = `kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   music [1-3, 0 off]: ${theme}`;
+    const ai = aiDebug.enabled
+      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}`
+      : "";
+    this.hud.text = `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [1-3, 0 off]: ${theme}`;
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

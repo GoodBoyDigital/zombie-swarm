@@ -39,6 +39,8 @@ export class Horde {
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
+  /** How many of the living are still wandering, for the debug HUD. */
+  wandering = 0;
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
   private readonly pool: Zombie[] = [];
   private elapsed = 0;
@@ -70,9 +72,11 @@ export class Horde {
     for (const z of this.alive) this.hash.insert(z);
     this.separate();
     this.pushOutOfPlayer(playerX, playerY, playerRadius);
+    this.wandering = 0;
     for (const z of this.alive) {
       this.contain(z);
       z.syncSprite();
+      if (z.brain.wandering) this.wandering++;
     }
     this.drawDebug(dt, playerX, playerY);
   }

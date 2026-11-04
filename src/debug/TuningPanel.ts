@@ -3,6 +3,7 @@ import { CASINGS } from "../config/casings";
 import { DROP_RULES, DROPS } from "../config/drops";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
+import { CAMERA } from "../config/camera";
 import { POWERUPS } from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { SPAWN, ZOMBIE_AI } from "../config/zombies";
@@ -40,6 +41,12 @@ const LOOT_RANGES: Ranges = {
   timedSpawnSeconds: { min: 0, max: 120, step: 1 },
   bobHeight: { min: 0, max: 10, step: 0.5 },
   bobSpeed: { min: 0, max: 10, step: 0.1 },
+};
+
+const CAMERA_RANGES: Ranges = {
+  viewHeight: { min: 200, max: 720, step: 10 },
+  followRate: { min: 0.5, max: 20, step: 0.5 },
+  edgeReveal: { min: 0, max: 120, step: 2 },
 };
 
 const ZOMBIE_AI_RANGES: Ranges = {
@@ -253,5 +260,6 @@ export function setupTuning(): TuningPanel {
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
+  panel.add("CAMERA", null, CAMERA, CAMERA_RANGES);
   return panel;
 }

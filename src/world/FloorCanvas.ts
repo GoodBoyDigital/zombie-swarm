@@ -12,8 +12,28 @@ import { profiler } from "../debug/Profiler";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "../fx/textures";
 
 const OUTSIDE_COLOR = 0x000000;
+/** Bullet chips knocked out of the walls: a dark hole with a pale broken rim. */
+const CHIP_HOLE = 0x0d0c0b;
+const CHIP_RIM = 0x6e675e;
+const CHIP_VARIANTS = 4;
+const CHIP_RADIUS = 8;
+/** How far into the wall a chip is centred, px, so it bites the wall face rather than the floor. */
+const CHIP_DEPTH = 10;
+/** Grit stamped on the floor at the foot of the wall per hit. */
+const RUBBLE_BITS = 3;
+const RUBBLE_TINT = 0x57524b;
 const SCORCH_TINT = 0x1c1a16;
 const SCORCH_ALPHA = 0.45;
+
+interface StampOptions {
+  rotation?: number;
+  scale?: number;
+  /** Per-axis scale for streaks; falls back to `scale`. */
+  scaleX?: number;
+  scaleY?: number;
+  tint?: number;
+  alpha?: number;
+}
 
 /**
  * Persistent floor. Splats and corpses are rendered once into a render texture and then forgotten,
@@ -21,7 +41,11 @@ const SCORCH_ALPHA = 0.45;
  */
 export class FloorCanvas {
   readonly view: Sprite;
+  /** Damage on the walls (bullet chips), drawn over the wall art; add it to the world above the arena. */
+  readonly wallView: Sprite;
   private readonly target: RenderTexture;
+  private readonly wallTarget: RenderTexture;
+  private readonly chips: Texture[] = [];
   private readonly stamp = new Sprite();
   /** World-space offset of the texture's top-left corner. */
   private readonly origin = -ARENA.margin;
@@ -40,13 +64,80 @@ export class FloorCanvas {
     });
     this.view = new Sprite(this.target);
     this.view.position.set(this.origin, this.origin);
+    this.wallTarget = RenderTexture.create({
+      ...size,
+      resolution: renderer.resolution,
+    });
+    this.wallView = new Sprite(this.wallTarget);
+    this.wallView.position.set(this.origin, this.origin);
     this.stamp.anchor.set(0.5);
     this.paintBase(size.width, size.height, tex);
+    for (let i = 0; i < CHIP_VARIANTS; i++) this.chips.push(this.makeChip());
+  }
+
+  /**
+   * A bullet hit the wall at (x, y), whose inward normal is (nx, ny): knock a chip out of the wall
+   * face and leave a little grit on the floor below it. Both persist.
+   */
+  chipWall(x: number, y: number, nx: number, ny: number): void {
+    const chip = this.chips[Math.floor(Math.random() * this.chips.length)];
+    this.stampTo(
+      this.wallTarget,
+      chip,
+      x - nx * CHIP_DEPTH,
+      y - ny * CHIP_DEPTH,
+      {
+        rotation: Math.random() * Math.PI * 2,
+        scale: 0.9 + Math.random() * 0.5,
+      },
+    );
+    for (let i = 0; i < RUBBLE_BITS; i++) {
+      const out = 4 + Math.random() * 14;
+      const along = (Math.random() - 0.5) * 16;
+      this.stampTexture(
+        this.tex.spark,
+        x + nx * out - ny * along,
+        y + ny * out + nx * along,
+        {
+          rotation: Math.random() * Math.PI * 2,
+          scale: 0.3 + Math.random() * 0.3,
+          tint: RUBBLE_TINT,
+        },
+      );
+    }
+  }
+
+  /** One jagged chip: a dark hole inside a lighter broken rim. */
+  private makeChip(): Texture {
+    const points = (r: number) => {
+      const out: number[] = [];
+      const n = 7 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const d = r * (0.6 + Math.random() * 0.5);
+        out.push(Math.cos(a) * d, Math.sin(a) * d);
+      }
+      return out;
+    };
+    const g = new Graphics()
+      .poly(points(CHIP_RADIUS))
+      .fill(CHIP_RIM)
+      .poly(points(CHIP_RADIUS * 0.65))
+      .fill(CHIP_HOLE);
+    const texture = this.renderer.generateTexture({
+      target: g,
+      antialias: true,
+      resolution: this.renderer.resolution,
+    });
+    g.destroy();
+    return texture;
   }
 
   /** Free the render texture. The view is destroyed with the world. */
   destroy(): void {
     this.target.destroy(true);
+    this.wallTarget.destroy(true);
+    for (const chip of this.chips) chip.destroy(true);
   }
 
   /** Burn a texture into the floor at a world position. */
@@ -54,15 +145,17 @@ export class FloorCanvas {
     texture: Texture,
     x: number,
     y: number,
-    opts: {
-      rotation?: number;
-      scale?: number;
-      /** Per-axis scale for streaks; falls back to `scale`. */
-      scaleX?: number;
-      scaleY?: number;
-      tint?: number;
-      alpha?: number;
-    } = {},
+    opts: StampOptions = {},
+  ): void {
+    this.stampTo(this.target, texture, x, y, opts);
+  }
+
+  private stampTo(
+    target: RenderTexture,
+    texture: Texture,
+    x: number,
+    y: number,
+    opts: StampOptions = {},
   ): void {
     this.stamp.texture = texture;
     this.stamp.position.set(x - this.origin, y - this.origin);
@@ -72,11 +165,7 @@ export class FloorCanvas {
     this.stamp.tint = opts.tint ?? 0xffffff;
     this.stamp.alpha = opts.alpha ?? 1;
     const t0 = performance.now();
-    this.renderer.render({
-      container: this.stamp,
-      target: this.target,
-      clear: false,
-    });
+    this.renderer.render({ container: this.stamp, target, clear: false });
     // Stamps run inside horde, corpse and casing updates, so this time is also inside theirs.
     profiler.add("floor", performance.now() - t0);
   }

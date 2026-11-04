@@ -51,6 +51,11 @@ const HOT_TRACER = 0xff5a1f;
 /** How much thicker the whole power-mode tracer (glow and core) is drawn. */
 const HOT_TRACER_THICKNESS = 3;
 
+/** Wall chips and dust thrown off a bullet impact: chunk count, then colours. */
+const WALL_DEBRIS = 9;
+const WALL_CHUNK = 0x4a4540;
+const WALL_DUST = 0xb8b0a2;
+
 /** Fireball, chunks and embers thrown out by a blast. */
 const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
 
@@ -219,6 +224,40 @@ export class Effects {
   }
 
   /** Blood spray leaving a hit point, biased along the shot direction. */
+  /**
+   * A bullet striking a wall: chips of wall and dust kicked back off the face, bouncing off the
+   * surface rather than carrying on with the shot.
+   */
+  wallDebris(
+    x: number,
+    y: number,
+    dirX: number,
+    dirY: number,
+    nx: number,
+    ny: number,
+  ): void {
+    // Reflect the shot off the wall face, then spray around that.
+    const dot = dirX * nx + dirY * ny;
+    const rx = dirX - 2 * dot * nx;
+    const ry = dirY - 2 * dot * ny;
+    const out = Math.atan2(ry, rx);
+    for (let i = 0; i < WALL_DEBRIS; i++) {
+      const chunk = i % 3 !== 0;
+      const p = this.spawn("spark", this.tex.spark, rand(0.2, 0.45));
+      const a = out + rand(-1.1, 1.1);
+      const speed = chunk ? rand(140, 360) : rand(60, 150);
+      p.vx = Math.cos(a) * speed;
+      p.vy = Math.sin(a) * speed;
+      p.sprite.anchor.set(0.5);
+      p.sprite.position.set(x, y);
+      p.sprite.rotation = rand(0, Math.PI * 2);
+      const s = chunk ? rand(0.9, 1.6) : rand(1.6, 2.6);
+      p.sprite.scale.set(s, s * rand(0.7, 1));
+      p.sprite.tint = chunk ? WALL_CHUNK : WALL_DUST;
+      p.sprite.alpha = 1;
+    }
+  }
+
   bloodBurst(
     x: number,
     y: number,

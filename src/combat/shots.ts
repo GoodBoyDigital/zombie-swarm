@@ -1,3 +1,4 @@
+import { wallHit } from "../world/walls";
 import type { WeaponDef } from "../config/weapons";
 import type { CombatContext } from "./CombatContext";
 import { rocket } from "./rocket";
@@ -22,19 +23,26 @@ export interface ShotHandler {
 
 const hitscan: ShotHandler = {
   fire(ctx, def, ox, oy, dirX, dirY) {
+    // Walls are solid: nothing past them can be hit, and the line ends on the wall.
+    const wall = wallHit(ox, oy, dirX, dirY);
+    const range = wall ? Math.min(def.range, wall.t) : def.range;
     const hits = raycastZombies(
       ctx.horde.hash,
       ox,
       oy,
       dirX,
       dirY,
-      def.range,
+      range,
       def.pierce,
     );
     // The tracer stops at the zombie that absorbed the shot; a piercing shot carries on through.
     const stoppedBy = hits.length >= def.pierce ? hits[hits.length - 1] : null;
-    const endX = stoppedBy ? stoppedBy.x : ox + dirX * def.range;
-    const endY = stoppedBy ? stoppedBy.y : oy + dirY * def.range;
+    const endX = stoppedBy ? stoppedBy.x : ox + dirX * range;
+    const endY = stoppedBy ? stoppedBy.y : oy + dirY * range;
+    if (!stoppedBy && wall && wall.t <= def.range) {
+      ctx.fx.wallDebris(wall.x, wall.y, dirX, dirY, wall.nx, wall.ny);
+      ctx.floor.chipWall(wall.x, wall.y, wall.nx, wall.ny);
+    }
     if (def.beam === "rail") {
       ctx.fx.railBeam(ox, oy, endX, endY, hits);
       ctx.floor.railScorch(ox, oy, endX, endY);

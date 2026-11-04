@@ -151,6 +151,7 @@ export class Game {
     this.world.addChild(
       this.floor.view,
       this.arena.view,
+      this.floor.wallView,
       this.horde.corpses.view,
       this.loot.view,
       this.powerupGround,

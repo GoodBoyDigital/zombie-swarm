@@ -62,14 +62,14 @@ export const ZOMBIES = {
       anchor: { x: 0.25, y: 0.5 },
     },
     radius: 12,
-    speed: 40,
-    speedVariance: 12,
+    speed: 34,
+    speedVariance: 10,
     health: 3,
     knockbackScale: 1,
     mass: 1,
     color: 0xffffff,
-    // Wander share raised so wandering stays near its old ~30 px/s while the chase got slower.
-    ai: { wanderSpeedScale: 0.75 },
+    // Wander share raised so wandering stays near ~30 px/s while the chase got slower.
+    ai: { wanderSpeedScale: 0.88 },
     groans: ["groan1", "groan2"],
     voicePitch: 1,
     lootScale: 1,
@@ -84,8 +84,8 @@ export const ZOMBIES = {
       anchor: { x: 0.18, y: 0.5 },
     },
     radius: 10,
-    speed: 170,
-    speedVariance: 25,
+    speed: 85,
+    speedVariance: 12,
     health: 2,
     knockbackScale: 1.4,
     mass: 0.6,
@@ -114,7 +114,7 @@ export const ZOMBIES = {
       anchor: { x: 0.27, y: 0.5 },
     },
     radius: 20,
-    speed: 45,
+    speed: 40,
     speedVariance: 8,
     health: 15,
     knockbackScale: 0.25,
@@ -196,6 +196,15 @@ export const ZOMBIE_AI = {
   chaseTurnRate: 8,
   /** Hard cap on turning, radians/s, so the sprite never visibly snaps whatever the steering asks for. */
   maxTurnRate: 6,
+  /**
+   * Zombies lumber: away from the player, turning is capped at this, radians/s, so they swing round
+   * in wide arcs instead of pivoting on the spot. Applies to wandering and to distant chasers.
+   */
+  farMaxTurnRate: 1.2,
+  /** Within this distance of the player a chaser turns at the full `maxTurnRate` to face them, px. */
+  faceRadius: 80,
+  /** Distance beyond `faceRadius` over which the turn cap blends from full back down to the far cap, px. */
+  faceBlend: 80,
   /**
    * Gait. Forward speed pulses once per step so zombies lurch rather than glide: 0 = constant velocity,
    * 1 = a full stall between pushes. The average over a step always equals the def speed.

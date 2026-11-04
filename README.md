@@ -24,7 +24,7 @@ npm run dev     # opens http://localhost:8080
 | Floor | `src/world/FloorCanvas.ts` | Persistent render texture. Corpses and blood are stamped in and forgotten. |
 | Player | `src/entities/Player.ts` | Movement, aim, recoil, gun kick. |
 | Horde | `src/entities/Horde.ts` | Pooling, gate spawning, crowd separation, wall containment, death stamping. |
-| Zombie | `src/entities/Zombie.ts` | Movement, knockback, hit flash. Per-instance state only. |
+| Zombie | `src/entities/Zombie.ts` | Movement, knockback, hit flash. Per-instance state only; type data comes from its `ZombieDef`. |
 | Brain | `src/entities/ZombieBrain.ts` | Wander/chase per zombie: random-walk wandering with loose herding, aggro radius, gunshot noise, reaction delay. Tunables in `ZOMBIE_AI`. |
 | Hitscan | `src/combat/raycast.ts` | Ray vs zombie circles through the spatial hash, nearest first, capped by `pierce`. |
 | Weapon | `src/combat/Weapon.ts` | Fire timing, applies hits and triggers feel effects. |
@@ -41,8 +41,13 @@ Character art is 8-bit pixel art generated with the "Zombie Swarm 8-bit" Style P
 magick concepts/foo.png -trim +repage -filter Point -resize 44x public/sprites/foo.png
 ```
 
-Pick the width so the character's body matches its collision radius (walker is 44 px wide for radius 12,
-player 36 px for radius 14). Anchors and the player's hand point are fractions of the sprite set in
+Pick the width so the character's head is about twice its collision radius (walker 44 px wide for radius 12,
+runner 64 for radius 10, brute 96 for radius 20, player 36 px for radius 14). Each zombie type needs three files
+named by its `art.key`: `zombie-<key>.png`, `zombie-<key>-corpse.png` and a white hit-flash silhouette made with
+
+```sh
+magick public/sprites/zombie-foo.png -channel RGB -fill white -colorize 100 +channel public/sprites/zombie-foo-flash.png
+``` Anchors and the player's hand point are fractions of the sprite set in
 `src/config/zombies.ts` and `src/entities/Player.ts`.
 
 Characters are drawn without weapons, hands empty and reaching forward. Each weapon is its own sprite
@@ -59,6 +64,6 @@ magick in.png -fuzz 18% -transparent "#FF00FF" -channel RGB -fx "(r>0.35&&b>0.35
 
 ## Adding things
 
-- **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts`, then pick it in `Horde.spawnWave`. Behaviour variations go in `ZombieBrain.steer`; the numbers live in `ZOMBIE_AI`.
+- **Zombie type**: add an entry to `ZOMBIES` in `src/config/zombies.ts` (art key, radius, speed, health, mass, brain overrides, groans) and give it a column in `SPAWN_TABLE`, which ramps the mix by elapsed time. Behaviour lives in `ZombieBrain.steer`; shared numbers in `ZOMBIE_AI`.
 - **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies.
 - **Power-ups**: not started. Planned as timed modifiers over the player and weapon defs.

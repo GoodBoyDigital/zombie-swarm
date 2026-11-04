@@ -3,6 +3,7 @@ import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import { WEAPONS } from "./config/weapons";
 import { Input } from "./core/Input";
+import { pick } from "./core/random";
 import { Horde } from "./entities/Horde";
 import { Player } from "./entities/Player";
 import { aiDebug } from "./entities/ZombieBrain";
@@ -130,9 +131,9 @@ export class Game {
     const dist = Math.hypot(z.x - this.player.x, z.y - this.player.y);
     const volume = Math.max(0, 1 - dist / 700) * 0.5;
     if (volume <= 0.02) return;
-    this.audio.play(Math.random() < 0.5 ? "groan1" : "groan2", {
+    this.audio.play(pick(z.def.groans), {
       volume,
-      pitch: 0.8 + Math.random() * 0.4,
+      pitch: (0.8 + Math.random() * 0.4) * z.def.voicePitch,
     });
   }
 }

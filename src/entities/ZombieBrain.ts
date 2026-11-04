@@ -1,5 +1,5 @@
 import { ARENA } from "../config/arena";
-import { ZOMBIE_AI } from "../config/zombies";
+import { ZOMBIE_AI, type ZombieDef } from "../config/zombies";
 import { rand } from "../core/random";
 import type { Zombie } from "./Zombie";
 
@@ -27,6 +27,7 @@ const RESUME_SPREAD = 0.5;
  */
 export class ZombieBrain {
   mode: ZombieMode = "wander";
+  private def!: ZombieDef;
   private targetX = 0;
   private targetY = 0;
   private retargetIn = 0;
@@ -47,7 +48,8 @@ export class ZombieBrain {
   herdCos = 0;
   herdSin = 0;
 
-  reset(): void {
+  reset(def: ZombieDef): void {
+    this.def = def;
     this.mode = "wander";
     this.retargetIn = 0;
     this.reactIn = -1;
@@ -78,8 +80,8 @@ export class ZombieBrain {
     }
     if (this.reactIn < 0)
       this.reactIn = rand(
-        ZOMBIE_AI.reactionDelayMin,
-        ZOMBIE_AI.reactionDelayMax,
+        this.def.ai.reactionDelayMin ?? ZOMBIE_AI.reactionDelayMin,
+        this.def.ai.reactionDelayMax ?? ZOMBIE_AI.reactionDelayMax,
       );
   }
 
@@ -102,8 +104,8 @@ export class ZombieBrain {
     const px = playerX - z.x;
     const py = playerY - z.y;
     const playerDist2 = px * px + py * py;
-    if (this.mode === "wander" && playerDist2 < ai.aggroRadius * ai.aggroRadius)
-      this.alert();
+    const aggro = this.def.ai.aggroRadius ?? ai.aggroRadius;
+    if (this.mode === "wander" && playerDist2 < aggro * aggro) this.alert();
 
     // Still in the gate corridor: head for the entry point whatever the mood.
     if (!z.entered) {
@@ -118,7 +120,8 @@ export class ZombieBrain {
     }
 
     if (this.mode === "chase") {
-      if (playerDist2 < ai.loseRadius * ai.loseRadius) this.sinceContact = 0;
+      const lose = this.def.ai.loseRadius ?? ai.loseRadius;
+      if (playerDist2 < lose * lose) this.sinceContact = 0;
       else this.sinceContact += dt;
       if (this.sinceContact > this.loseAfter) {
         this.mode = "wander";
@@ -168,7 +171,7 @@ export class ZombieBrain {
     this.drift +=
       (this.driftTarget - this.drift) * Math.min(1, dt * DRIFT_EASE);
     z.facing += this.drift * dt;
-    return z.speed * ai.wanderSpeedScale;
+    return z.speed * (this.def.ai.wanderSpeedScale ?? ai.wanderSpeedScale);
   }
 
   /** Start a new wander leg in the given direction, clamped inside the arena. */

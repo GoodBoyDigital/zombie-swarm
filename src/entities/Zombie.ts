@@ -1,11 +1,7 @@
-import { Sprite, type Texture } from "pixi.js";
-import {
-  KNOCKBACK_DRAG,
-  ZOMBIE_SPRITE_ANCHOR,
-  ZOMBIE_SPRITE_RADIUS,
-  type ZombieDef,
-} from "../config/zombies";
+import { Sprite } from "pixi.js";
+import { KNOCKBACK_DRAG, type ZombieDef } from "../config/zombies";
 import { rand } from "../core/random";
+import type { GameTextures, ZombieTextures } from "../fx/textures";
 import type { Gate } from "../world/Arena";
 import { aiDebug, ZombieBrain } from "./ZombieBrain";
 
@@ -32,22 +28,19 @@ export class Zombie {
   private losingTint = 0xffffff;
   private flash = 0;
   readonly brain = new ZombieBrain();
+  /** Sprite set for the current def; the pool is shared across types so it's picked at spawn. */
+  private art!: ZombieTextures;
   gate!: Gate;
   /** Set once the zombie has fully crossed its gate; from then on walls contain it. */
   entered = false;
   /** Killed this frame. Ignored by raycasts and crowding until the horde releases it. */
   dead = false;
 
-  constructor(
-    private readonly texture: Texture,
-    private readonly flashTexture: Texture,
-  ) {
-    this.sprite.texture = texture;
-    this.sprite.anchor.set(ZOMBIE_SPRITE_ANCHOR.x, ZOMBIE_SPRITE_ANCHOR.y);
-  }
+  constructor(private readonly tex: GameTextures) {}
 
   spawn(def: ZombieDef, gate: Gate): void {
     this.def = def;
+    this.art = this.tex.zombies[def.art.key];
     this.gate = gate;
     this.entered = false;
     this.dead = false;
@@ -65,9 +58,10 @@ export class Zombie {
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
     this.sprite.tint = this.tint;
-    this.brain.reset();
-    this.sprite.texture = this.texture;
-    this.sprite.scale.set(def.radius / ZOMBIE_SPRITE_RADIUS);
+    this.brain.reset(def);
+    this.sprite.texture = this.art.body;
+    this.sprite.anchor.set(def.art.anchor.x, def.art.anchor.y);
+    this.sprite.scale.set(def.radius / def.art.radius);
     this.sprite.visible = true;
   }
 
@@ -98,7 +92,7 @@ export class Zombie {
 
     if (this.flash > 0) {
       this.flash -= dt;
-      this.sprite.texture = this.flash > 0 ? this.flashTexture : this.texture;
+      this.sprite.texture = this.flash > 0 ? this.art.flash : this.art.body;
     }
     const flashing = this.flash > 0;
     const tint = flashing ? 0xffffff : this.debugTint();

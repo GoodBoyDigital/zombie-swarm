@@ -1,3 +1,4 @@
+import { assetUrl } from "../core/assetUrl";
 import {
   Assets,
   Container,
@@ -139,7 +140,7 @@ export async function createTextures(
   const loaded = (await Assets.load<Texture>(
     urls.map((src) => ({
       alias: src,
-      src,
+      src: assetUrl(src),
       data: { resolution: ART_RESOLUTION, scaleMode: SCALE_MODE },
     })),
   )) as unknown as Record<string, Texture>;

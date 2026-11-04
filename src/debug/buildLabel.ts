@@ -5,6 +5,7 @@
  * Unset means the main branch.
  */
 export function applyBuildLabel(): void {
+  if (!import.meta.env.DEV && !import.meta.env.VITE_BUILD_LABEL) return;
   const label = import.meta.env.VITE_BUILD_LABEL || "main";
   document.title = `Zombie Swarm · ${label}`;
   const badge = document.createElement("div");

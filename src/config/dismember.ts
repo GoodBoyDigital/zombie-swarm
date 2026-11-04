@@ -30,10 +30,8 @@ export const DISMEMBER = {
   pieceScale: 1.3,
   /** Blood sparks thrown from an arm stump. */
   spurt: 10,
-  /** A decapitation: one big burst, then the neck pumps for a moment. */
+  /** Blood sparks thrown from the neck on a decapitation. */
   headSpurt: 28,
-  headFountainSeconds: 0.35,
-  headFountainRate: 90,
   /** A head pops this much higher and spins this much faster than an arm. */
   headHopScale: 1.6,
   headSpinScale: 1.8,

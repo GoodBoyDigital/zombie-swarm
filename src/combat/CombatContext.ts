@@ -80,7 +80,7 @@ export class CombatContext {
 
   /**
    * Maybe tear off the part the hit struck: the piece flies along `dir` and the stump spurts.
-   * A head pops off with a fountain from the neck. Returns the severed part's bit, or -1.
+   * A head pops off with a bigger burst from the neck. Returns the severed part's bit, or -1.
    */
   private dismember(
     zombie: Zombie,
@@ -95,19 +95,10 @@ export class CombatContext {
     this.horde.limbs.launch(zombie, bit, dirX, dirY, this.stump);
     zombie.sever(bit);
     const { x, y } = this.stump;
+    // One burst at the moment of the tear; a lingering spray would stay put while the body moves on.
     const head = PART_IDS[bit] === "head";
-    if (head) {
-      this.fx.bloodBurst(x, y, dirX, dirY, DISMEMBER.headSpurt, BLOOD_SPRAY);
-      this.fx.fountain(
-        x,
-        y,
-        dirX,
-        dirY,
-        DISMEMBER.headFountainSeconds,
-        DISMEMBER.headFountainRate,
-        BLOOD_SPRAY,
-      );
-    } else this.fx.bloodBurst(x, y, dirX, dirY, DISMEMBER.spurt, BLOOD_SPRAY);
+    const sparks = head ? DISMEMBER.headSpurt : DISMEMBER.spurt;
+    this.fx.bloodBurst(x, y, dirX, dirY, sparks, BLOOD_SPRAY);
     if (!this.tearSoundPlayed)
       this.audio.play(head ? "zombieHeadPop" : "zombieTear", {
         pitch: rand(0.85, 1.2),

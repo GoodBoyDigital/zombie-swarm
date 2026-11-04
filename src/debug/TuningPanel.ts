@@ -175,8 +175,6 @@ const DISMEMBER_RANGES: Ranges = {
   pieceScale: { min: 0.5, max: 3, step: 0.05 },
   spurt: { min: 0, max: 60, step: 1 },
   headSpurt: { min: 0, max: 80, step: 1 },
-  headFountainSeconds: { min: 0, max: 2, step: 0.05 },
-  headFountainRate: { min: 0, max: 400, step: 5 },
   headHopScale: { min: 0.5, max: 3, step: 0.05 },
   headSpinScale: { min: 0.5, max: 4, step: 0.05 },
   maxLive: { min: 1, max: 300, step: 1 },

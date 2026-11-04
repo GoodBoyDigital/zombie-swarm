@@ -140,7 +140,7 @@ export class Game {
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
     // he gets swamped, then casings and effects. Flying limbs go over the effects so a head stays
-    // readable through its own blood fountain. Power-up orbs sit over all of it so they are never
+    // readable through its own blood spray. Power-up orbs sit over all of it so they are never
     // lost in the crowd, and power-up visuals (bubbles, domes, planes) over the orbs.
     this.world.addChild(
       this.floor.view,

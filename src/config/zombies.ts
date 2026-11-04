@@ -21,8 +21,8 @@ export const ZOMBIES = {
   walker: {
     id: "walker",
     radius: 12,
-    speed: 75,
-    speedVariance: 25,
+    speed: 55,
+    speedVariance: 20,
     health: 3,
     knockbackScale: 1,
     color: 0xffffff,

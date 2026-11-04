@@ -14,7 +14,7 @@ import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
 import { aiDebug } from "./ZombieBrain";
 
-const MAX_ALIVE = 400;
+const MAX_ALIVE = 600;
 const CELL_SIZE = 48;
 /** Spawns per second at the start and after `RAMP_SECONDS` of play. */
 const SPAWN_RATE_START = 3;

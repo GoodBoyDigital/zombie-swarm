@@ -70,6 +70,24 @@ export class Effects {
     }
   }
 
+  /** A ring of glints leaving a pickup point. */
+  sparkle(x: number, y: number, tint: number, count = 6): void {
+    for (let i = 0; i < count; i++) {
+      const p = this.spawn("spark", this.tex.spark, rand(0.15, 0.3));
+      p.sprite.blendMode = "add";
+      const a = rand(0, Math.PI * 2);
+      const speed = rand(90, 220);
+      p.vx = Math.cos(a) * speed;
+      p.vy = Math.sin(a) * speed;
+      p.sprite.anchor.set(0.5);
+      p.sprite.position.set(x, y);
+      p.sprite.rotation = a;
+      p.sprite.scale.set(rand(0.8, 1.4), rand(0.5, 0.8));
+      p.sprite.tint = tint;
+      p.sprite.alpha = 1;
+    }
+  }
+
   update(dt: number): void {
     for (let i = this.live.length - 1; i >= 0; i--) {
       const p = this.live[i];

@@ -1,14 +1,41 @@
 import { Pane, type FolderApi } from "tweakpane";
+import { DROP_RULES, DROPS } from "../config/drops";
+import { LOOT, LOOT_RULES } from "../config/loot";
+import { PLAYER } from "../config/player";
 import { WEAPONS } from "../config/weapons";
 
 /** Slider limits per numeric field. Fields without an entry get a plain number box. */
 type Ranges = Record<string, { min: number; max: number; step?: number }>;
 
+/** A def table (`WEAPONS`) nests one object per entry; a rules object (`LOOT_RULES`) is flat. */
 interface Table {
   exportName: string;
-  typeName: string;
-  defs: Record<string, Record<string, unknown>>;
+  /** Emitted as `satisfies Record<string, T>`; null for flat rule objects. */
+  typeName: string | null;
+  obj: Record<string, unknown>;
 }
+
+const LOOT_RANGES: Ranges = {
+  value: { min: 1, max: 100, step: 1 },
+  weight: { min: 0, max: 100, step: 1 },
+  burstMin: { min: 0, max: 12, step: 1 },
+  burstMax: { min: 0, max: 12, step: 1 },
+  scatterMin: { min: 0, max: 600, step: 10 },
+  scatterMax: { min: 0, max: 600, step: 10 },
+  friction: { min: 0.5, max: 20, step: 0.1 },
+  hopMin: { min: 0, max: 500, step: 10 },
+  hopMax: { min: 0, max: 500, step: 10 },
+  lifetime: { min: 1, max: 120, step: 1 },
+  blinkSeconds: { min: 0, max: 10, step: 0.5 },
+  maxItems: { min: 100, max: 10000, step: 100 },
+  magnetRadius: { min: 0, max: 400, step: 5 },
+  magnetPull: { min: 0, max: 3000, step: 10 },
+  collectRadius: { min: 0, max: 60, step: 1 },
+  chancePerKill: { min: 0, max: 1, step: 0.005 },
+  timedSpawnSeconds: { min: 0, max: 120, step: 1 },
+  bobHeight: { min: 0, max: 10, step: 0.5 },
+  bobSpeed: { min: 0, max: 10, step: 0.1 },
+};
 
 const WEAPON_RANGES: Ranges = {
   pellets: { min: 1, max: 24, step: 1 },
@@ -41,21 +68,24 @@ export class TuningPanel {
     });
   }
 
-  addTable<T extends Record<string, Record<string, unknown>>>(
+  add(
     exportName: string,
-    typeName: string,
-    defs: T,
+    typeName: string | null,
+    obj: Record<string, unknown>,
     ranges: Ranges,
   ): void {
-    this.tables.push({ exportName, typeName, defs });
+    const table = { exportName, typeName, obj };
+    this.tables.push(table);
     const folder = this.pane.addFolder({ title: exportName, expanded: false });
-    for (const [key, def] of Object.entries(defs)) {
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value !== "object" || value === null) continue;
       const sub = folder.addFolder({ title: key, expanded: false });
-      this.bindNumbers(sub, def, ranges);
+      this.bindNumbers(sub, value as Record<string, unknown>, ranges);
     }
+    this.bindNumbers(folder, obj, ranges);
     folder
       .addButton({ title: `Copy ${exportName} as source` })
-      .on("click", () => this.copy(this.tables[this.tables.length - 1]));
+      .on("click", () => this.copy(table));
     if (this.tables.length === 1)
       this.pane.addBinding(this.status, "copied", { readonly: true });
   }
@@ -112,15 +142,21 @@ export class TuningPanel {
 }
 
 /** Mirror the hand-written shape of src/config/*.ts, including Infinity, which JSON cannot carry. */
-function toSource({ exportName, typeName, defs }: Table): string {
+function toSource({ exportName, typeName, obj }: Table): string {
   const lines = [`export const ${exportName} = {`];
-  for (const [key, def] of Object.entries(defs)) {
-    lines.push(`  ${key}: {`);
-    for (const [field, value] of Object.entries(def))
-      lines.push(`    ${field}: ${literal(value)},`);
-    lines.push("  },");
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === "object" && value !== null) {
+      lines.push(`  ${key}: {`);
+      for (const [field, v] of Object.entries(value))
+        lines.push(`    ${field}: ${literal(v)},`);
+      lines.push("  },");
+    } else lines.push(`  ${key}: ${literal(value)},`);
   }
-  lines.push(`} as const satisfies Record<string, ${typeName}>;`);
+  lines.push(
+    typeName
+      ? `} as const satisfies Record<string, ${typeName}>;`
+      : "} as const;",
+  );
   return lines.join("\n") + "\n";
 }
 
@@ -132,6 +168,11 @@ function literal(value: unknown): string {
 
 export function setupTuning(): TuningPanel {
   const panel = new TuningPanel();
-  panel.addTable("WEAPONS", "WeaponDef", WEAPONS, WEAPON_RANGES);
+  panel.add("WEAPONS", "WeaponDef", WEAPONS, WEAPON_RANGES);
+  panel.add("LOOT", "LootDef", LOOT, LOOT_RANGES);
+  panel.add("LOOT_RULES", null, LOOT_RULES, LOOT_RANGES);
+  panel.add("PLAYER", null, PLAYER, LOOT_RANGES);
+  panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
+  panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   return panel;
 }

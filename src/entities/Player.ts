@@ -21,6 +21,8 @@ const SPRITE = {
 export class Player {
   readonly view = new Container();
   readonly radius = 14;
+  /** Multiplies the loot vacuum radius and pull from `PLAYER`. A magnet power-up raises it. */
+  magnetScale = 1;
   x: number;
   y: number;
   private vx = 0;

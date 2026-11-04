@@ -29,6 +29,8 @@ export class Horde {
   /** Bodies still sliding. Drawn under the living so the crowd walks over them. */
   readonly corpses: Corpses;
   kills = 0;
+  /** Called with the body's position on every kill, before the body is released. */
+  onKill: ((x: number, y: number) => void) | null = null;
   private readonly pool: Zombie[] = [];
   private elapsed = 0;
   private spawnDebt = 0;
@@ -88,6 +90,7 @@ export class Horde {
   /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
   kill(z: Zombie): void {
     this.kills++;
+    this.onKill?.(z.x, z.y);
     this.corpses.spawn(
       z.x,
       z.y,

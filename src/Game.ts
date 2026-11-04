@@ -1,10 +1,13 @@
 import { Application, Container, Text } from "pixi.js";
 import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
+import type { DropDef } from "./config/drops";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { setupTuning } from "./debug/TuningPanel";
+import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
+import { Loot } from "./entities/Loot";
 import { Player } from "./entities/Player";
 import { Weapon } from "./combat/Weapon";
 import { Camera } from "./fx/Camera";
@@ -38,6 +41,8 @@ export class Game {
   private readonly horde: Horde;
   private readonly fx: Effects;
   private readonly casings: Casings;
+  private readonly loot: Loot;
+  private readonly drops: Drops;
   private readonly weapon: Weapon;
   private readonly hud: Text;
   private hudTimer = 0;
@@ -57,6 +62,14 @@ export class Game {
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
+    this.loot = new Loot(tex, this.fx, this.audio);
+    this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
+      this.collectDrop(def),
+    );
+    this.horde.onKill = (x, y) => {
+      this.loot.burst(x, y);
+      this.drops.onKill(x, y);
+    };
     this.weapon = new Weapon(
       this.player,
       this.horde,
@@ -79,6 +92,8 @@ export class Game {
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
+      this.loot.view,
+      this.drops.view,
       this.player.view,
       this.horde.view,
       this.casings.view,
@@ -107,6 +122,11 @@ export class Game {
     this.weapon.equip(id);
   }
 
+  private collectDrop(def: DropDef): void {
+    if (def.kind === "weapon") this.equip(def.weapon);
+    // Power-ups: timed modifiers over the player and weapon defs, not built yet.
+  }
+
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
     if (e.code === "KeyR") this.weapon.reload();
@@ -123,6 +143,8 @@ export class Game {
     this.player.update(dt, this.input, this.camera, this.arena);
     this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
     this.weapon.update(dt, this.input.firing);
+    this.loot.update(dt, this.player);
+    this.drops.update(dt, this.player);
     this.fx.update(dt);
     this.casings.update(dt);
     this.camera.update(dt);
@@ -137,6 +159,7 @@ export class Game {
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-5 weapon, R reload]\n` +
+      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
       `kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 

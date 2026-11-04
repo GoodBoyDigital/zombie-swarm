@@ -1,5 +1,15 @@
-import { Assets, Graphics, type Renderer, type Texture } from "pixi.js";
+import {
+  Assets,
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Texture,
+  type Renderer,
+} from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
+import type { LootId } from "../config/loot";
+import type { WeaponId } from "../config/weapons";
 import { rand } from "../core/random";
 
 export interface GameTextures {
@@ -14,6 +24,10 @@ export interface GameTextures {
   casings: Record<CasingId, Texture>;
   /** Repeating ground and wall tiles. */
   tiles: { concrete: Texture; dirt: Texture; wall: Texture };
+  /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
+  loot: Record<LootId, Texture>;
+  crate: Texture;
+  weaponIcons: Record<WeaponId, Texture>;
 }
 
 const SPRITES = {
@@ -25,7 +39,22 @@ const SPRITES = {
   tileConcrete: "/sprites/tile-concrete.png",
   tileDirt: "/sprites/tile-dirt.png",
   tileWall: "/sprites/tile-wall.png",
+  crate: "/sprites/drop-crate.png",
 } as const;
+
+const LOOT_SPRITES: Record<LootId, string> = {
+  coin: "/sprites/loot-coin.png",
+  gem: "/sprites/loot-gem.png",
+  bigGem: "/sprites/loot-big-gem.png",
+};
+
+const ICON_SPRITES: Record<WeaponId, string> = {
+  pistol: "/sprites/icon-pistol.png",
+  rifle: "/sprites/icon-rifle.png",
+  shotgun: "/sprites/icon-shotgun.png",
+  railgun: "/sprites/icon-railgun.png",
+  minigun: "/sprites/icon-minigun.png",
+};
 
 /** Procedural art is rendered at this fraction of world resolution so it reads as chunky pixels. */
 const PIXEL_SCALE = 0.25;
@@ -37,8 +66,18 @@ const PIXEL_SCALE = 0.25;
 export async function createTextures(
   renderer: Renderer,
 ): Promise<GameTextures> {
-  const loaded = await Assets.load<Texture>(Object.values(SPRITES));
+  const loaded = await Assets.load<Texture>([
+    ...Object.values(SPRITES),
+    ...Object.values(LOOT_SPRITES),
+    ...Object.values(ICON_SPRITES),
+  ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
+  const icons = Object.fromEntries(
+    Object.entries(ICON_SPRITES).map(([id, url]) => [
+      id,
+      pixelate(loaded[url]),
+    ]),
+  ) as Record<WeaponId, Texture>;
 
   const make = (g: Graphics) => {
     const texture = renderer.generateTexture({
@@ -91,6 +130,9 @@ export async function createTextures(
   });
 
   return {
+    loot: packAtlas(renderer, LOOT_SPRITES, loaded),
+    crate: sprite("crate"),
+    weaponIcons: icons,
     zombie: sprite("zombie"),
     zombieFlash: sprite("zombieFlash"),
     zombieCorpse: sprite("zombieCorpse"),
@@ -105,6 +147,36 @@ export async function createTextures(
       wall: sprite("tileWall"),
     },
   };
+}
+
+/** Lay separate images side by side in one texture and hand back a frame per key. */
+function packAtlas<K extends string>(
+  renderer: Renderer,
+  urls: Record<K, string>,
+  loaded: Record<string, Texture>,
+): Record<K, Texture> {
+  const sheet = new Container();
+  const frames = {} as Record<K, Rectangle>;
+  let x = 0;
+  for (const key of Object.keys(urls) as K[]) {
+    const s = new Sprite(loaded[urls[key]]);
+    s.x = x;
+    sheet.addChild(s);
+    frames[key] = new Rectangle(x, 0, s.width, s.height);
+    // A gap so nearest sampling never bleeds a neighbour's edge in.
+    x += s.width + 2;
+  }
+  const atlas = renderer.generateTexture({
+    target: sheet,
+    antialias: false,
+    resolution: 1,
+    textureSourceOptions: { scaleMode: "nearest" },
+  });
+  sheet.destroy({ children: true });
+  const out = {} as Record<K, Texture>;
+  for (const key of Object.keys(frames) as K[])
+    out[key] = new Texture({ source: atlas.source, frame: frames[key] });
+  return out;
 }
 
 function pixelate(texture: Texture): Texture {

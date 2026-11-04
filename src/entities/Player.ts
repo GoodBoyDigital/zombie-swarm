@@ -1,4 +1,4 @@
-import { Container, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite } from "pixi.js";
 import { PLAYER } from "../config/player";
 import type { WeaponDef } from "../config/weapons";
 import type { Input } from "../core/Input";
@@ -11,6 +11,16 @@ const ACCEL = 14;
 /** How far the gun jolts back along the barrel on a shot, in px. */
 const GUN_KICK = 4;
 const HURT_FLASH_SECONDS = 0.09;
+/**
+ * Spinning barrels (minigun): dark bands rolling along the barrel cluster, which runs from this
+ * fraction of the sprite's length to the muzzle and covers this share of its height.
+ */
+const BARREL_START = 0.55;
+const BARREL_HEIGHT = 0.5;
+const BARREL_BANDS = 3;
+/** Band passes per second at full spin, and the gun's buzz at full spin in px. */
+const BARREL_SPEED = 14;
+const BARREL_BUZZ = 0.7;
 /**
  * Where things sit in the player sprite, as fractions of its size. The anchor is the torso
  * centre the body rotates around; the hand point is where the two hands meet, and the
@@ -31,6 +41,8 @@ export class Player {
   private sinceHit = Infinity;
   /** Power-up multipliers, set each frame by the game. */
   speedScale = 1;
+  /** How fast the held gun's barrels turn, 0..1, set by the weapon. Only drawn for spin-up guns. */
+  barrelSpin = 0;
   magnetRadiusScale = 1;
   magnetPullScale = 1;
   x: number;
@@ -46,6 +58,13 @@ export class Player {
   /** Torso sprite; power-up visuals copy its texture and anchor. */
   readonly body: Sprite;
   private readonly gun = new Sprite();
+  /** Rolling bands over a spin-up gun's barrels; hidden for other guns. */
+  private readonly barrels = new Graphics();
+  private barrelPhase = 0;
+  /** Barrel cluster in sprite-local px from the torso centre, before the kick. Set by equip. */
+  private barrelX0 = 0;
+  private barrelX1 = 0;
+  private barrelHalf = 0;
   /** Hand point offset from the torso centre in sprite-local px, before rotation. */
   private readonly handX: number;
   private readonly handY: number;
@@ -67,7 +86,7 @@ export class Player {
     this.handX = (SPRITE.hand.x - SPRITE.anchor.x) * tex.player.width;
     this.handY = (SPRITE.hand.y - SPRITE.anchor.y) * tex.player.height;
     this.gun.position.set(this.handX, this.handY);
-    this.view.addChild(this.body, this.gun);
+    this.view.addChild(this.body, this.gun, this.barrels);
     this.view.position.set(x, y);
   }
 
@@ -81,6 +100,10 @@ export class Player {
     this.muzzleY = this.handY + (muzzle.y - grip.y) * texture.height;
     this.ejectX = this.handX + (eject.x - grip.x) * texture.width;
     this.ejectY = this.handY + (eject.y - grip.y) * texture.height;
+    this.barrels.visible = !!def.spinUp;
+    this.barrelX0 = this.handX + (BARREL_START - grip.x) * texture.width;
+    this.barrelX1 = this.muzzleX;
+    this.barrelHalf = (texture.height * BARREL_HEIGHT) / 2;
   }
 
   /** World position of the gun barrel tip, where shots and flashes originate. */
@@ -189,7 +212,23 @@ export class Player {
 
     this.gunKick *= Math.exp(-dt * 18);
     this.gun.x = this.handX - this.gunKick;
+    this.gun.y = this.handY + (Math.random() - 0.5) * 2 * BARREL_BUZZ * this.barrelSpin;
+    if (this.barrels.visible) this.drawBarrels(dt);
     this.view.position.set(this.x, this.y);
     this.view.rotation = this.aim;
+  }
+
+  /** Dark bands rolling along the barrel cluster, faster and denser as the barrels spin up. */
+  private drawBarrels(dt: number): void {
+    const g = this.barrels.clear();
+    if (this.barrelSpin <= 0) return;
+    this.barrelPhase = (this.barrelPhase + BARREL_SPEED * this.barrelSpin * dt) % 1;
+    const len = this.barrelX1 - this.barrelX0;
+    const kick = this.gunKick;
+    for (let i = 0; i < BARREL_BANDS; i++) {
+      const x = this.barrelX0 - kick + len * ((this.barrelPhase + i / BARREL_BANDS) % 1);
+      g.moveTo(x, this.gun.y - this.barrelHalf).lineTo(x, this.gun.y + this.barrelHalf);
+    }
+    g.stroke({ width: 1.5, color: 0x000000, alpha: 0.45 * this.barrelSpin });
   }
 }

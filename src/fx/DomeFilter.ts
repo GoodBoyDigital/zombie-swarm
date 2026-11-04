@@ -21,7 +21,7 @@ out vec4 finalColor;
 uniform sampler2D uTexture;
 uniform sampler2D uBackTexture;
 uniform sampler2D uNoise;
-uniform vec4 uInputSize;
+uniform highp vec4 uInputSize;
 uniform vec4 uInputClamp;
 
 uniform float uEdge;
@@ -33,7 +33,8 @@ void main() {
     // -1..1 across the filter bounds, which are centred on the dome.
     vec2 rel = vTextureCoord / uInputClamp.zw * 2.0 - 1.0;
     float r = length(rel) / uEdge;
-    float inside = 1.0 - smoothstep(0.8, 1.0, r);
+    // Strongest in a band inside the rim; the middle, where the player stands, stays clean.
+    float inside = smoothstep(0.15, 0.6, r) * (1.0 - smoothstep(0.85, 1.0, r));
     vec2 p = rel * uNoiseScale;
     vec2 n = texture(uNoise, p + vec2(uTime * 0.11, uTime * 0.07)).rg
            + texture(uNoise, p * 1.9 - vec2(uTime * 0.05, uTime * 0.16)).rg - 1.0;

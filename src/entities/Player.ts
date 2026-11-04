@@ -6,7 +6,7 @@ import type { Arena } from "../world/Arena";
 import type { Camera } from "../fx/Camera";
 import type { GameTextures } from "../fx/textures";
 
-const MOVE_SPEED = 189;
+const MOVE_SPEED = 151;
 const ACCEL = 14;
 /** How far the gun jolts back along the barrel on a shot, in px. */
 const GUN_KICK = 4;

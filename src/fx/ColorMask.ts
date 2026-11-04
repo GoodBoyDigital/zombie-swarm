@@ -67,16 +67,16 @@ export class ColorMask implements SpareMask {
     const draw = (container: Container, clear = false, transform = m) =>
       this.renderer.render({ container, target, clear, transform });
 
-    draw(ground, true);
     draw(
       player.view,
-      false,
+      true,
       this.playerTransform
         .identity()
         .rotate(player.aim)
         .translate(player.x, player.y)
         .prepend(m),
     );
+    if (ground.children.length > 0) draw(ground);
     let used = 0;
     // Sprites reach past the body circle (arms out), so look a little wider than it.
     const reach = REACH + MAX_ZOMBIE_RADIUS * 2;

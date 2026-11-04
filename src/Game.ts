@@ -19,6 +19,7 @@ import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
 import { GameOver } from "./ui/GameOver";
 import { HealthBar } from "./ui/HealthBar";
+import { PowerupPills } from "./ui/PowerupPills";
 import { Reticle } from "./ui/Reticle";
 import { Vignette } from "./ui/Vignette";
 import { UI_FONT } from "./ui/font";
@@ -42,6 +43,9 @@ const DEATH_MUSIC_DUCK = 0.25;
 const HUD_TOP = 10;
 const HUD_LEFT = 12;
 const HEALTH_BAR_HEIGHT = 16;
+const HEALTH_BAR_WIDTH = 200;
+/** Gap between the health bar and the first power-up pill's icon disc. */
+const PILLS_GAP = 32;
 /** Where the P key drops a test orb, ahead of the player along his aim. */
 const TEST_DROP_DISTANCE = 90;
 
@@ -71,6 +75,7 @@ export class Game {
   private readonly weapon: Weapon;
   private readonly hud: Text;
   private readonly healthBar = new HealthBar();
+  private readonly pills: PowerupPills;
   private readonly vignette: Vignette;
   private readonly gameOver: GameOver;
   private readonly reticle: Reticle;
@@ -134,19 +139,20 @@ export class Game {
     window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
-    // he gets swamped, with additive effects on top of everything.
+    // he gets swamped, then casings and effects. Power-up orbs sit over all of it so they are never
+    // lost in the crowd, and power-up visuals (bubbles, domes, planes) over the orbs.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
       this.loot.view,
-      this.drops.view,
       this.player.view,
       this.horde.view,
-      this.powerupWorld,
       this.casings.view,
       this.fx.view,
       this.horde.debugView,
+      this.drops.view,
+      this.powerupWorld,
     );
 
     this.hud = new Text({
@@ -168,6 +174,11 @@ export class Game {
     });
     this.hud.position.set(HUD_LEFT, HUD_TOP + HEALTH_BAR_HEIGHT + 6);
     this.healthBar.view.position.set(HUD_LEFT, HUD_TOP);
+    this.pills = new PowerupPills(tex);
+    this.pills.view.position.set(
+      HUD_LEFT + HEALTH_BAR_WIDTH + PILLS_GAP,
+      HUD_TOP + HEALTH_BAR_HEIGHT / 2 + 1,
+    );
     this.vignette = new Vignette(app);
     this.gameOver = new GameOver(app, onRestart);
     this.reticle = new Reticle(this.input);
@@ -176,6 +187,7 @@ export class Game {
       this.vignette.view,
       this.powerupScreen,
       this.healthBar.view,
+      this.pills.view,
       this.hud,
       this.gameOver.view,
       this.reticle.view,
@@ -199,6 +211,7 @@ export class Game {
       this.vignette.view,
       this.powerupScreen,
       this.healthBar.view,
+      this.pills.view,
       this.hud,
       this.gameOver.view,
       this.reticle.view,
@@ -272,6 +285,7 @@ export class Game {
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.healthBar.update(p.health, PLAYER.maxHealth);
+    this.pills.update(this.powerups.active);
     this.reticle.update(dt, this.weapon);
     this.groan(dt);
     profiler.lap("misc");
@@ -281,10 +295,6 @@ export class Game {
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
     const w = this.weapon;
-    const active = this.powerups
-      .timed()
-      .map((a) => `   ${a.def.name.toUpperCase()} ${a.left.toFixed(1)}s`)
-      .join("");
     const ai = aiDebug.enabled
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
       : "";
@@ -294,7 +304,7 @@ export class Game {
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
-      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
+      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
       `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
   }
 

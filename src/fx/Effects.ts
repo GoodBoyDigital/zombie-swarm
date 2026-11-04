@@ -199,12 +199,15 @@ export class Effects {
           p.sprite.alpha = t * t;
           break;
         case "boom": {
-          // Pops to full size in the first quarter of its life, then holds while it fades.
-          const grow = Math.min(1, (1 - t) * 4);
+          // Flat vector: pops to full size in the first quarter of its life, holds, then
+          // collapses solid instead of fading, with only the last sliver going transparent.
+          const u = 1 - t;
+          const grow = 1 - (1 - Math.min(1, u * 4)) ** 2;
+          const shrink = t < 0.45 ? t / 0.45 : 1;
           p.sprite.scale.set(
-            p.size0 + (p.size1 - p.size0) * (1 - (1 - grow) ** 2),
+            (p.size0 + (p.size1 - p.size0) * grow) * (0.15 + 0.85 * shrink),
           );
-          p.sprite.alpha = Math.min(1, t * 2.5);
+          p.sprite.alpha = Math.min(1, t * 6);
           break;
         }
         case "ring": {

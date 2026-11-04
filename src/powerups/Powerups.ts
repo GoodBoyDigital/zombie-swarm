@@ -15,7 +15,7 @@ const effectOf = (def: PowerupDef) =>
  * pickup; instant ones start and end on the spot unless their start keeps them alive for a while.
  */
 export class Powerups {
-  /** In pickup order, so HUD pills don't jump around. */
+  /** In pickup order, so HUD pills don't jump around. Instant ones only while their start keeps them running. */
   readonly active: ActivePowerup[] = [];
 
   constructor(readonly ctx: PowerupContext) {}
@@ -58,10 +58,5 @@ export class Powerups {
       this.active.splice(i--, 1);
       if (a.def.mode === "timed") ctx.audio.play("powerupEnd", { volume: 0.5 });
     }
-  }
-
-  /** Timed ones only: what the HUD shows. */
-  timed(): ActivePowerup[] {
-    return this.active.filter((a) => a.def.mode === "timed");
   }
 }

@@ -39,6 +39,9 @@ export class Horde {
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
+  /** Called on every kill with the body's position and knockback velocity, before it is released. */
+  onKill: ((x: number, y: number, kx: number, ky: number) => void) | null =
+    null;
   /** How many of the living are still wandering, for the debug HUD. */
   wandering = 0;
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
@@ -143,6 +146,7 @@ export class Horde {
   /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
   kill(z: Zombie): void {
     this.kills++;
+    this.onKill?.(z.x, z.y, z.kx, z.ky);
     this.corpses.spawn(
       z.x,
       z.y,

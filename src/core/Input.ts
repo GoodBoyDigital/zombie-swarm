@@ -1,4 +1,5 @@
 import type { Application, FederatedPointerEvent } from "pixi.js";
+import { isTyping } from "../Game";
 
 const MOVE_KEYS: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0],
@@ -20,6 +21,7 @@ export class Input {
 
   constructor(app: Application) {
     window.addEventListener("keydown", (e) => {
+      if (isTyping(e)) return;
       if (e.code in MOVE_KEYS) e.preventDefault();
       this.held.add(e.code);
     });

@@ -6,7 +6,7 @@ import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
  */
 export const DROP_RULES = {
   /** Chance a kill drops a gun while the player only has the pistol: high, so you get armed soon. */
-  weaponChanceOnBackup: 0.05,
+  weaponChanceOnBackup: 0.25,
   /** Chance a kill drops a gun while the player already holds a better one. */
   weaponChanceArmed: 0.008,
   /**
@@ -22,8 +22,6 @@ export const DROP_RULES = {
    */
   maxWeaponsPerAction: 1,
   maxPowerupsPerAction: 1,
-  /** An orb also appears somewhere in the arena this often (a gun while on the pistol, else a power-up); 0 disables it. */
-  timedSpawnSeconds: 25,
   lifetime: 25,
   blinkSeconds: 4,
   /** Orb body radius in world px, outline included. Glow and icon scale with it. */

@@ -14,8 +14,6 @@ import type { GameTextures } from "../fx/textures";
 import type { Arena } from "../world/Arena";
 import type { Player } from "./Player";
 
-/** Keep timed orbs this far inside the walls. */
-const SPAWN_INSET = 80;
 const INK = 0x151a15;
 const OUTLINE = 3;
 /** Widest an icon may get, as a fraction of the orb's inner diameter. */
@@ -43,13 +41,12 @@ interface Drop {
 /**
  * Power-up orbs: a filled circle in the category colour with a dark outline, a soft breathing glow,
  * a slow bob and the power-up's icon. Few exist at once, so each is a pooled Container of
- * Graphics. No vacuum: the player walks over them.
+ * Graphics. No vacuum: the player walks over them. Orbs only ever come from kills.
  */
 export class Drops {
   readonly view = new Container();
   private readonly live: Drop[] = [];
   private readonly pool: Drop[] = [];
-  private timer = DROP_RULES.timedSpawnSeconds;
 
   constructor(
     private readonly tex: GameTextures,
@@ -121,20 +118,6 @@ export class Drops {
   }
 
   update(dt: number, player: Player): void {
-    if (DROP_RULES.timedSpawnSeconds > 0) {
-      this.timer -= dt;
-      if (this.timer <= 0) {
-        this.timer = DROP_RULES.timedSpawnSeconds;
-        const b = this.arena.bounds;
-        this.spawn(
-          this.heldWeapon() === BACKUP_WEAPON && !this.gunWaiting()
-            ? this.pickWeapon()
-            : pickWeighted(POWERUP_DROPS),
-          rand(b.minX + SPAWN_INSET, b.maxX - SPAWN_INSET),
-          rand(b.minY + SPAWN_INSET, b.maxY - SPAWN_INSET),
-        );
-      }
-    }
     const collect = player.radius + DROP_RULES.collectRadius;
     for (let i = this.live.length - 1; i >= 0; i--) {
       const d = this.live[i];

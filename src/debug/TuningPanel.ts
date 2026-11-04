@@ -52,7 +52,6 @@ const LOOT_RANGES: Ranges = {
   powerupChancePerKill: { min: 0, max: 1, step: 0.005 },
   maxWeaponsPerAction: { min: 0, max: 10, step: 1 },
   maxPowerupsPerAction: { min: 0, max: 10, step: 1 },
-  timedSpawnSeconds: { min: 0, max: 120, step: 1 },
   bobHeight: { min: 0, max: 10, step: 0.5 },
   bobSpeed: { min: 0, max: 10, step: 0.1 },
   orbRadius: { min: 8, max: 60, step: 1 },

@@ -17,6 +17,8 @@ export class ShotContext {
   /** Sound throttles: one hit and one death sound per trigger pull, or a shotgun stacks eight copies. */
   hitSoundPlayed = false;
   deathSoundPlayed = false;
+  /** Power-up damage multiplier. */
+  damageScale = 1;
 
   constructor(
     readonly horde: Horde,
@@ -37,7 +39,12 @@ export class ShotContext {
     dirY: number,
     def: WeaponDef,
   ): void {
-    const killed = zombie.hit(def.damage, dirX, dirY, def.knockback);
+    const killed = zombie.hit(
+      def.damage * this.damageScale,
+      dirX,
+      dirY,
+      def.knockback,
+    );
     this.fx.bloodBurst(hitX, hitY, dirX, dirY, killed ? 12 : 6, BLOOD_SPRAY);
     this.horde.splat(hitX, hitY, dirX, dirY);
     if (killed) {

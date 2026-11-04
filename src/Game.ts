@@ -2,6 +2,7 @@ import { Application, Container, Text } from "pixi.js";
 import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import type { DropDef } from "./config/drops";
+import { POWERUPS } from "./config/powerups";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { pick } from "./core/random";
@@ -9,6 +10,7 @@ import { setupTuning } from "./debug/TuningPanel";
 import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
 import { Loot } from "./entities/Loot";
+import { Powerups } from "./entities/Powerups";
 import { Player } from "./entities/Player";
 import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
@@ -46,6 +48,7 @@ export class Game {
   private readonly casings: Casings;
   private readonly loot: Loot;
   private readonly drops: Drops;
+  private readonly powerups: Powerups;
   private readonly weapon: Weapon;
   private readonly hud: Text;
   private readonly reticle: Reticle;
@@ -67,6 +70,7 @@ export class Game {
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
     this.loot = new Loot(tex, this.fx, this.audio);
+    this.powerups = new Powerups(this.audio);
     this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
       this.collectDrop(def),
     );
@@ -130,7 +134,7 @@ export class Game {
 
   private collectDrop(def: DropDef): void {
     if (def.kind === "weapon") this.equip(def.weapon);
-    // Power-ups: timed modifiers over the player and weapon defs, not built yet.
+    else this.powerups.apply(def.powerup);
   }
 
   private hotkey(e: KeyboardEvent): void {
@@ -147,6 +151,13 @@ export class Game {
   }
 
   private step(dt: number): void {
+    this.powerups.update(dt);
+    this.player.speedScale = this.powerups.scale("moveSpeed");
+    this.player.magnetRadiusScale = this.powerups.scale("magnetRadius");
+    this.player.magnetPullScale = this.powerups.scale("magnetPull");
+    this.weapon.fireIntervalScale = this.powerups.scale("fireInterval");
+    this.weapon.spreadScale = this.powerups.scale("spread");
+    this.weapon.damageScale = this.powerups.scale("damage");
     this.player.update(dt, this.input, this.camera, this.arena);
     this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
     this.weapon.update(dt, this.input.firing);
@@ -162,6 +173,11 @@ export class Game {
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
     const w = this.weapon;
+    const active = this.powerups.active
+      .map(
+        (p) => `   ${POWERUPS[p.id].name.toUpperCase()} ${p.left.toFixed(1)}s`,
+      )
+      .join("");
     const ai = aiDebug.enabled
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}`
       : "";
@@ -170,7 +186,7 @@ export class Game {
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
-      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
+      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
       `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 

@@ -68,7 +68,24 @@ export type PowerupDef = PowerupBase &
         screenFlash: number;
         screenFlashSeconds: number;
       })
+    | (Timed & { effect: "shield" } & DomeParams & {
+          /** Outward knockback given to a zombie that walks into the bubble, px/s. */
+          shove: number;
+        })
+    | (Timed & { effect: "portal" } & DomeParams)
   );
+
+/** An electric dome zombies can't enter (shield, safety portal). */
+interface DomeParams {
+  /** World px. */
+  radius: number;
+  /** Seconds for the dome to grow from nothing to full size, shoving zombies out as it goes. */
+  openSeconds: number;
+  /** Final seconds in which the dome flickers to warn it is about to drop. */
+  flickerSeconds: number;
+  /** How far the floor and zombies seen through the dome are displaced, px. */
+  ripple: number;
+}
 
 export type EffectId = PowerupDef["effect"];
 /** The PowerupDef member a given effect handler receives. */
@@ -148,6 +165,35 @@ export const POWERUPS = {
     modifiers: { moveSpeed: 1.4 },
     icon: "/sprites/icon-powerup-speed.png",
     weight: 2,
+  },
+  shield: {
+    id: "shield",
+    name: "Shield",
+    category: "support",
+    mode: "timed",
+    seconds: 8,
+    effect: "shield",
+    radius: 48,
+    shove: 140,
+    openSeconds: 0.2,
+    flickerSeconds: 1.5,
+    ripple: 5,
+    icon: "/sprites/icon-powerup-shield.png",
+    weight: 1.5,
+  },
+  portal: {
+    id: "portal",
+    name: "Safety portal",
+    category: "support",
+    mode: "timed",
+    seconds: 12,
+    effect: "portal",
+    radius: 110,
+    openSeconds: 0.4,
+    flickerSeconds: 1.5,
+    ripple: 7,
+    icon: "/sprites/icon-powerup-portal.png",
+    weight: 1,
   },
   nuke: {
     id: "nuke",

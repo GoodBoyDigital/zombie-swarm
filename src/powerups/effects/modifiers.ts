@@ -1,11 +1,11 @@
-import type { EffectDef, Modifiers } from "../../config/powerups";
-import type { PowerupEffect } from "../PowerupContext";
+import type { Modifiers } from "../../config/powerups";
+import type { PowerupContext } from "../PowerupContext";
 
-/** Timed stat multipliers (magnet, speed). Different ones stack by multiplying. */
-export const modifiers: PowerupEffect<EffectDef<"modifiers">> = {
-  update(ctx, def) {
-    const mods: Partial<Modifiers> = def.modifiers;
-    for (const key of Object.keys(mods) as (keyof Modifiers)[])
-      ctx.modifiers[key] *= mods[key] ?? 1;
-  },
-};
+/** Fold a timed power-up's stat multipliers into this frame's. Different ones stack by multiplying. */
+export function applyModifiers(
+  ctx: PowerupContext,
+  mods: Partial<Modifiers>,
+): void {
+  for (const key of Object.keys(mods) as (keyof Modifiers)[])
+    ctx.modifiers[key] *= mods[key] ?? 1;
+}

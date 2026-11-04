@@ -43,7 +43,8 @@ export class Player {
   /** Facing angle in radians, toward the pointer. */
   aim = 0;
   private gunKick = 0;
-  private readonly body: Sprite;
+  /** Torso sprite; power-up visuals copy its texture and anchor. */
+  readonly body: Sprite;
   private readonly gun = new Sprite();
   /** Hand point offset from the torso centre in sprite-local px, before rotation. */
   private readonly handX: number;

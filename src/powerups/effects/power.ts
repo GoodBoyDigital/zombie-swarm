@@ -1,6 +1,7 @@
 import { Graphics } from "pixi.js";
-import type { EffectDef, Modifiers } from "../../config/powerups";
+import type { EffectDef } from "../../config/powerups";
 import type { PowerupEffect } from "../PowerupContext";
+import { applyModifiers } from "./modifiers";
 
 /** Spokes in the aura's ring; each is a short curved blade, so the spin reads at a glance. */
 const BLADES = 6;
@@ -35,9 +36,7 @@ export const power: PowerupEffect<EffectDef<"power">, Graphics> = {
     active.state = g;
   },
   update(ctx, def, dt, active) {
-    const mods: Partial<Modifiers> = def.modifiers;
-    for (const key of Object.keys(mods) as (keyof Modifiers)[])
-      ctx.modifiers[key] *= mods[key] ?? 1;
+    applyModifiers(ctx, def.modifiers);
     const g = active.state;
     g.position.set(ctx.player.x, ctx.player.y);
     g.rotation += def.auraSpin * Math.PI * 2 * dt;

@@ -64,7 +64,18 @@ interface Instant {
  */
 export type PowerupDef = PowerupBase &
   (
-    | (Timed & { effect: "modifiers"; modifiers: Partial<Modifiers> })
+    | (Timed & {
+        effect: "magnet";
+        modifiers: Partial<Modifiers>;
+        /** Ring on the ground at the pull radius, with ripples sweeping in toward the player. */
+        ringColor: number;
+      })
+    | (Timed & {
+        effect: "speed";
+        modifiers: Partial<Modifiers>;
+        /** Fading afterimages of the player left behind while he moves. */
+        trailColor: number;
+      })
     | (Timed & {
         effect: "power";
         modifiers: Partial<Modifiers>;
@@ -170,8 +181,9 @@ export const POWERUPS = {
     category: "support",
     mode: "timed",
     seconds: 15,
-    effect: "modifiers",
+    effect: "magnet",
     modifiers: { magnetRadius: 200 / PLAYER.magnetRadius, magnetPull: 2 },
+    ringColor: 0xff3fc8,
     icon: "/sprites/icon-powerup-magnet.png",
     weight: 2,
   },
@@ -195,8 +207,9 @@ export const POWERUPS = {
     category: "support",
     mode: "timed",
     seconds: 10,
-    effect: "modifiers",
+    effect: "speed",
     modifiers: { moveSpeed: 1.2 },
+    trailColor: 0x7fd8ff,
     icon: "/sprites/icon-powerup-speed.png",
     weight: 2,
   },

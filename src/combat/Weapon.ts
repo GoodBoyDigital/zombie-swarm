@@ -129,8 +129,9 @@ export class Weapon {
       pitch: rand(0.92, 1.08),
       volume: 0.7,
     });
-    this.shots.fx.muzzleFlash(m.x, m.y, aim);
+    // Recoil first so the flash spawns at the kicked-back tip it will be drawn against.
     this.player.recoil(aimX, aimY, def.recoil);
+    this.shots.fx.muzzleFlash(this.player);
     if (def.casing) {
       const port = this.player.ejectPort();
       this.casings.eject(port.x, port.y, aim, def.casing);

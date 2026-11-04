@@ -8,6 +8,11 @@ export const DROP_RULES = {
   weaponChanceOnBackup: 0.05,
   /** Chance a kill drops a gun while the player already holds a better one. */
   weaponChanceArmed: 0.008,
+  /**
+   * Gun chance is multiplied by this while a gun orb is already lying on the floor, so ignoring
+   * one doesn't fill the arena with more.
+   */
+  weaponChanceWhileWaiting: 0.1,
   /** Chance a kill drops a red or green power-up, rolled independently of guns. */
   powerupChancePerKill: 0.04,
   /**

@@ -77,9 +77,11 @@ export class Drops {
     }
     let dropped = false;
     const onBackup = this.heldWeapon() === BACKUP_WEAPON;
-    const weaponChance = onBackup
-      ? DROP_RULES.weaponChanceOnBackup
-      : DROP_RULES.weaponChanceArmed;
+    const weaponChance =
+      (onBackup
+        ? DROP_RULES.weaponChanceOnBackup
+        : DROP_RULES.weaponChanceArmed) *
+      (this.gunWaiting() ? DROP_RULES.weaponChanceWhileWaiting : 1);
     if (
       this.weaponsThisVolley < DROP_RULES.maxWeaponsPerAction &&
       Math.random() < weaponChance
@@ -97,6 +99,11 @@ export class Drops {
       const nudge = dropped ? DROP_RULES.orbRadius * 2.4 : 0;
       this.spawn(pickWeighted(POWERUP_DROPS), x + nudge, y);
     }
+  }
+
+  /** A gun orb is already lying on the floor. */
+  private gunWaiting(): boolean {
+    return this.live.some((d) => d.def.category === "weapon");
   }
 
   /** A gun other than the one already in hand. */
@@ -120,7 +127,7 @@ export class Drops {
         this.timer = DROP_RULES.timedSpawnSeconds;
         const b = this.arena.bounds;
         this.spawn(
-          this.heldWeapon() === BACKUP_WEAPON
+          this.heldWeapon() === BACKUP_WEAPON && !this.gunWaiting()
             ? this.pickWeapon()
             : pickWeighted(POWERUP_DROPS),
           rand(b.minX + SPAWN_INSET, b.maxX - SPAWN_INSET),

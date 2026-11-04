@@ -1,5 +1,6 @@
 import type { SfxName } from "../audio/Audio";
 import type { ExplosionId } from "./explosions";
+import { PLAYER } from "./player";
 import type { WeaponId } from "./weapons";
 
 /** Blue arms you, green helps you out, red hurts everything around you. */
@@ -156,7 +157,7 @@ export const POWERUPS = {
     mode: "timed",
     seconds: 15,
     effect: "modifiers",
-    modifiers: { magnetRadius: 4, magnetPull: 2 },
+    modifiers: { magnetRadius: 200 / PLAYER.magnetRadius, magnetPull: 2 },
     icon: "/sprites/icon-powerup-magnet.png",
     weight: 2,
   },

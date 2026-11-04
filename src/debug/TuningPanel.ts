@@ -46,6 +46,7 @@ const LOOT_RANGES: Ranges = {
   collectRadius: { min: 0, max: 60, step: 1 },
   weaponChanceOnBackup: { min: 0, max: 1, step: 0.005 },
   weaponChanceArmed: { min: 0, max: 1, step: 0.001 },
+  weaponChanceWhileWaiting: { min: 0, max: 1, step: 0.01 },
   powerupChancePerKill: { min: 0, max: 1, step: 0.005 },
   maxWeaponsPerAction: { min: 0, max: 10, step: 1 },
   maxPowerupsPerAction: { min: 0, max: 10, step: 1 },

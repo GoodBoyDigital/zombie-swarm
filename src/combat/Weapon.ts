@@ -24,6 +24,7 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
   minigun: "shotMinigun",
   magnum: "shotMagnum",
   uzi: "shotUzi",
+  rocket: "rocketLaunch",
 };
 
 /**
@@ -158,14 +159,15 @@ export class Weapon {
       volume: 0.7,
     });
     // Recoil first so the flash spawns at the kicked-back tip it will be drawn against.
-    this.player.recoil(aimX, aimY, def.recoil);
-    this.shots.fx.muzzleFlash(this.player);
+    this.player.recoil(aimX, aimY, def.recoil, def.gunKick);
+    if (!def.beam) this.shots.fx.muzzleFlash(this.player);
     if (def.casing) {
       const port = this.player.ejectPort();
       this.casings.eject(port.x, port.y, aim, def.casing);
     }
     this.camera.addTrauma(def.shake);
-    this.camera.kick(aimX * 3, aimY * 3);
+    const kick = def.cameraKick ?? 3;
+    this.camera.kick(aimX * kick, aimY * kick);
     this.shots.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
     this.shots.beginVolley();

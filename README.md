@@ -30,7 +30,7 @@ Play online: https://goodboydigital.github.io/zombie-swarm/ (rebuilt from `main`
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
 - R: reload, or restart once you are down
-- 1-7: swap weapon (pistol, rifle, shotgun, railgun, minigun, magnum, uzi); R: reload early
+- 1-8: swap weapon (pistol, rifle, shotgun, railgun, minigun, magnum, uzi, rocket launcher); R: reload early
 - F1-F3: music theme, F4: music off
 - Walk over an orb to pick it up: blue is a weapon, green helps you out, red hurts everything around you.
   Coins and gems drift to you when close and count in the HUD.
@@ -108,7 +108,7 @@ from. Weapons are about 30 world px long; a weapon orb shows the held sprite as 
 - **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies. `spread` is the base miss angle; `spreadBloom` grows it per second of held trigger up to `spreadMax`.
 - **Shot type** (rocket, grenade, flame): add the name to `ShotType` and a handler to `SHOT_HANDLERS` in `src/combat/shots.ts`. `fire` launches one pellet; projectile types move and detonate in the optional `update`, then call `ctx.applyHit` for each zombie found with `horde.hash.queryBox` around the impact.
 - **Loot kind**: add an entry to `LOOT` in `src/config/loot.ts` with a `counter`, `value` and `weight`, plus its sprite in `LOOT_SPRITES` (`src/fx/textures.ts`); all loot is packed into one atlas at load.
-- **Explosion**: add an entry to `EXPLOSIONS` in `src/config/explosions.ts` (radius, damage, knockback, falloff, flash, ring, debris, shake, scorch, noise, sound) and call `explode(ctx, x, y, EXPLOSIONS.yours)` with any `CombatContext`: a shot handler's on impact, a power-up's from its `start` or `update`. Damage 0 pushes only; knockback 0 hurts only.
+- **Explosion**: add an entry to `EXPLOSIONS` in `src/config/explosions.ts` (radius, damage, knockback, falloff, flash, ring, debris, shake, scorch, noise, sound) and call `explode(ctx, x, y, EXPLOSIONS.yours)` with any `CombatContext`: a shot handler's on impact, a power-up's from its `start` or `update`. Damage 0 pushes only; knockback 0 hurts only. Optional `visualRadius` keeps the art a different size from damage and knockback.
 - **Power-up**: one `POWERUPS` entry in `src/config/powerups.ts`, one handler file, one icon.
   1. Entry: `id`, `name`, `category` (`weapon` blue, `support` green, `destructive` red), `mode` (`timed` with `seconds`, or `instant`), `icon` (a sprite path; ship it 40 world px wide with `ship.sh ship ... 40 1.5 0.5`), `weight` (drop chance, 0 never drops) and `effect` plus its params. A new effect also adds its member to the `PowerupDef` union in the same file.
   2. Handler: `src/powerups/effects/<effect>.ts` exporting a `PowerupEffect<EffectDef<"yours">, State>` with any of `start(ctx, def, active)`, `update(ctx, def, dt, active)`, `end(ctx, def, active)`, registered in `POWERUP_EFFECTS` (`src/powerups/registry.ts`). Timed: start on first pickup, update each frame, end on expiry; a repeat pickup refreshes the timer. Instant: start on every pickup, then end straight away unless start sets `active.left` to keep running (the nuke does, for its screen flash). Keep per-pickup things in `active.state`.

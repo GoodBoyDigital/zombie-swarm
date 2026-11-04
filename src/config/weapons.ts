@@ -19,6 +19,8 @@ export interface WeaponDef {
   sprite: WeaponSprite;
   /** How a pellet reaches its target. See `SHOT_HANDLERS`. */
   shot: ShotType;
+  /** Custom hitscan visual. Damage and piercing still use the normal raycast. */
+  beam?: "rail";
   /** Shell ejected per trigger pull, or null for weapons that leave nothing behind. */
   casing: CasingId | null;
   /** Raycasts per trigger pull. A shotgun fires several at once. */
@@ -48,6 +50,10 @@ export interface WeaponDef {
   knockback: number;
   /** Impulse applied to the player on each shot, in px/s. */
   recoil: number;
+  /** Camera nudge in world px. Omitted weapons keep the normal 3 px kick. */
+  cameraKick?: number;
+  /** Held sprite kick in world px. Omitted weapons keep the normal 4 px snap. */
+  gunKick?: number;
   /** Max zombies one pellet can hit, nearest first. 1 = stops at the first. Infinity = everything on the line. */
   pierce: number;
   range: number;
@@ -167,7 +173,10 @@ export const WEAPONS = {
     reloadSeconds: 1.26,
     damage: 12,
     knockback: 900,
-    recoil: 320,
+    recoil: 600,
+    cameraKick: 10,
+    gunKick: 12,
+    beam: "rail",
     pierce: Infinity,
     range: 2400,
     shake: 0.7,
@@ -217,13 +226,15 @@ export const WEAPONS = {
     spread: 0,
     spreadBloom: 0,
     spreadMax: 0,
-    fireInterval: 0.45,
+    fireInterval: 0.7,
     magazine: 6,
     magazines: 5,
     reloadSeconds: 0.98,
     damage: 6,
     knockback: 700,
-    recoil: 180,
+    recoil: 420,
+    cameraKick: 7,
+    gunKick: 10,
     pierce: 2,
     range: 1800,
     shake: 0.45,
@@ -242,9 +253,9 @@ export const WEAPONS = {
     shot: "hitscan",
     casing: "pistol",
     pellets: 1,
-    spread: 0.08,
-    spreadBloom: 0.25,
-    spreadMax: 0.18,
+    spread: 0.18,
+    spreadBloom: 0.6,
+    spreadMax: 0.45,
     fireInterval: 0.06,
     magazine: 32,
     magazines: 4,
@@ -257,6 +268,36 @@ export const WEAPONS = {
     shake: 0.1,
     tracerWidth: 2,
     noiseRadius: 380,
+  },
+  rocket: {
+    id: "rocket",
+    name: "Rocket launcher",
+    sprite: {
+      path: "/sprites/weapon-rocket.png",
+      grip: { x: 0.35, y: 0.5 },
+      muzzle: { x: 0.98, y: 0.5 },
+      eject: { x: 0.1, y: 0.5 },
+    },
+    shot: "rocket",
+    casing: null,
+    pellets: 1,
+    spread: 0.015,
+    spreadBloom: 0,
+    spreadMax: 0.015,
+    fireInterval: 0.7,
+    magazine: 4,
+    magazines: 4,
+    reloadSeconds: 1.8,
+    damage: 8,
+    knockback: 650,
+    recoil: 520,
+    cameraKick: 8,
+    gunKick: 12,
+    pierce: 1,
+    range: 1000,
+    shake: 0.4,
+    tracerWidth: 0,
+    noiseRadius: 800,
   },
 } as const satisfies Record<string, WeaponDef>;
 

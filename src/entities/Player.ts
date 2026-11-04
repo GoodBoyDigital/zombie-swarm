@@ -6,9 +6,8 @@ import type { Arena } from "../world/Arena";
 import type { Camera } from "../fx/Camera";
 import type { GameTextures } from "../fx/textures";
 
-const MOVE_SPEED = 270;
+const MOVE_SPEED = 151;
 const ACCEL = 14;
-const RECOIL_DECAY = 22;
 /** How far the gun jolts back along the barrel on a shot, in px. */
 const GUN_KICK = 4;
 const HURT_FLASH_SECONDS = 0.09;
@@ -128,10 +127,15 @@ export class Player {
   }
 
   /** Shove the player opposite the shot and jolt the gun back along the barrel. */
-  recoil(dirX: number, dirY: number, strength: number): void {
+  recoil(
+    dirX: number,
+    dirY: number,
+    strength: number,
+    gunKick = GUN_KICK,
+  ): void {
     this.rx -= dirX * strength;
     this.ry -= dirY * strength;
-    this.gunKick = GUN_KICK;
+    this.gunKick = gunKick;
   }
 
   update(dt: number, input: Input, camera: Camera, arena: Arena): void {
@@ -152,7 +156,7 @@ export class Player {
     this.vy += (axis.y * speed - this.vy) * blend;
     this.x += (this.vx + this.rx) * dt;
     this.y += (this.vy + this.ry) * dt;
-    const settle = Math.exp(-dt * RECOIL_DECAY);
+    const settle = Math.exp(-dt * PLAYER.recoilGrip);
     this.rx *= settle;
     this.ry *= settle;
 

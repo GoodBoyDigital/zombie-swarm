@@ -63,6 +63,7 @@ const LOOT_RANGES: Ranges = {
 const PLAYER_RANGES: Ranges = {
   ...LOOT_RANGES,
   maxHealth: { min: 1, max: 500, step: 1 },
+  recoilGrip: { min: 5, max: 40, step: 0.5 },
   contactDamage: { min: 0, max: 30, step: 0.1 },
   crowdPower: { min: 1, max: 3, step: 0.05 },
   contactMargin: { min: 0, max: 30, step: 1 },
@@ -158,8 +159,7 @@ const SPAWN_RANGES: Ranges = {
 };
 
 const CASING_RANGES: Ranges = {
-  width: { min: 1, max: 20, step: 1 },
-  height: { min: 1, max: 20, step: 1 },
+  width: { min: 1, max: 40, step: 1 },
 };
 
 const DISMEMBER_RANGES: Ranges = {

@@ -8,6 +8,8 @@ import type { SfxName } from "../audio/Audio";
 export interface ExplosionDef {
   /** World px. Zombies whose centre is inside are affected. */
   radius: number;
+  /** Override the art size without changing damage or knockback. Defaults to radius. */
+  visualRadius?: number;
   /** At the centre. 0 = no damage. */
   damage: number;
   /** Push speed at the centre, px/s, scaled by each zombie's knockbackScale. 0 = no push. */
@@ -35,7 +37,8 @@ export interface ExplosionDef {
 
 export const EXPLOSIONS = {
   nuke: {
-    radius: 420,
+    radius: 252,
+    visualRadius: 420,
     damage: 30,
     knockback: 1500,
     falloff: 0.6,
@@ -67,19 +70,19 @@ export const EXPLOSIONS = {
     pitch: 1,
   },
   rocket: {
-    radius: 70,
-    damage: 6,
-    knockback: 500,
-    falloff: 0.5,
+    radius: 90,
+    damage: 8,
+    knockback: 650,
+    falloff: 0.85,
     flash: 0.75,
     ring: 1,
     seconds: 0.4,
-    debris: 12,
+    debris: 18,
     shake: 0.35,
     scorch: 0.6,
     noiseRadius: 400,
     sound: "explosion",
-    volume: 0.55,
+    volume: 0.75,
     pitch: 1.2,
   },
 } as const satisfies Record<string, ExplosionDef>;

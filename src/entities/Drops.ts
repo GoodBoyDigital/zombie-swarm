@@ -55,7 +55,7 @@ export class Drops {
     private readonly tex: GameTextures,
     private readonly arena: Arena,
     private readonly fx: Effects,
-    private readonly onCollect: (def: PowerupDef) => void,
+    private readonly onCollect: (def: PowerupDef, x: number, y: number) => void,
     /** The gun the player holds now, so gun drops know whether he's on the backup pistol. */
     private readonly heldWeapon: () => WeaponId,
   ) {}
@@ -229,7 +229,7 @@ export class Drops {
   private collect(index: number): void {
     const d = this.live[index];
     this.fx.sparkle(d.x, d.y, POWERUP_CATEGORIES[d.def.category].color, 18);
-    this.onCollect(d.def);
+    this.onCollect(d.def, d.x, d.y);
     this.release(index);
   }
 

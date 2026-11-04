@@ -1,9 +1,10 @@
 import type { WeaponDef } from "../config/weapons";
 import type { CombatContext } from "./CombatContext";
+import { rocket } from "./rocket";
 import { raycastZombies } from "./raycast";
 
-/** Only hitscan exists. Rockets, grenades and flames will each add a handler here. */
-export type ShotType = "hitscan";
+/** Each shot type owns how its pellets reach their targets. */
+export type ShotType = "hitscan" | "rocket";
 
 export interface ShotHandler {
   /** Launch one pellet from the muzzle along a unit direction. Called `def.pellets` times per pull. */
@@ -34,7 +35,10 @@ const hitscan: ShotHandler = {
     const stoppedBy = hits.length >= def.pierce ? hits[hits.length - 1] : null;
     const endX = stoppedBy ? stoppedBy.x : ox + dirX * def.range;
     const endY = stoppedBy ? stoppedBy.y : oy + dirY * def.range;
-    ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth, ctx.shotPower);
+    if (def.beam === "rail") {
+      ctx.fx.railBeam(ox, oy, endX, endY, hits);
+      ctx.floor.railScorch(ox, oy, endX, endY);
+    } else ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth, ctx.shotPower);
     for (const hit of hits)
       ctx.applyHit(
         hit.zombie,
@@ -48,4 +52,4 @@ const hitscan: ShotHandler = {
   },
 };
 
-export const SHOT_HANDLERS: Record<ShotType, ShotHandler> = { hitscan };
+export const SHOT_HANDLERS: Record<ShotType, ShotHandler> = { hitscan, rocket };

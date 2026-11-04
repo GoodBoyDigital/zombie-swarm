@@ -1,4 +1,5 @@
-import { Container, Sprite, type Texture } from "pixi.js";
+import { Container, Sprite, TilingSprite, type Texture } from "pixi.js";
+import type { RayHit } from "../combat/raycast";
 import type { ExplosionDef } from "../config/explosions";
 import { pick, rand } from "../core/random";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "./textures";
@@ -19,6 +20,20 @@ interface Particle {
   size0: number;
   size1: number;
 }
+
+interface RailBeam {
+  view: Container;
+  glow: Sprite;
+  halo: Sprite;
+  energy: TilingSprite;
+  core: Sprite;
+  flares: Sprite[];
+  age: number;
+}
+
+const RAIL_FIRST_SECONDS = 0.12;
+const RAIL_SECOND_AT = 0.2;
+const RAIL_SECONDS = 0.35;
 
 /** Anything with a barrel tip the muzzle flash should stay attached to while it fades. */
 export interface MuzzleSource {
@@ -44,6 +59,8 @@ export class Effects {
   readonly view = new Container();
   private readonly live: Particle[] = [];
   private readonly pool: Sprite[] = [];
+  private readonly rails: RailBeam[] = [];
+  private readonly railPool: RailBeam[] = [];
 
   constructor(private readonly tex: GameTextures) {}
 
@@ -98,6 +115,109 @@ export class Effects {
     streak(width * 0.9 * HOT_TRACER_THICKNESS, 0xffffff, 0.1);
   }
 
+  /** Two visual discharges on one fixed shot line. Only the initial hitscan deals damage. */
+  railBeam(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    hits: readonly RayHit[],
+  ): void {
+    const beam = this.railPool.pop() ?? this.createRail();
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    beam.age = 0;
+    beam.view.position.set(x0, y0);
+    beam.view.rotation = Math.atan2(y1 - y0, x1 - x0);
+    for (const layer of [beam.glow, beam.halo, beam.energy, beam.core])
+      layer.width = length;
+    beam.energy.tilePosition.set(0, 0);
+    // First flare is the muzzle burst. The rest stay at the original pierced points, not the moving bodies.
+    const points = [{ x: x0, y: y0 }, ...hits];
+    points.forEach((point, i) => {
+      const flare =
+        beam.flares[i] ??
+        new Sprite({
+          texture: this.tex.rail.burst,
+          anchor: 0.5,
+          blendMode: "add",
+          label: i === 0 ? "railMuzzle" : "railImpact",
+        });
+      if (!beam.flares[i]) {
+        beam.flares.push(flare);
+        beam.view.addChild(flare);
+      }
+      flare.x = Math.hypot(point.x - x0, point.y - y0);
+      flare.visible = true;
+    });
+    for (let i = points.length; i < beam.flares.length; i++)
+      beam.flares[i].visible = false;
+    this.view.addChild(beam.view);
+    this.rails.push(beam);
+    this.drawRail(beam);
+  }
+
+  private createRail(): RailBeam {
+    const view = new Container({ label: "railBeam" });
+    const glow = new Sprite({
+      texture: this.tex.rail.glow,
+      anchor: { x: 0, y: 0.5 },
+      tint: 0x1467ff,
+      blendMode: "add",
+      label: "railGlow",
+    });
+    const halo = new Sprite({
+      texture: this.tex.rail.glow,
+      anchor: { x: 0, y: 0.5 },
+      tint: 0x25caff,
+      blendMode: "add",
+      label: "railHalo",
+    });
+    const energy = new TilingSprite({
+      texture: this.tex.rail.energy,
+      width: 1,
+      height: 32,
+      anchor: { x: 0, y: 0.5 },
+      tint: 0x70e9ff,
+      blendMode: "add",
+      label: "railEnergy",
+    });
+    const core = new Sprite({
+      texture: this.tex.tracer,
+      anchor: { x: 0, y: 0.5 },
+      tint: 0xeaffff,
+      blendMode: "add",
+      label: "railCore",
+    });
+    view.addChild(glow, halo, energy, core);
+    return { view, glow, halo, energy, core, flares: [], age: 0 };
+  }
+
+  private drawRail(beam: RailBeam): void {
+    const second = beam.age >= RAIL_SECOND_AT;
+    const t = second
+      ? (beam.age - RAIL_SECOND_AT) / (RAIL_SECONDS - RAIL_SECOND_AT)
+      : beam.age / RAIL_FIRST_SECONDS;
+    const strength = Math.max(0, 1 - t);
+    const pulse = second ? 0.78 : 1;
+    const width = strength * strength * pulse;
+    beam.view.visible = strength > 0;
+    beam.glow.height = 7 + 113 * width;
+    beam.glow.alpha = strength * 0.55;
+    beam.halo.height = 3 + 51 * width;
+    beam.halo.alpha = strength * 0.7;
+    beam.energy.height = 4 + 72 * width;
+    beam.energy.tileScale.y = beam.energy.height / this.tex.rail.energy.height;
+    beam.energy.tilePosition.x = beam.age * 1000;
+    beam.energy.alpha = strength;
+    beam.core.height = 1 + 17 * width;
+    beam.core.alpha = Math.min(1, strength * 2);
+    beam.flares.forEach((flare, i) => {
+      flare.scale.set((i === 0 ? 1.1 : 0.55) * (0.2 + width));
+      flare.alpha = strength;
+      flare.rotation = beam.age * (i % 2 === 0 ? 3 : -3);
+    });
+  }
+
   /** Blood spray leaving a hit point, biased along the shot direction. */
   bloodBurst(
     x: number,
@@ -147,7 +267,8 @@ export class Effects {
    */
   explosion(x: number, y: number, def: ExplosionDef): void {
     const R = BLAST_TEXTURE_RADIUS;
-    const size = (def.radius * def.flash) / R;
+    const radius = def.visualRadius ?? def.radius;
+    const size = (radius * def.flash) / R;
     const glow = this.blastPart(
       "glow",
       this.tex.blast.glow,
@@ -175,13 +296,13 @@ export class Effects {
         x,
         y,
       );
-      ring.size0 = (def.radius * 0.1) / R;
-      ring.size1 = (def.radius * def.ring) / R;
+      ring.size0 = (radius * 0.1) / R;
+      ring.size1 = (radius * def.ring) / R;
     }
     for (let i = 0; i < def.debris; i++) {
       const p = this.spawn("spark", this.tex.spark, rand(0.3, 0.7));
       const a = rand(0, Math.PI * 2);
-      const speed = rand(1.5, 4) * def.radius;
+      const speed = rand(1.5, 4) * radius;
       p.vx = Math.cos(a) * speed;
       p.vy = Math.sin(a) * speed;
       p.sprite.anchor.set(0.5);
@@ -195,6 +316,17 @@ export class Effects {
   }
 
   update(dt: number): void {
+    for (let i = this.rails.length - 1; i >= 0; i--) {
+      const beam = this.rails[i];
+      beam.age += dt;
+      if (beam.age >= RAIL_SECONDS) {
+        beam.view.removeFromParent();
+        this.rails.splice(i, 1);
+        this.railPool.push(beam);
+        continue;
+      }
+      this.drawRail(beam);
+    }
     for (let i = this.live.length - 1; i >= 0; i--) {
       const p = this.live[i];
       p.life -= dt;

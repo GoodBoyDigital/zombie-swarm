@@ -1,5 +1,5 @@
 import { Container, Sprite } from "pixi.js";
-import { type CasingId } from "../config/casings";
+import { CASINGS, type CasingId } from "../config/casings";
 import { rand } from "../core/random";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import type { GameTextures } from "./textures";
@@ -30,6 +30,8 @@ interface Casing {
   vz: number;
   spin: number;
   bounces: number;
+  /** Sprite scale that draws it CASINGS[kind].width long, so the panel can resize shells live. */
+  scale: number;
 }
 
 /**
@@ -53,6 +55,7 @@ export class Casings {
     if (this.live.length >= MAX_LIVE) this.settle(0);
     const c = this.pool.pop() ?? this.create();
     c.sprite.texture = this.tex.casings[kind];
+    c.scale = CASINGS[kind].width / c.sprite.texture.width;
     // Ejection port is on the right of the barrel, so throw at aim + 90 degrees, angled slightly back.
     const a = aim + Math.PI / 2 + rand(0.2, 0.6);
     const speed = rand(90, 170);
@@ -101,7 +104,7 @@ export class Casings {
         }
       }
       c.sprite.position.set(c.x, c.y);
-      c.sprite.scale.set(1 + c.z * HEIGHT_SCALE);
+      c.sprite.scale.set(c.scale * (1 + c.z * HEIGHT_SCALE));
     }
   }
 
@@ -110,6 +113,7 @@ export class Casings {
     const c = this.live[index];
     this.floor.stampTexture(c.sprite.texture, c.x, c.y, {
       rotation: c.sprite.rotation,
+      scale: c.scale,
     });
     this.view.removeChild(c.sprite);
     this.live[index] = this.live[this.live.length - 1];
@@ -130,6 +134,7 @@ export class Casings {
       vz: 0,
       spin: 0,
       bounces: 0,
+      scale: 1,
     };
   }
 }

@@ -82,8 +82,10 @@ export class Loot {
   }
 
   /** The pinata: a handful of items thrown out of a kill, carrying some of the body's momentum. */
-  burst(x: number, y: number, kx: number, ky: number): void {
-    const n = Math.floor(rand(LOOT_RULES.burstMin, LOOT_RULES.burstMax + 1));
+  burst(x: number, y: number, kx: number, ky: number, scale = 1): void {
+    const n = Math.floor(
+      rand(LOOT_RULES.burstMin, LOOT_RULES.burstMax + 1) * scale,
+    );
     const ix = kx * LOOT_RULES.inheritVelocity;
     const iy = ky * LOOT_RULES.inheritVelocity;
     for (let i = 0; i < n; i++)

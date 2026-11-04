@@ -4,6 +4,7 @@ import { ARENA } from "./config/arena";
 import type { DropDef } from "./config/drops";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
+import { pick } from "./core/random";
 import { setupTuning } from "./debug/TuningPanel";
 import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
@@ -69,9 +70,9 @@ export class Game {
     this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
       this.collectDrop(def),
     );
-    this.horde.onKill = (x, y, kx, ky) => {
-      this.loot.burst(x, y, kx, ky);
-      this.drops.onKill(x, y);
+    this.horde.onKill = (z) => {
+      this.loot.burst(z.x, z.y, z.kx, z.ky, z.def.lootScale);
+      this.drops.onKill(z.x, z.y);
     };
     this.weapon = new Weapon(
       this.player,
@@ -183,9 +184,9 @@ export class Game {
     const dist = Math.hypot(z.x - this.player.x, z.y - this.player.y);
     const volume = Math.max(0, 1 - dist / 700) * 0.5;
     if (volume <= 0.02) return;
-    this.audio.play(Math.random() < 0.5 ? "groan1" : "groan2", {
+    this.audio.play(pick(z.def.groans), {
       volume,
-      pitch: 0.8 + Math.random() * 0.4,
+      pitch: (0.8 + Math.random() * 0.4) * z.def.voicePitch,
     });
   }
 }

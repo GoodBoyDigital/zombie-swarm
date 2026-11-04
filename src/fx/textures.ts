@@ -10,13 +10,20 @@ import {
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
 import { WEAPONS, type WeaponId } from "../config/weapons";
+import { ZOMBIES, type ZombieArt } from "../config/zombies";
 import { rand } from "../core/random";
 
+export interface ZombieTextures {
+  body: Texture;
+  /** White silhouette of the body, swapped in for the hit flash. */
+  flash: Texture;
+  /** Lying-down poses, one picked at random per death. */
+  corpses: Texture[];
+}
+
 export interface GameTextures {
-  zombie: Texture;
-  /** White silhouette of the walker, swapped in for the hit flash. */
-  zombieFlash: Texture;
-  zombieCorpse: Texture;
+  /** Sprite sets by ZombieArt key. */
+  zombies: Record<string, ZombieTextures>;
   player: Texture;
   /** Held weapon art by weapon id, from each WeaponDef's sprite path. */
   weapons: Record<string, Texture>;
@@ -34,9 +41,6 @@ export interface GameTextures {
 }
 
 const SPRITES = {
-  zombie: "/sprites/zombie-walker.png",
-  zombieFlash: "/sprites/zombie-walker-flash.png",
-  zombieCorpse: "/sprites/zombie-corpse.png",
   player: "/sprites/player.png",
   muzzleFlash: "/sprites/muzzle-flash.png",
   tileConcrete: "/sprites/tile-concrete.png",
@@ -73,15 +77,42 @@ export async function createTextures(
   renderer: Renderer,
 ): Promise<GameTextures> {
   const weaponDefs = Object.values(WEAPONS);
+  const zombieArts = [
+    ...new Map(Object.values(ZOMBIES).map((z) => [z.art.key, z.art])).values(),
+  ];
+  const zombiePaths = (art: ZombieArt) => ({
+    body: `/sprites/zombie-${art.key}.png`,
+    flash: `/sprites/zombie-${art.key}-flash.png`,
+    corpses: art.corpses.map(
+      (n) => `/sprites/zombie-${art.key}-corpse-${n}.png`,
+    ),
+  });
   const loaded = await Assets.load<Texture>([
     ...Object.values(SPRITES),
     ...weaponDefs.map((w) => w.sprite.path),
+    ...zombieArts.flatMap((art) => {
+      const paths = zombiePaths(art);
+      return [paths.body, paths.flash, ...paths.corpses];
+    }),
     ...Object.values(LOOT_SPRITES),
     ...Object.values(ICON_SPRITES),
   ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
   const weapons = Object.fromEntries(
     weaponDefs.map((w) => [w.id, pixelate(loaded[w.sprite.path])]),
+  );
+  const zombies = Object.fromEntries(
+    zombieArts.map((art) => {
+      const paths = zombiePaths(art);
+      return [
+        art.key,
+        {
+          body: pixelate(loaded[paths.body]),
+          flash: pixelate(loaded[paths.flash]),
+          corpses: paths.corpses.map((path) => pixelate(loaded[path])),
+        },
+      ];
+    }),
   );
   const icons = Object.fromEntries(
     Object.entries(ICON_SPRITES).map(([id, url]) => [
@@ -141,13 +172,11 @@ export async function createTextures(
   });
 
   return {
+    zombies,
     loot: packAtlas(renderer, LOOT_SPRITES, loaded),
     crate: sprite("crate"),
     crosshair: sprite("crosshair"),
     weaponIcons: icons,
-    zombie: sprite("zombie"),
-    zombieFlash: sprite("zombieFlash"),
-    zombieCorpse: sprite("zombieCorpse"),
     player: sprite("player"),
     weapons,
     muzzleFlash: sprite("muzzleFlash"),

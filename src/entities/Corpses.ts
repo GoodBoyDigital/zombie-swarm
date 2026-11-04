@@ -1,5 +1,5 @@
-import { Container, Sprite, type Texture } from "pixi.js";
-import { KNOCKBACK_DRAG, ZOMBIE_SPRITE_RADIUS } from "../config/zombies";
+import { Container, Sprite } from "pixi.js";
+import { KNOCKBACK_DRAG, type ZombieDef } from "../config/zombies";
 import { pick, rand } from "../core/random";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import type { GameTextures } from "../fx/textures";
@@ -46,17 +46,18 @@ export class Corpses {
     facing: number,
     vx: number,
     vy: number,
-    radius: number,
+    def: ZombieDef,
     tint: number,
   ): void {
-    const c = this.pool.pop() ?? this.create(this.tex.zombieCorpse);
+    const c = this.pool.pop() ?? this.create();
+    c.sprite.texture = pick(this.tex.zombies[def.art.key].corpses);
     c.x = x;
     c.y = y;
     // The body carries exactly the knockback the killing shot gave it; nothing extra.
     c.vx = vx;
     c.vy = vy;
     c.spin = rand(1.5, 4) * (Math.random() < 0.5 ? -1 : 1);
-    c.scale = radius / ZOMBIE_SPRITE_RADIUS;
+    c.scale = def.radius / def.art.radius;
     c.tint = tint;
     c.sinceSmear = 0;
     c.sprite.position.set(x, y);
@@ -112,7 +113,7 @@ export class Corpses {
   /** Burn the resting body into the floor, then recycle the sprite. */
   private settle(index: number): void {
     const c = this.live[index];
-    this.floor.stampTexture(this.tex.zombieCorpse, c.x, c.y, {
+    this.floor.stampTexture(c.sprite.texture, c.x, c.y, {
       rotation: c.sprite.rotation,
       scale: c.scale,
       tint: c.tint,
@@ -123,8 +124,8 @@ export class Corpses {
     this.pool.push(c);
   }
 
-  private create(texture: Texture): Corpse {
-    const sprite = new Sprite(texture);
+  private create(): Corpse {
+    const sprite = new Sprite();
     sprite.anchor.set(0.5);
     return {
       sprite,

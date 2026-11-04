@@ -16,6 +16,8 @@ const SFX = {
   zombieDeath: "/audio/sfx/zombie-death.mp3",
   groan1: "/audio/sfx/zombie-groan-1.mp3",
   groan2: "/audio/sfx/zombie-groan-2.mp3",
+  bruteGroan: "/audio/sfx/zombie-groan-brute.mp3",
+  runnerShriek: "/audio/sfx/zombie-shriek-runner.mp3",
   hordeAmbience: "/audio/sfx/horde-ambience.mp3",
 } as const;
 

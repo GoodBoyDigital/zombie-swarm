@@ -1,9 +1,11 @@
 import { Container, Graphics } from "pixi.js";
 import {
   MAX_ZOMBIE_RADIUS,
+  SPAWN_TABLE,
   ZOMBIE_AI,
   ZOMBIES,
   type ZombieDef,
+  type ZombieId,
 } from "../config/zombies";
 import { pick, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
@@ -26,6 +28,7 @@ const SPLAT_STRETCH = 1.1;
 const SPLAT_WIDTH = 0.45;
 const BLOOD = 0x5fcf3a;
 const BLOOD_DARK = 0x3f9a28;
+const ZOMBIE_IDS = Object.keys(ZOMBIES) as ZombieId[];
 /** How long the debug overlay shows a gunshot's noise ring. */
 const NOISE_RING_SECONDS = 0.35;
 
@@ -40,8 +43,7 @@ export class Horde {
   readonly debugView = new Graphics();
   kills = 0;
   /** Called on every kill with the body's position and knockback velocity, before it is released. */
-  onKill: ((x: number, y: number, kx: number, ky: number) => void) | null =
-    null;
+  onKill: ((z: Zombie) => void) | null = null;
   /** How many of the living are still wandering, for the debug HUD. */
   wandering = 0;
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
@@ -146,14 +148,14 @@ export class Horde {
   /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
   kill(z: Zombie): void {
     this.kills++;
-    this.onKill?.(z.x, z.y, z.kx, z.ky);
+    this.onKill?.(z);
     this.corpses.spawn(
       z.x,
       z.y,
       z.facing,
       z.kx,
       z.ky,
-      z.def.radius,
+      z.def,
       shadeTint(z.tint, CORPSE_TINT_FACTOR),
     );
     this.release(z);
@@ -182,7 +184,7 @@ export class Horde {
       dt * (SPAWN_RATE_START + (SPAWN_RATE_END - SPAWN_RATE_START) * t);
     while (this.spawnDebt >= 1 && this.alive.length < MAX_ALIVE) {
       this.spawnDebt -= 1;
-      this.spawn(ZOMBIES.walker);
+      this.spawn(ZOMBIES[this.pickType()]);
     }
     if (this.alive.length >= MAX_ALIVE) this.spawnDebt = 0;
   }
@@ -195,7 +197,27 @@ export class Horde {
   }
 
   private create(): Zombie {
-    return new Zombie(this.tex.zombie, this.tex.zombieFlash);
+    return new Zombie(this.tex);
+  }
+
+  /** Weighted pick from the spawn table, interpolating weights between the rows around `elapsed`. */
+  private pickType(): ZombieId {
+    let next = SPAWN_TABLE.length - 1;
+    while (next > 0 && SPAWN_TABLE[next - 1].at > this.elapsed) next--;
+    const hi = SPAWN_TABLE[next];
+    const lo = SPAWN_TABLE[Math.max(0, next - 1)];
+    const span = hi.at - lo.at;
+    const t = span > 0 ? clamp((this.elapsed - lo.at) / span, 0, 1) : 1;
+    const weight = (id: ZombieId) =>
+      lo.weights[id] + (hi.weights[id] - lo.weights[id]) * t;
+    let total = 0;
+    for (const id of ZOMBIE_IDS) total += weight(id);
+    let r = Math.random() * total;
+    for (const id of ZOMBIE_IDS) {
+      r -= weight(id);
+      if (r < 0) return id;
+    }
+    return ZOMBIE_IDS[0];
   }
 
   private release(z: Zombie): void {
@@ -232,7 +254,8 @@ export class Horde {
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min || d2 === 0) return;
         const d = Math.sqrt(d2);
-        const push = ((min - d) / d) * 0.5;
+        // Each pair is visited from both sides; the lighter body takes the larger share of the overlap.
+        const push = ((min - d) / d) * (b.def.mass / (a.def.mass + b.def.mass));
         a.x -= dx * push;
         a.y -= dy * push;
       });

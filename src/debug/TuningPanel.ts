@@ -56,6 +56,14 @@ const ZOMBIE_AI_RANGES: Ranges = {
   loseInterestJitter: { min: 0, max: 5, step: 0.1 },
   herdCohesion: { min: 0, max: 2, step: 0.05 },
   herdAlignment: { min: 0, max: 2, step: 0.05 },
+  herdCrowdLimit: { min: 1, max: 20, step: 1 },
+  wanderTurnRate: { min: 0.5, max: 10, step: 0.1 },
+  chaseTurnRate: { min: 0.5, max: 20, step: 0.1 },
+  maxTurnRate: { min: 1, max: 20, step: 0.5 },
+  shuffle: { min: 0, max: 1, step: 0.05 },
+  stepLength: { min: 5, max: 120, step: 1 },
+  sway: { min: 0, max: 0.3, step: 0.01 },
+  squash: { min: 0, max: 0.15, step: 0.01 },
 };
 
 const CASING_RANGES: Ranges = {

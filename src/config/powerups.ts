@@ -240,7 +240,7 @@ export const POWERUPS = {
     name: "Slow-mo",
     category: "support",
     mode: "timed",
-    seconds: 18,
+    seconds: 10,
     effect: "slowMo",
     timeScale: 0.35,
     playerTimeScale: 0.6,
@@ -254,7 +254,7 @@ export const POWERUPS = {
       tint: { r: 1, g: 1, b: 1.04 },
     },
     icon: "/sprites/icon-powerup-slowmo.png",
-    weight: 1.5,
+    weight: 1.2,
   },
   shield: {
     id: "shield",

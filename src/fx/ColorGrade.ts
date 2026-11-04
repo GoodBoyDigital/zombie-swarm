@@ -169,7 +169,8 @@ class GradeFilter extends Filter {
  * One colour-grade pass over everything in `view` (the world, under the HUD). Sources call `add`
  * each frame with a look and a weight; the looks compose into a single filter, and with no source
  * adding anything the filter is off and costs nothing. Looks can spare the player, who then keeps
- * his colour through a mask (src/fx/PlayerMask.ts) while the world around him is graded.
+ * his colour (with power-up orbs and muzzle flashes) through a mask (src/fx/ColorMask.ts) while
+ * the world around him is graded.
  */
 export class ColorGrade {
   readonly view = new Container({ label: "graded" });

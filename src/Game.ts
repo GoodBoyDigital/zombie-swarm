@@ -18,7 +18,7 @@ import { Camera } from "./fx/Camera";
 import { Casings } from "./fx/Casings";
 import { ColorGrade } from "./fx/ColorGrade";
 import { Effects } from "./fx/Effects";
-import { PlayerMask } from "./fx/PlayerMask";
+import { ColorMask } from "./fx/ColorMask";
 import type { GameTextures } from "./fx/textures";
 import { GameOver } from "./ui/GameOver";
 import { HealthBar } from "./ui/HealthBar";
@@ -61,7 +61,7 @@ export class Game {
   private readonly world = new Container();
   /** One colour-grade pass over the world, under the HUD. */
   private readonly grade: ColorGrade;
-  private readonly playerMask: PlayerMask;
+  private readonly colorMask: ColorMask;
   /** Power-up visuals: world-space over the horde, and screen-space under the HUD. */
   private readonly powerupWorld = new Container({ label: "powerupWorld" });
   private readonly powerupGround = new Container({ label: "powerupGround" });
@@ -104,7 +104,7 @@ export class Game {
     this.input = new Input(app);
     this.grade = new ColorGrade(app.screen);
     this.grade.view.addChild(this.world);
-    this.playerMask = new PlayerMask(app.renderer);
+    this.colorMask = new ColorMask(app.renderer, app.screen);
     this.camera = new Camera(app, this.world);
     this.arena = new Arena(tex);
     this.floor = new FloorCanvas(app.renderer, tex);
@@ -234,7 +234,7 @@ export class Game {
     this.input.destroy();
     this.floor.destroy();
     this.grade.destroy();
-    this.playerMask.destroy();
+    this.colorMask.destroy();
     for (const child of [
       this.vignette.view,
       this.powerupScreen,
@@ -325,8 +325,15 @@ export class Game {
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.grade.add(GRADES.lowHealth, this.vignette.lowHealth);
     if (this.grade.sparing)
-      this.playerMask.render(this.world, p, this.powerupGround, this.horde);
-    this.grade.apply(this.playerMask);
+      this.colorMask.render(
+        this.world,
+        p,
+        this.powerupGround,
+        this.horde,
+        this.drops.view,
+        this.fx,
+      );
+    this.grade.apply(this.colorMask);
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.pills.update(this.powerups.active);
     this.reticle.update(dt, this.weapon);

@@ -1,9 +1,8 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import type { Weapon } from "../combat/Weapon";
 import type { Input } from "../core/Input";
-import { UI_FONT } from "./font";
 
-/** Crosshair width on screen in px. The ring and timer scale with it. */
+/** Crosshair width on screen in px. The reload ring scales with it. */
 export const RETICLE_SIZE = 72;
 const CROSS_COLOR = 0xff2a2a;
 const CROSS_OUTLINE = 0x140808;
@@ -15,7 +14,6 @@ const TICK_OUTER = RETICLE_SIZE * 0.5;
 const DOT_RADIUS = RETICLE_SIZE * 0.035;
 const RING_RADIUS = RETICLE_SIZE * 0.65;
 const RING_WIDTH = RETICLE_SIZE * 0.1;
-const TIMER_FONT = RETICLE_SIZE * 0.33;
 const RING_BACK = 0x000000;
 const RING_FILL = 0xffd84a;
 const RING_DONE = 0xffffff;
@@ -31,24 +29,12 @@ export class Reticle {
   readonly view = new Container();
   private readonly ring = new Graphics();
   private readonly reloadUi = new Container();
-  private readonly timer: Text;
   private wasReloading = false;
   private flash = 0;
 
   constructor(private readonly input: Input) {
     const cross = drawCrosshair();
-    this.timer = new Text({
-      text: "",
-      style: {
-        ...UI_FONT,
-        fontSize: TIMER_FONT,
-        fill: RING_FILL,
-        stroke: { color: 0x151a15, width: TIMER_FONT * 0.26, join: "round" },
-      },
-    });
-    this.timer.anchor.set(0.5, 0);
-    this.timer.y = RING_RADIUS + RING_WIDTH;
-    this.reloadUi.addChild(this.ring, this.timer);
+    this.reloadUi.addChild(this.ring);
     this.reloadUi.visible = false;
     this.view.addChild(this.reloadUi, cross);
     this.view.eventMode = "none";
@@ -78,7 +64,6 @@ export class Reticle {
       ? 1 - weapon.reloadLeft / weapon.def.reloadSeconds
       : 1;
     this.reloadUi.scale.set(1 + (FLASH_SCALE - 1) * t);
-    this.timer.text = reloading ? `${weapon.reloadLeft.toFixed(1)}s` : "";
     this.drawRing(progress, flashing ? RING_DONE : RING_FILL);
   }
 

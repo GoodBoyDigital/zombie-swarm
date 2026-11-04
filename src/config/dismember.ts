@@ -19,8 +19,8 @@ export const DISMEMBER = {
   hopMax: 260,
   gravity: 900,
   /** Spin, radians/s, either direction. */
-  spinMin: 6,
-  spinMax: 16,
+  spinMin: 3,
+  spinMax: 8,
   /** Vertical speed kept per bounce; the horizontal and spin keep `bounceFriction`. */
   bounce: 0.35,
   bounceFriction: 0.55,

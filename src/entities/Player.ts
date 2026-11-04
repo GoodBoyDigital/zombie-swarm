@@ -1,4 +1,5 @@
 import { Container, Sprite } from "pixi.js";
+import type { WeaponDef } from "../config/weapons";
 import type { Input } from "../core/Input";
 import type { Arena } from "../world/Arena";
 import type { Camera } from "../fx/Camera";
@@ -7,15 +8,16 @@ import type { GameTextures } from "../fx/textures";
 const MOVE_SPEED = 270;
 const ACCEL = 14;
 const RECOIL_DECAY = 22;
-/** How far the whole body jolts back along the barrel on a shot, in px. */
+/** How far the gun jolts back along the barrel on a shot, in px. */
 const GUN_KICK = 4;
 /**
  * Where things sit in the player sprite, as fractions of its size. The anchor is the torso
- * centre the body rotates around; the muzzle is the rifle's barrel tip.
+ * centre the body rotates around; the hand point is where the two hands meet, and the
+ * equipped weapon's grip is pinned there.
  */
 const SPRITE = {
-  anchor: { x: 0.21, y: 0.42 },
-  muzzle: { x: 1, y: 0.54 },
+  anchor: { x: 0.27, y: 0.5 },
+  hand: { x: 0.88, y: 0.5 },
 } as const;
 
 export class Player {
@@ -32,19 +34,38 @@ export class Player {
   aim = 0;
   private gunKick = 0;
   private readonly body: Sprite;
-  /** Muzzle offset from the torso centre in sprite-local px, before rotation. */
-  private readonly muzzleX: number;
-  private readonly muzzleY: number;
+  private readonly gun = new Sprite();
+  /** Hand point offset from the torso centre in sprite-local px, before rotation. */
+  private readonly handX: number;
+  private readonly handY: number;
+  /** Muzzle offset from the torso centre in sprite-local px, before rotation. Set by equip. */
+  private muzzleX = 0;
+  private muzzleY = 0;
 
-  constructor(tex: GameTextures, x: number, y: number) {
+  constructor(
+    private readonly tex: GameTextures,
+    x: number,
+    y: number,
+  ) {
     this.x = x;
     this.y = y;
     this.body = new Sprite(tex.player);
     this.body.anchor.set(SPRITE.anchor.x, SPRITE.anchor.y);
-    this.muzzleX = (SPRITE.muzzle.x - SPRITE.anchor.x) * tex.player.width;
-    this.muzzleY = (SPRITE.muzzle.y - SPRITE.anchor.y) * tex.player.height;
-    this.view.addChild(this.body);
+    this.handX = (SPRITE.hand.x - SPRITE.anchor.x) * tex.player.width;
+    this.handY = (SPRITE.hand.y - SPRITE.anchor.y) * tex.player.height;
+    this.gun.position.set(this.handX, this.handY);
+    this.view.addChild(this.body, this.gun);
     this.view.position.set(x, y);
+  }
+
+  /** Swap the held weapon art. The sprite's grip sits on the hand point; the muzzle follows from its size. */
+  equip(def: WeaponDef): void {
+    const { grip, muzzle } = def.sprite;
+    const texture = this.tex.weapons[def.id];
+    this.gun.texture = texture;
+    this.gun.anchor.set(grip.x, grip.y);
+    this.muzzleX = this.handX + (muzzle.x - grip.x) * texture.width;
+    this.muzzleY = this.handY + (muzzle.y - grip.y) * texture.height;
   }
 
   /** World position of the gun barrel tip, where shots and flashes originate. */
@@ -58,7 +79,7 @@ export class Player {
     };
   }
 
-  /** Shove the player opposite the shot and jolt the body back along the barrel. */
+  /** Shove the player opposite the shot and jolt the gun back along the barrel. */
   recoil(dirX: number, dirY: number, strength: number): void {
     this.rx -= dirX * strength;
     this.ry -= dirY * strength;
@@ -98,7 +119,7 @@ export class Player {
     this.aim = Math.atan2(dy, dx) - sideways;
 
     this.gunKick *= Math.exp(-dt * 18);
-    this.body.x = -this.gunKick;
+    this.gun.x = this.handX - this.gunKick;
     this.view.position.set(this.x, this.y);
     this.view.rotation = this.aim;
   }

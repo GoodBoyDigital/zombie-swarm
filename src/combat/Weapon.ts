@@ -20,7 +20,9 @@ export class Weapon {
     private readonly fx: Effects,
     private readonly camera: Camera,
     private readonly audio: Audio,
-  ) {}
+  ) {
+    player.equip(def);
+  }
 
   update(dt: number, triggerHeld: boolean): void {
     this.cooldown = Math.max(0, this.cooldown - dt);

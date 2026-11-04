@@ -1,5 +1,15 @@
+export interface WeaponSprite {
+  /** Image under public/sprites, point-sampled like the character art. */
+  path: string;
+  /** Point the player's hands hold, as fractions of the sprite. It is pinned to the player's hand point. */
+  grip: { x: number; y: number };
+  /** Barrel tip as fractions of the sprite. Shots, flash and tracer originate here. */
+  muzzle: { x: number; y: number };
+}
+
 export interface WeaponDef {
   id: string;
+  sprite: WeaponSprite;
   /** Seconds between shots while the trigger is held. */
   fireInterval: number;
   damage: number;
@@ -20,6 +30,11 @@ export interface WeaponDef {
 export const WEAPONS = {
   rifle: {
     id: "rifle",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.42, y: 0.33 },
+      muzzle: { x: 1, y: 0.33 },
+    },
     fireInterval: 0.11,
     damage: 1,
     knockback: 320,

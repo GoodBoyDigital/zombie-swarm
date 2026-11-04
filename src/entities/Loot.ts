@@ -50,6 +50,8 @@ interface LootItem {
   vy: number;
   vz: number;
   life: number;
+  /** Has touched the floor since it popped out. Only landed loot answers the magnet. */
+  landed: boolean;
   attracted: boolean;
 }
 
@@ -121,6 +123,7 @@ export class Loot {
     item.vy = vy + Math.sin(a) * speed;
     item.vz = rand(LOOT_RULES.hopMin, LOOT_RULES.hopMax);
     item.life = LOOT_RULES.lifetime;
+    item.landed = false;
     item.attracted = false;
     item.index = this.live.length;
     this.live.push(item);
@@ -161,7 +164,9 @@ export class Loot {
           it.vz = it.vz < -MIN_BOUNCE_SPEED ? -it.vz * BOUNCE : 0;
         }
       }
-      this.hash.insert(it);
+      // Loot flies out of the body first and only starts homing once it has hit the floor.
+      if (it.z <= 0) it.landed = true;
+      if (it.landed) this.hash.insert(it);
     }
 
     this.attract(player, dt);
@@ -284,6 +289,7 @@ export class Loot {
       vy: 0,
       vz: 0,
       life: 0,
+      landed: false,
       attracted: false,
     };
   }

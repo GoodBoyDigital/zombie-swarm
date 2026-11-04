@@ -34,7 +34,8 @@ export const speed: PowerupEffect<EffectDef<"speed">, SpeedState> = {
     s.timer -= dt;
     if (s.timer <= 0 && p.speed > MIN_SPEED) {
       s.timer = GHOST_INTERVAL;
-      const ghost = s.pool.pop() ?? new Sprite({ anchor: 0.5, blendMode: "add" });
+      const ghost =
+        s.pool.pop() ?? new Sprite({ anchor: 0.5, blendMode: "add" });
       ghost.texture = p.body.texture;
       ghost.anchor.copyFrom(p.body.anchor);
       ghost.tint = def.trailColor;

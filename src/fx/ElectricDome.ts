@@ -93,7 +93,12 @@ export class ElectricDome {
     this.filter.padding = FILTER_PADDING;
     // The body's own extent (rim outer edge), so the filter never measures bounds; padding goes on top.
     const extent = r + RIM_WIDTH / 2;
-    this.layer.filterArea = new Rectangle(-extent, -extent, extent * 2, extent * 2);
+    this.layer.filterArea = new Rectangle(
+      -extent,
+      -extent,
+      extent * 2,
+      extent * 2,
+    );
     this.body
       .clear()
       .circle(0, 0, r)

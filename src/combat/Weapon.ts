@@ -101,7 +101,6 @@ export class Weapon {
     this.player.barrelSpin = 0;
   }
 
-
   /** Current half-angle of spread, base plus bloom. */
   get spread(): number {
     return (

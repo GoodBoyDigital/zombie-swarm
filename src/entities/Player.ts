@@ -213,7 +213,8 @@ export class Player {
 
     this.gunKick *= Math.exp(-dt * 18);
     this.gun.x = this.handX - this.gunKick;
-    this.gun.y = this.handY + (Math.random() - 0.5) * 2 * BARREL_BUZZ * this.barrelSpin;
+    this.gun.y =
+      this.handY + (Math.random() - 0.5) * 2 * BARREL_BUZZ * this.barrelSpin;
     if (this.barrels.visible) this.drawBarrels(dt);
     this.view.position.set(this.x, this.y);
     this.view.rotation = this.aim;
@@ -223,12 +224,19 @@ export class Player {
   private drawBarrels(dt: number): void {
     const g = this.barrels.clear();
     if (this.barrelSpin <= 0) return;
-    this.barrelPhase = (this.barrelPhase + BARREL_SPEED * this.barrelSpin * dt) % 1;
+    this.barrelPhase =
+      (this.barrelPhase + BARREL_SPEED * this.barrelSpin * dt) % 1;
     const len = this.barrelX1 - this.barrelX0;
     const kick = this.gunKick;
     for (let i = 0; i < BARREL_BANDS; i++) {
-      const x = this.barrelX0 - kick + len * ((this.barrelPhase + i / BARREL_BANDS) % 1);
-      g.moveTo(x, this.gun.y - this.barrelHalf).lineTo(x, this.gun.y + this.barrelHalf);
+      const x =
+        this.barrelX0 -
+        kick +
+        len * ((this.barrelPhase + i / BARREL_BANDS) % 1);
+      g.moveTo(x, this.gun.y - this.barrelHalf).lineTo(
+        x,
+        this.gun.y + this.barrelHalf,
+      );
     }
     g.stroke({ width: 2, color: 0x000000, alpha: 0.7 * this.barrelSpin });
   }

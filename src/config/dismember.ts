@@ -4,9 +4,9 @@
  */
 export const DISMEMBER = {
   /** Chance a hit landing on an attached part tears it off, per part. */
-  leftArmChance: 0.9,
-  rightArmChance: 0.9,
-  headChance: 0.8,
+  leftArmChance: 0.4,
+  rightArmChance: 0.4,
+  headChance: 0.25,
   /** Launch speed along the shot, px/s. */
   launchSpeedMin: 120,
   launchSpeedMax: 240,

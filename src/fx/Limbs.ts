@@ -83,7 +83,8 @@ export class Limbs {
       rand(DISMEMBER.spinMin, DISMEMBER.spinMax) *
       (head ? DISMEMBER.headSpinScale : 1) *
       (Math.random() < 0.5 ? -1 : 1);
-    l.scale = ((s.scale.x + s.scale.y) / 2) * DISMEMBER.pieceScale;
+    l.scale =
+      ((s.scale.x + s.scale.y) / 2) * DISMEMBER.pieceScale * (head ? 0.7 : 1);
     l.tint = z.tint;
     l.landed = false;
     l.sprite.texture = pick(part.textures);

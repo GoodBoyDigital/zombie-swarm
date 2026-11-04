@@ -83,8 +83,8 @@ export interface GameTextures {
   loot: Record<LootId, Texture>;
   /** Each power-up's icon, from its def's `icon` path. Drawn on orbs and HUD pills. */
   powerupIcons: Record<string, Texture>;
-  /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch blob. */
-  blast: { boom: Texture; ring: Texture; glow: Texture; scorch: Texture };
+  /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch variants. */
+  blast: { boom: Texture; ring: Texture; glow: Texture; scorches: Texture[] };
 }
 
 const SPRITES = {
@@ -371,16 +371,46 @@ export async function createTextures(
   const glow = new Graphics();
   for (let i = 8; i >= 1; i--)
     glow.circle(0, 0, (R * i) / 8).fill({ color: 0xffffff, alpha: 0.14 });
-  // Scorch: lumpy blob, grey rim around white, tinted dark when stamped.
-  const scorch = new Graphics();
-  const lobes: [number, number, number][] = [[0, 0, R * 0.62]];
-  for (let i = 0; i < 9; i++) {
-    const a = (i / 9) * Math.PI * 2 + rand(-0.3, 0.3);
-    const d = rand(0.35, 0.55) * R;
-    lobes.push([Math.cos(a) * d, Math.sin(a) * d, rand(0.25, 0.42) * R]);
-  }
-  for (const [x, y, r] of lobes) scorch.circle(x, y, r).fill(0x9a9a9a);
-  for (const [x, y, r] of lobes) scorch.circle(x, y, r * 0.72).fill(0xffffff);
+  // Scorches, white with alpha so the stamp tint sets the colour: a lumpy char blob darkest in the
+  // middle, tapered rays blasted outward from it, and soot spatter thrown past their tips.
+  const scorches = Array.from({ length: 4 }, () => {
+    const g = new Graphics();
+    const rays = 14 + Math.floor(rand(0, 9));
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2 + rand(-0.18, 0.18);
+      const half = rand(0.05, 0.13);
+      const base = R * 0.32;
+      const tip = rand(0.55, 0.98) * R;
+      g.poly([
+        Math.cos(a - half) * base,
+        Math.sin(a - half) * base,
+        Math.cos(a) * tip,
+        Math.sin(a) * tip,
+        Math.cos(a + half) * base,
+        Math.sin(a + half) * base,
+      ]).fill({ color: 0xffffff, alpha: rand(0.4, 0.75) });
+    }
+    for (let i = 0; i < 14; i++) {
+      const a = rand(0, Math.PI * 2);
+      const d = rand(0.45, 0.95) * R;
+      g.circle(Math.cos(a) * d, Math.sin(a) * d, rand(1.5, 4.5)).fill({
+        color: 0xffffff,
+        alpha: rand(0.5, 0.9),
+      });
+    }
+    const lobes: [number, number, number][] = [[0, 0, R * 0.4]];
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + rand(-0.4, 0.4);
+      const d = rand(0.2, 0.34) * R;
+      lobes.push([Math.cos(a) * d, Math.sin(a) * d, rand(0.14, 0.24) * R]);
+    }
+    for (const [x, y, r] of lobes)
+      g.circle(x, y, r).fill({ color: 0xffffff, alpha: 0.55 });
+    for (const [x, y, r] of lobes)
+      g.circle(x * 0.6, y * 0.6, r * 0.6).fill({ color: 0xffffff, alpha: 0.7 });
+    g.circle(0, 0, R * 0.16).fill(0xffffff);
+    return make(g, 1);
+  });
 
   return {
     zombies,
@@ -394,7 +424,7 @@ export async function createTextures(
       boom: make(boom),
       ring: make(ring),
       glow: make(glow, 1),
-      scorch: make(scorch, 1),
+      scorches,
     },
     player: sprite("player"),
     playerFlash: sprite("playerFlash"),

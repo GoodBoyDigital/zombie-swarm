@@ -22,8 +22,12 @@ const CHIP_DEPTH = ARENA.wallThickness / 2;
 /** Grit stamped on the floor at the foot of the wall per hit. */
 const RUBBLE_BITS = 3;
 const RUBBLE_TINT = 0x57524b;
-const SCORCH_TINT = 0x1c1a16;
-const SCORCH_ALPHA = 0.45;
+const SCORCH_TINT = 0x14110e;
+const SCORCH_ALPHA = 0.85;
+/** Heat stain under the char: a warm brown discolouring a bit wider than the burn. */
+const HEAT_TINT = 0x5a3418;
+const HEAT_ALPHA = 0.3;
+const HEAT_SIZE = 1.3;
 
 interface StampOptions {
   rotation?: number;
@@ -170,14 +174,29 @@ export class FloorCanvas {
     profiler.add("floor", performance.now() - t0);
   }
 
-  /** Burn a dark blast mark of roughly `radius` world px into the floor. */
+  /**
+   * Burn a blast mark of roughly `radius` world px into the floor: a warm heat stain, then a char
+   * core with rays blasted outward, one of a few variants at a random turn.
+   */
   scorch(x: number, y: number, radius: number): void {
-    this.stampTexture(this.tex.blast.scorch, x, y, {
-      rotation: Math.random() * Math.PI * 2,
-      scale: radius / BLAST_TEXTURE_RADIUS,
-      tint: SCORCH_TINT,
-      alpha: SCORCH_ALPHA,
+    const { glow, scorches } = this.tex.blast;
+    const scale = (radius / BLAST_TEXTURE_RADIUS) * (0.9 + Math.random() * 0.2);
+    this.stampTexture(glow, x, y, {
+      scale: scale * HEAT_SIZE,
+      tint: HEAT_TINT,
+      alpha: HEAT_ALPHA,
     });
+    this.stampTexture(
+      scorches[Math.floor(Math.random() * scorches.length)],
+      x,
+      y,
+      {
+        rotation: Math.random() * Math.PI * 2,
+        scale,
+        tint: SCORCH_TINT,
+        alpha: SCORCH_ALPHA,
+      },
+    );
   }
 
   /** A faint blue burn, clipped at the wall so the black beyond the arena stays black. */

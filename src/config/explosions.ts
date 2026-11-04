@@ -27,7 +27,7 @@ export interface ExplosionDef {
   debris: number;
   /** Camera trauma. 1 is a heavy hit; up to 2 for the biggest blasts. */
   shake: number;
-  /** Scorch mark burned into the floor, as a fraction of radius. 0 = none. */
+  /** Scorch mark burned into the floor, as a fraction of radius; its rays reach this far. 0 = none. */
   scorch: number;
   /** Wakes wandering zombies this far away. 0 = silent. */
   noiseRadius: number;
@@ -48,7 +48,7 @@ export const EXPLOSIONS = {
     seconds: 0.9,
     debris: 70,
     shake: 2,
-    scorch: 0.35,
+    scorch: 0.5,
     noiseRadius: 1200,
     sound: "explosion",
     volume: 1,
@@ -64,7 +64,7 @@ export const EXPLOSIONS = {
     seconds: 0.5,
     debris: 18,
     shake: 0.55,
-    scorch: 0.6,
+    scorch: 0.9,
     noiseRadius: 500,
     sound: "explosion",
     volume: 0.7,
@@ -80,7 +80,7 @@ export const EXPLOSIONS = {
     seconds: 0.4,
     debris: 18,
     shake: 0.35,
-    scorch: 0.6,
+    scorch: 0.9,
     noiseRadius: 400,
     sound: "explosion",
     volume: 0.75,

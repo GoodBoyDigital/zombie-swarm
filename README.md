@@ -15,7 +15,9 @@ npm run dev     # opens http://localhost:8080
 - R: reload, or restart once you are down
 - 1-7: swap weapon (pistol, rifle, shotgun, railgun, minigun, magnum, uzi); R: reload early
 - F1-F3: music theme, F4: music off
-- Walk over a crate to equip its weapon. Coins and gems drift to you when close and count in the HUD.
+- Walk over an orb to pick it up: blue is a weapon, green helps you out, red hurts everything around you.
+  Coins and gems drift to you when close and count in the HUD.
+- P: drop the next power-up orb in front of you, cycling through `POWERUPS`, to try any of them.
 - Backtick: tuning panel. Edits apply instantly; "Copy ... as source" puts the table on the clipboard in the
   shape of its `src/config/*.ts` file, ready to paste over the original.
 - V: AI debug overlay (wanderers tinted blue, aggro radius and gunshot noise rings, wander/chase counts in the HUD)
@@ -34,10 +36,12 @@ npm run dev     # opens http://localhost:8080
 | Brain     | `src/entities/ZombieBrain.ts` | Wander/chase per zombie: random-walk wandering with loose herding, aggro radius, gunshot noise, reaction delay. Tunables in `ZOMBIE_AI`.                                                                            |
 | Hitscan   | `src/combat/raycast.ts`       | Ray vs zombie circles through the spatial hash, nearest first, capped by `pierce`.                                                                                                                                  |
 | Weapon    | `src/combat/Weapon.ts`        | Fire timing, magazine and reload, feel effects per trigger pull.                                                                                                                                                    |
-| Shots     | `src/combat/shots.ts`         | How a pellet reaches zombies, per `WeaponDef.shot`. `applyHit` is the one place a zombie takes damage.                                                                                                              |
+| Combat    | `src/combat/CombatContext.ts` | Horde, fx, floor, camera and audio in one object. `applyHit` is the one place a zombie takes damage. The weapon owns one, power-ups another.                                                                        |
+| Shots     | `src/combat/shots.ts`         | How a pellet reaches zombies, per `WeaponDef.shot`.                                                                                                                                                                 |
+| Explosion | `src/combat/explosion.ts`     | `explode(ctx, x, y, def)`: damage and knockback through the spatial hash, fireball, shockwave, debris, scorch, shake, noise, sound. Defs in `src/config/explosions.ts`.                                           |
 | Loot      | `src/entities/Loot.ts`        | Coins and gems. One ParticleContainer, pooled Particles, own SpatialHash for vacuum and collection, oldest-first cap. Kinds and the pinata rules in `src/config/loot.ts`, magnet numbers in `src/config/player.ts`. |
-| Drops     | `src/entities/Drops.ts`       | Weapon crates and power-up orbs. Pooled sprites, per-kill chance and timed spawn in `src/config/drops.ts`.                                                                                                          |
-| Power-ups | `src/entities/Powerups.ts`    | Timed multipliers from `src/config/powerups.ts`, applied to the player and weapon each frame.                                                                                                                       |
+| Drops     | `src/entities/Drops.ts`       | Power-up orbs in their category colour with the icon on top. Weighted pick over `POWERUPS`; per-kill chance, timed spawn and orb looks in `src/config/drops.ts`.                                                   |
+| Power-ups | `src/powerups/`               | `Powerups.ts` runs each pickup through its handler in `registry.ts` (`POWERUP_EFFECTS`, one file per effect in `effects/`). `PowerupContext.ts` is what handlers get. Defs and category colours in `src/config/powerups.ts`. |
 | Reticle   | `src/ui/Reticle.ts`           | Screen-space crosshair with the reload ring. Size is `RETICLE_SIZE`.                                                                                                                                                |
 | Survival  | `src/ui/HealthBar.ts`, `Vignette.ts`, `GameOver.ts` | Health bar, hurt/low-health screen glow, end card. Health and contact damage numbers in `src/config/player.ts`; restart rebuilds the whole `Game` from `main.ts`. |
 | Tuning    | `src/debug/TuningPanel.ts`    | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`.                                                                                                                              |
@@ -77,7 +81,7 @@ centre as fractions; the player's hand point is in `src/entities/Player.ts`.
 Characters are drawn without weapons, hands empty and reaching forward. Each weapon is its own sprite
 (`sprite` in `src/config/weapons.ts`): `grip` is the fraction of the weapon image pinned to the player's
 hand point, `muzzle` is the barrel tip where shots, flash and tracer start, `eject` the port casings leave
-from. Weapons are about 30 world px long; crate icons are the same art shipped 26 px wide.
+from. Weapons are about 30 world px long; a weapon orb shows the held sprite as its icon.
 
 ## Adding things
 
@@ -85,5 +89,9 @@ from. Weapons are about 30 world px long; crate icons are the same art shipped 2
 - **Weapon**: add an entry to `WEAPONS` in `src/config/weapons.ts`. Set `pierce: Infinity` for a shot that goes through everything on the line. `noiseRadius` is how far a shot wakes wandering zombies. `spread` is the base miss angle; `spreadBloom` grows it per second of held trigger up to `spreadMax`.
 - **Shot type** (rocket, grenade, flame): add the name to `ShotType` and a handler to `SHOT_HANDLERS` in `src/combat/shots.ts`. `fire` launches one pellet; projectile types move and detonate in the optional `update`, then call `ctx.applyHit` for each zombie found with `horde.hash.queryBox` around the impact.
 - **Loot kind**: add an entry to `LOOT` in `src/config/loot.ts` with a `counter`, `value` and `weight`, plus its sprite in `LOOT_SPRITES` (`src/fx/textures.ts`); all loot is packed into one atlas at load.
-- **Drop kind**: `DROPS` in `src/config/drops.ts`, either a weapon on a crate or a power-up on an orb.
-- **Power-up**: add an entry to `POWERUPS` in `src/config/powerups.ts` with its seconds and a `modifiers` record of multipliers (move speed, fire interval, damage, magnet radius and pull, spread), plus an icon in `POWERUP_ICON_SPRITES` and a `DROPS` entry so it can spawn. Active ones stack multiplicatively; picking one up again refreshes its timer. The HUD lists them with seconds left.
+- **Explosion**: add an entry to `EXPLOSIONS` in `src/config/explosions.ts` (radius, damage, knockback, falloff, flash, ring, debris, shake, scorch, noise, sound) and call `explode(ctx, x, y, EXPLOSIONS.yours)` with any `CombatContext`: a shot handler's on impact, a power-up's from its `start` or `update`. Damage 0 pushes only; knockback 0 hurts only.
+- **Power-up**: one `POWERUPS` entry in `src/config/powerups.ts`, one handler file, one icon.
+  1. Entry: `id`, `name`, `category` (`weapon` blue, `support` green, `destructive` red), `mode` (`timed` with `seconds`, or `instant`), `icon` (a sprite path; ship it 40 world px wide with `ship.sh ship ... 40 1.5 0.5`), `weight` (drop chance, 0 never drops) and `effect` plus its params. A new effect also adds its member to the `PowerupDef` union in the same file.
+  2. Handler: `src/powerups/effects/<effect>.ts` exporting a `PowerupEffect<EffectDef<"yours">, State>` with any of `start(ctx, def, active)`, `update(ctx, def, dt, active)`, `end(ctx, def, active)`, registered in `POWERUP_EFFECTS` (`src/powerups/registry.ts`). Timed: start on first pickup, update each frame, end on expiry; a repeat pickup refreshes the timer. Instant: start on every pickup, then end straight away unless start sets `active.left` to keep running (the nuke does, for its screen flash). Keep per-pickup things in `active.state`.
+  3. `ctx` (`PowerupContext`) is a `CombatContext` (horde and its `hash`, `applyHit`, fx, floor, camera, audio; pass it to `explode`) plus `player`, `weapon`, `world` (world-space layer over the horde), `screen` and `screenRect` (screen-space layer under the HUD) and `modifiers` (stat multipliers, reset each frame).
+  Stat boosts need no handler: `effect: "modifiers"` with a `modifiers` record of multipliers (move speed, fire interval, damage, magnet radius and pull, spread); they stack multiplicatively.

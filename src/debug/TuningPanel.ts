@@ -1,10 +1,11 @@
 import { Pane, type FolderApi } from "tweakpane";
 import { CASINGS } from "../config/casings";
-import { DROP_RULES, DROPS } from "../config/drops";
+import { DROP_RULES } from "../config/drops";
+import { EXPLOSIONS } from "../config/explosions";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
-import { POWERUPS } from "../config/powerups";
+import { POWERUP_CATEGORIES, POWERUPS } from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { SPAWN, ZOMBIE_AI } from "../config/zombies";
 
@@ -41,6 +42,10 @@ const LOOT_RANGES: Ranges = {
   timedSpawnSeconds: { min: 0, max: 120, step: 1 },
   bobHeight: { min: 0, max: 10, step: 0.5 },
   bobSpeed: { min: 0, max: 10, step: 0.1 },
+  orbRadius: { min: 8, max: 60, step: 1 },
+  iconSize: { min: 0.2, max: 1.2, step: 0.02 },
+  glowSize: { min: 1, max: 3, step: 0.05 },
+  glowPulse: { min: 0, max: 0.5, step: 0.01 },
 };
 
 const PLAYER_RANGES: Ranges = {
@@ -86,6 +91,10 @@ const ZOMBIE_AI_RANGES: Ranges = {
 };
 
 const POWERUP_RANGES: Ranges = {
+  weight: { min: 0, max: 20, step: 0.5 },
+  heal: { min: 0, max: 200, step: 5 },
+  screenFlash: { min: 0, max: 1, step: 0.05 },
+  screenFlashSeconds: { min: 0.05, max: 3, step: 0.05 },
   seconds: { min: 1, max: 60, step: 0.5 },
   moveSpeed: { min: 0.2, max: 4, step: 0.05 },
   fireInterval: { min: 0.1, max: 2, step: 0.05 },
@@ -93,6 +102,22 @@ const POWERUP_RANGES: Ranges = {
   magnetRadius: { min: 0.5, max: 10, step: 0.25 },
   magnetPull: { min: 0.5, max: 10, step: 0.25 },
   spread: { min: 0, max: 3, step: 0.05 },
+};
+
+const EXPLOSION_RANGES: Ranges = {
+  radius: { min: 10, max: 900, step: 5 },
+  damage: { min: 0, max: 100, step: 0.5 },
+  knockback: { min: 0, max: 4000, step: 25 },
+  falloff: { min: 0, max: 1, step: 0.05 },
+  flash: { min: 0, max: 2, step: 0.05 },
+  ring: { min: 0, max: 2, step: 0.05 },
+  seconds: { min: 0.1, max: 3, step: 0.05 },
+  debris: { min: 0, max: 200, step: 1 },
+  shake: { min: 0, max: 2, step: 0.05 },
+  scorch: { min: 0, max: 2, step: 0.05 },
+  noiseRadius: { min: 0, max: 2000, step: 25 },
+  volume: { min: 0, max: 1.5, step: 0.05 },
+  pitch: { min: 0.3, max: 2, step: 0.05 },
 };
 
 const SPAWN_RANGES: Ranges = {
@@ -265,9 +290,10 @@ export function setupTuning(): TuningPanel {
   panel.add("LOOT", "LootDef", LOOT, LOOT_RANGES);
   panel.add("LOOT_RULES", null, LOOT_RULES, LOOT_RANGES);
   panel.add("PLAYER", null, PLAYER, PLAYER_RANGES);
-  panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);
+  panel.add("POWERUP_CATEGORIES", "CategoryDef", POWERUP_CATEGORIES, {});
+  panel.add("EXPLOSIONS", "ExplosionDef", EXPLOSIONS, EXPLOSION_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);

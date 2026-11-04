@@ -29,8 +29,9 @@ export class Camera {
     app.renderer.on("resize", () => this.fit());
   }
 
-  addTrauma(amount: number): void {
-    this.trauma = Math.min(1, this.trauma + amount);
+  /** Shake builds up to `cap`; 1 is a heavy hit, big blasts pass up to 2 for a longer, wider shake. */
+  addTrauma(amount: number, cap = 1): void {
+    this.trauma = Math.max(this.trauma, Math.min(cap, this.trauma + amount));
   }
 
   /** Nudge the view, in world px. Used for gun recoil pushing the camera back. */

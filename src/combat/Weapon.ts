@@ -12,7 +12,8 @@ import type { Camera } from "../fx/Camera";
 import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
-import { SHOT_HANDLERS, ShotContext } from "./shots";
+import { CombatContext } from "./CombatContext";
+import { SHOT_HANDLERS } from "./shots";
 
 const SHOT_SFX: Record<WeaponId, SfxName> = {
   pistol: "shotPistol",
@@ -41,7 +42,7 @@ export class Weapon {
   /** Power-up multipliers, set each frame by the game. Damage lives on the shot context. */
   fireIntervalScale = 1;
   spreadScale = 1;
-  private readonly shots: ShotContext;
+  private readonly shots: CombatContext;
 
   constructor(
     private readonly player: Player,
@@ -52,7 +53,7 @@ export class Weapon {
     private readonly audio: Audio,
     private readonly casings: Casings,
   ) {
-    this.shots = new ShotContext(horde, fx, floor, audio);
+    this.shots = new CombatContext(horde, fx, floor, camera, audio);
     this.equip(this.id);
   }
 
@@ -140,8 +141,7 @@ export class Weapon {
     this.camera.kick(aimX * 3, aimY * 3);
     this.shots.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
-    this.shots.hitSoundPlayed = false;
-    this.shots.deathSoundPlayed = false;
+    this.shots.beginVolley();
     const handler = SHOT_HANDLERS[def.shot];
     const spread = this.spread;
     for (let i = 0; i < def.pellets; i++) {

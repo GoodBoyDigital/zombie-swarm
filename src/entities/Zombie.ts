@@ -91,12 +91,17 @@ export class Zombie {
   hit(damage: number, dirX: number, dirY: number, knockback: number): boolean {
     if (this.dead) return false;
     this.health -= damage;
-    const k = knockback * this.def.knockbackScale;
-    this.kx += dirX * k;
-    this.ky += dirY * k;
+    this.push(dirX, dirY, knockback);
     this.flash = HIT_FLASH_SECONDS;
     this.dead = this.health <= 0;
     return this.dead;
+  }
+
+  /** Shove along a unit direction without hurting, scaled by the type's knockbackScale. */
+  push(dirX: number, dirY: number, knockback: number): void {
+    const k = knockback * this.def.knockbackScale;
+    this.kx += dirX * k;
+    this.ky += dirY * k;
   }
 
   update(

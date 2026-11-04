@@ -66,13 +66,13 @@ export class Game {
       if (theme) this.audio.playMusic(theme);
     });
 
-    // Draw order: floor gore, walls, zombies, player, then additive effects on top.
+    // Draw order: floor gore, walls, player, then zombies so the crowd draws over him, then additive effects on top.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
-      this.horde.view,
       this.player.view,
+      this.horde.view,
       this.fx.view,
     );
 

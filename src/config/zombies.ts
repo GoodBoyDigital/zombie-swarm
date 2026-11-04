@@ -192,10 +192,10 @@ export const ZOMBIES = {
       wanderSpeedScale: 0.4,
       reactionDelayMin: 0.02,
       reactionDelayMax: 0.08,
-      shuffle: 0.12,
+      shuffle: 0.07,
       stepLength: 24,
       sway: 0.03,
-      squash: 0.02,
+      squash: 0.01,
     },
     groans: ["runnerShriek"],
     voicePitch: 1.15,
@@ -220,10 +220,10 @@ export const ZOMBIES = {
     ai: {
       aggroRadius: 180,
       wanderSpeedScale: 0.7,
-      shuffle: 0.7,
+      shuffle: 0.42,
       stepLength: 56,
       sway: 0.09,
-      squash: 0.05,
+      squash: 0.025,
     },
     groans: ["bruteGroan"],
     voicePitch: 0.8,
@@ -321,13 +321,13 @@ export const ZOMBIE_AI = {
    * Gait. Forward speed pulses once per step so zombies lurch rather than glide: 0 = constant velocity,
    * 1 = a full stall between pushes. The average over a step always equals the def speed.
    */
-  shuffle: 0.5,
+  shuffle: 0.3,
   /** Distance covered per step cycle, px. Shorter = busier steps. */
   stepLength: 30,
   /** Facing sway with each step, radians. Visual only. */
   sway: 0.06,
   /** Scale squash along the facing with each step, as a fraction. Visual only. */
-  squash: 0.04,
+  squash: 0.02,
   /**
    * Per-zombie variation rolled at spawn, as +/- fractions of the type's value, so a crowd of one
    * type never moves in lockstep: step cadence, sway amount and drawn size.

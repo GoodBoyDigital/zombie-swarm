@@ -34,7 +34,7 @@ npm run dev     # opens http://localhost:8080
 | Shots | `src/combat/shots.ts` | How a pellet reaches zombies, per `WeaponDef.shot`. `applyHit` is the one place a zombie takes damage. |
 | Loot | `src/entities/Loot.ts` | Coins and gems. One ParticleContainer, pooled Particles, own SpatialHash for vacuum and collection, oldest-first cap. Kinds and the pinata rules in `src/config/loot.ts`, magnet numbers in `src/config/player.ts`. |
 | Drops | `src/entities/Drops.ts` | Weapon crates (power-ups later). Pooled sprites, per-kill chance and timed spawn in `src/config/drops.ts`. |
-| Reticle | `src/ui/Reticle.ts` | Screen-space crosshair with the reload ring, icon and timer. |
+| Reticle | `src/ui/Reticle.ts` | Screen-space crosshair with the reload ring and timer. Size is `RETICLE_SIZE`. |
 | Tuning | `src/debug/TuningPanel.ts` | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`. |
 | Effects | `src/fx/Effects.ts` | Pooled muzzle flash, tracer, blood sparks. |
 | Camera | `src/fx/Camera.ts` | Fit-to-window, trauma shake, directional kick. |

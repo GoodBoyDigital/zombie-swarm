@@ -3,8 +3,11 @@ import type { Weapon } from "../combat/Weapon";
 import type { Input } from "../core/Input";
 import type { GameTextures } from "../fx/textures";
 
-const RING_RADIUS = 26;
-const RING_WIDTH = 5;
+/** Crosshair width on screen in px. The ring and timer scale with it. */
+export const RETICLE_SIZE = 72;
+const RING_RADIUS = RETICLE_SIZE * 0.65;
+const RING_WIDTH = RETICLE_SIZE * 0.1;
+const TIMER_FONT = RETICLE_SIZE * 0.33;
 const RING_BACK = 0x000000;
 const RING_FILL = 0xffd84a;
 const RING_DONE = 0xffffff;
@@ -14,7 +17,7 @@ const FLASH_SCALE = 1.35;
 
 /**
  * Crosshair under the pointer in screen space, so camera shake never moves it. While the weapon
- * reloads a ring fills clockwise around it with the reload icon and the seconds left.
+ * reloads a ring fills clockwise around it with the seconds left underneath.
  */
 export class Reticle {
   readonly view = new Container();
@@ -30,22 +33,20 @@ export class Reticle {
   ) {
     const cross = new Sprite(tex.crosshair);
     cross.anchor.set(0.5);
-    const icon = new Sprite(tex.reloadIcon);
-    icon.anchor.set(0.5);
-    icon.position.set(RING_RADIUS + 18, -RING_RADIUS - 4);
+    cross.scale.set(RETICLE_SIZE / tex.crosshair.width);
     this.timer = new Text({
       text: "",
       style: {
         fontFamily: "monospace",
-        fontSize: 18,
+        fontSize: TIMER_FONT,
         fontWeight: "bold",
         fill: RING_FILL,
-        stroke: { color: 0x000000, width: 4 },
+        stroke: { color: 0x000000, width: TIMER_FONT * 0.22 },
       },
     });
     this.timer.anchor.set(0.5, 0);
-    this.timer.y = RING_RADIUS + 6;
-    this.reloadUi.addChild(this.ring, icon, this.timer);
+    this.timer.y = RING_RADIUS + RING_WIDTH;
+    this.reloadUi.addChild(this.ring, this.timer);
     this.reloadUi.visible = false;
     this.view.addChild(this.reloadUi, cross);
     this.view.eventMode = "none";
@@ -87,7 +88,9 @@ export class Reticle {
       .circle(0, 0, RING_RADIUS)
       .stroke({ width: RING_WIDTH + 2, color: RING_BACK, alpha: 0.7 });
     if (progress <= 0) return;
+    // arc() joins from the pen's current point, so move it onto the ring first or a spoke is drawn from the centre.
     this.ring
+      .moveTo(RING_RADIUS * Math.cos(start), RING_RADIUS * Math.sin(start))
       .arc(0, 0, RING_RADIUS, start, start + Math.PI * 2 * progress)
       .stroke({ width: RING_WIDTH, color });
   }

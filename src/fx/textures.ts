@@ -31,7 +31,6 @@ export interface GameTextures {
   crate: Texture;
   weaponIcons: Record<WeaponId, Texture>;
   crosshair: Texture;
-  reloadIcon: Texture;
 }
 
 const SPRITES = {
@@ -45,7 +44,6 @@ const SPRITES = {
   tileWall: "/sprites/tile-wall.png",
   crate: "/sprites/drop-crate.png",
   crosshair: "/sprites/ui-crosshair.png",
-  reloadIcon: "/sprites/ui-reload.png",
 } as const;
 
 const LOOT_SPRITES: Record<LootId, string> = {
@@ -144,7 +142,6 @@ export async function createTextures(
     loot: packAtlas(renderer, LOOT_SPRITES, loaded),
     crate: sprite("crate"),
     crosshair: sprite("crosshair"),
-    reloadIcon: sprite("reloadIcon"),
     weaponIcons: icons,
     zombie: sprite("zombie"),
     zombieFlash: sprite("zombieFlash"),

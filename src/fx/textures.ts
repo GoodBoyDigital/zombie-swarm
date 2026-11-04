@@ -114,7 +114,9 @@ export async function createTextures(
       return [paths.body, paths.flash, ...paths.corpses];
     }),
     ...Object.values(LOOT_SPRITES),
-    ...POWERUP_DEFS.map((d) => d.icon),
+    ...POWERUP_DEFS.flatMap((d) =>
+      "sprite" in d ? [d.icon, d.sprite] : [d.icon],
+    ),
   ];
   const loaded = (await Assets.load<Texture>(
     [...new Set(urls)].map((src) => ({

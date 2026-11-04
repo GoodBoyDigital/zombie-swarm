@@ -102,6 +102,16 @@ const POWERUP_RANGES: Ranges = {
   magnetRadius: { min: 0.5, max: 10, step: 0.25 },
   magnetPull: { min: 0.5, max: 10, step: 0.25 },
   spread: { min: 0, max: 3, step: 0.05 },
+  warningSeconds: { min: 0, max: 2, step: 0.05 },
+  planeSpeed: { min: 200, max: 3000, step: 25 },
+  bombs: { min: 1, max: 24, step: 1 },
+  bombSpacing: { min: 20, max: 300, step: 5 },
+  bombDelay: { min: 0, max: 1.5, step: 0.05 },
+  lastBombScale: { min: 1, max: 3, step: 0.05 },
+  shakeBudget: { min: 0, max: 4, step: 0.05 },
+  strafeBursts: { min: 0, max: 8, step: 1 },
+  strafeRounds: { min: 1, max: 20, step: 1 },
+  strafeDamage: { min: 0, max: 20, step: 0.5 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

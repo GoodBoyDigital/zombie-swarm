@@ -68,6 +68,30 @@ export type PowerupDef = PowerupBase &
         screenFlash: number;
         screenFlashSeconds: number;
       })
+    | (Instant & {
+        effect: "airstrike";
+        /** Each bomb's blast; the last one is scaled up by `lastBombScale`. */
+        explosion: ExplosionId;
+        /** Plane art, loaded with the icons by textures.ts. Drawn nose right. */
+        sprite: string;
+        /** Seconds the strike line flashes before the plane arrives. */
+        warningSeconds: number;
+        /** World px per second across the view. */
+        planeSpeed: number;
+        bombs: number;
+        /** World px between bomb impacts along the line. */
+        bombSpacing: number;
+        /** Seconds from release to impact. */
+        bombDelay: number;
+        /** Radius, damage and shake multiplier on the final bomb. */
+        lastBombScale: number;
+        /** Total camera trauma the bombs before the last may add between them, so the run doesn't blur. */
+        shakeBudget: number;
+        /** Gun bursts fired at the ground ahead of the bombs, rounds per burst, damage per round. */
+        strafeBursts: number;
+        strafeRounds: number;
+        strafeDamage: number;
+      })
   );
 
 export type EffectId = PowerupDef["effect"];
@@ -160,6 +184,28 @@ export const POWERUPS = {
     screenFlashSeconds: 0.7,
     icon: "/sprites/icon-powerup-nuke.png",
     weight: 1.5,
+  },
+  airstrike: {
+    id: "airstrike",
+    name: "Airstrike",
+    category: "destructive",
+    mode: "instant",
+    effect: "airstrike",
+    explosion: "airstrikeBomb",
+    sprite: "/sprites/airstrike-plane.png",
+    warningSeconds: 0.6,
+    planeSpeed: 1000,
+    bombs: 8,
+    bombSpacing: 105,
+    bombDelay: 0.35,
+    lastBombScale: 1.35,
+    shakeBudget: 1.4,
+    strafeBursts: 3,
+    strafeRounds: 5,
+    strafeDamage: 2,
+    icon: "/sprites/icon-powerup-airstrike.png",
+    weight: 1.5,
+    sound: "airstrikeWarning",
   },
 } as const satisfies Record<string, PowerupDef>;
 

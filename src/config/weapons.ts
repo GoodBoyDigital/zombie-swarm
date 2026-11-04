@@ -198,7 +198,7 @@ export const WEAPONS = {
     recoil: 35,
     pierce: 1,
     range: 1400,
-    shake: 0.12,
+    shake: 0.06,
     tracerWidth: 2,
     noiseRadius: 450,
   },

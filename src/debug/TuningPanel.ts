@@ -1,11 +1,17 @@
 import { Pane, type FolderApi } from "tweakpane";
 import { CASINGS } from "../config/casings";
 import { DISMEMBER } from "../config/dismember";
-import { DROP_RULES, DROPS } from "../config/drops";
+import { DROP_RULES } from "../config/drops";
+import { EXPLOSIONS } from "../config/explosions";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
-import { POWERUPS } from "../config/powerups";
+import {
+  POWERUP_CATEGORIES,
+  POWERUP_DEFS,
+  POWERUPS,
+  type PowerupDef,
+} from "../config/powerups";
 import { WEAPONS } from "../config/weapons";
 import { SPAWN, ZOMBIE_AI } from "../config/zombies";
 
@@ -42,6 +48,10 @@ const LOOT_RANGES: Ranges = {
   timedSpawnSeconds: { min: 0, max: 120, step: 1 },
   bobHeight: { min: 0, max: 10, step: 0.5 },
   bobSpeed: { min: 0, max: 10, step: 0.1 },
+  orbRadius: { min: 8, max: 60, step: 1 },
+  iconSize: { min: 0.2, max: 1.2, step: 0.02 },
+  glowSize: { min: 1, max: 3, step: 0.05 },
+  glowPulse: { min: 0, max: 0.5, step: 0.01 },
 };
 
 const PLAYER_RANGES: Ranges = {
@@ -87,6 +97,15 @@ const ZOMBIE_AI_RANGES: Ranges = {
 };
 
 const POWERUP_RANGES: Ranges = {
+  weight: { min: 0, max: 20, step: 0.5 },
+  heal: { min: 0, max: 200, step: 5 },
+  screenFlash: { min: 0, max: 1, step: 0.05 },
+  screenFlashSeconds: { min: 0.05, max: 3, step: 0.05 },
+  radius: { min: 20, max: 300, step: 2 },
+  shove: { min: 0, max: 600, step: 10 },
+  openSeconds: { min: 0.05, max: 2, step: 0.05 },
+  flickerSeconds: { min: 0, max: 5, step: 0.1 },
+  ripple: { min: 0, max: 30, step: 0.5 },
   seconds: { min: 1, max: 60, step: 0.5 },
   moveSpeed: { min: 0.2, max: 4, step: 0.05 },
   fireInterval: { min: 0.1, max: 2, step: 0.05 },
@@ -94,6 +113,34 @@ const POWERUP_RANGES: Ranges = {
   magnetRadius: { min: 0.5, max: 10, step: 0.25 },
   magnetPull: { min: 0.5, max: 10, step: 0.25 },
   spread: { min: 0, max: 3, step: 0.05 },
+  warningSeconds: { min: 0, max: 2, step: 0.05 },
+  planeSpeed: { min: 200, max: 3000, step: 25 },
+  bombs: { min: 1, max: 24, step: 1 },
+  bombSpacing: { min: 20, max: 300, step: 5 },
+  bombDelay: { min: 0, max: 1.5, step: 0.05 },
+  bombSpread: { min: 0, max: 150, step: 5 },
+  bombJitter: { min: 0, max: 100, step: 5 },
+  lastBombScale: { min: 1, max: 3, step: 0.05 },
+  shakeBudget: { min: 0, max: 4, step: 0.05 },
+  strafeBursts: { min: 0, max: 8, step: 1 },
+  strafeRounds: { min: 1, max: 20, step: 1 },
+  strafeDamage: { min: 0, max: 20, step: 0.5 },
+};
+
+const EXPLOSION_RANGES: Ranges = {
+  radius: { min: 10, max: 900, step: 5 },
+  damage: { min: 0, max: 100, step: 0.5 },
+  knockback: { min: 0, max: 4000, step: 25 },
+  falloff: { min: 0, max: 1, step: 0.05 },
+  flash: { min: 0, max: 2, step: 0.05 },
+  ring: { min: 0, max: 2, step: 0.05 },
+  seconds: { min: 0.1, max: 3, step: 0.05 },
+  debris: { min: 0, max: 200, step: 1 },
+  shake: { min: 0, max: 2, step: 0.05 },
+  scorch: { min: 0, max: 2, step: 0.05 },
+  noiseRadius: { min: 0, max: 2000, step: 25 },
+  volume: { min: 0, max: 1.5, step: 0.05 },
+  pitch: { min: 0.3, max: 2, step: 0.05 },
 };
 
 const SPAWN_RANGES: Ranges = {
@@ -241,6 +288,24 @@ export class TuningPanel {
       .on("change", apply);
   }
 
+  /**
+   * A folder at the top with a button per power-up that drops its orb ahead of the player, plus the
+   * airstrike's settings and its bomb blast (the same live objects as POWERUPS and EXPLOSIONS).
+   */
+  addDrops(drop: (def: PowerupDef) => void): void {
+    const folder = this.pane.addFolder({ title: "Drop power-up", index: 0 });
+    for (const def of POWERUP_DEFS)
+      folder.addButton({ title: def.name }).on("click", () => drop(def));
+    const strike = this.pane.addFolder({
+      title: "Airstrike",
+      expanded: false,
+      index: 1,
+    });
+    this.bindNumbers(strike, POWERUPS.airstrike, POWERUP_RANGES);
+    const bomb = strike.addFolder({ title: "bomb blast", expanded: false });
+    this.bindNumbers(bomb, EXPLOSIONS.airstrikeBomb, EXPLOSION_RANGES);
+  }
+
   private async copy(table: Table): Promise<void> {
     const text = toSource(table);
     try {
@@ -296,9 +361,10 @@ export function setupTuning(): TuningPanel {
   panel.add("LOOT", "LootDef", LOOT, LOOT_RANGES);
   panel.add("LOOT_RULES", null, LOOT_RULES, LOOT_RANGES);
   panel.add("PLAYER", null, PLAYER, PLAYER_RANGES);
-  panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   panel.add("POWERUPS", "PowerupDef", POWERUPS, POWERUP_RANGES);
+  panel.add("POWERUP_CATEGORIES", "CategoryDef", POWERUP_CATEGORIES, {});
+  panel.add("EXPLOSIONS", "ExplosionDef", EXPLOSIONS, EXPLOSION_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
   panel.add("DISMEMBER", null, DISMEMBER, DISMEMBER_RANGES);

@@ -22,7 +22,7 @@ import { Game } from "./Game";
     audio.loop("hordeAmbience", 0.35);
     audio.playMusic("synthwaveDread");
   });
-  setupTuning();
+  const tuning = setupTuning();
 
   // Restart tears the whole world down and builds a fresh one on the same app, textures and audio.
   let game: Game | null = null;
@@ -30,5 +30,6 @@ import { Game } from "./Game";
     game?.destroy();
     game = new Game(app, tex, audio, start);
   };
+  tuning.addDrops((def) => game?.dropOrb(def));
   start();
 })();

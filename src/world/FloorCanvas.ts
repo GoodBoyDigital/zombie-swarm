@@ -9,9 +9,11 @@ import {
 } from "pixi.js";
 import { ARENA } from "../config/arena";
 import { profiler } from "../debug/Profiler";
-import type { GameTextures } from "../fx/textures";
+import { BLAST_TEXTURE_RADIUS, type GameTextures } from "../fx/textures";
 
 const OUTSIDE_COLOR = 0x000000;
+const SCORCH_TINT = 0x1c1a16;
+const SCORCH_ALPHA = 0.45;
 
 /**
  * Persistent floor. Splats and corpses are rendered once into a render texture and then forgotten,
@@ -26,7 +28,7 @@ export class FloorCanvas {
 
   constructor(
     private readonly renderer: Renderer,
-    tex: GameTextures,
+    private readonly tex: GameTextures,
   ) {
     const size = {
       width: ARENA.width + ARENA.margin * 2,
@@ -77,6 +79,16 @@ export class FloorCanvas {
     });
     // Stamps run inside horde, corpse and casing updates, so this time is also inside theirs.
     profiler.add("floor", performance.now() - t0);
+  }
+
+  /** Burn a dark blast mark of roughly `radius` world px into the floor. */
+  scorch(x: number, y: number, radius: number): void {
+    this.stampTexture(this.tex.blast.scorch, x, y, {
+      rotation: Math.random() * Math.PI * 2,
+      scale: radius / BLAST_TEXTURE_RADIUS,
+      tint: SCORCH_TINT,
+      alpha: SCORCH_ALPHA,
+    });
   }
 
   /** Dirt everywhere, concrete inside the walls. Tiled once into the render texture. */

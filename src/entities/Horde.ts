@@ -29,6 +29,15 @@ const ZOMBIE_IDS = Object.keys(ZOMBIES) as ZombieId[];
 /** How long the debug overlay shows a gunshot's noise ring. */
 const NOISE_RING_SECONDS = 0.35;
 
+/** A circle zombies can't enter: a shield bubble, a safety portal. Move it by writing x, y and radius. */
+export interface ExclusionZone {
+  x: number;
+  y: number;
+  radius: number;
+  /** Called for every zombie pushed back out this frame, with the outward unit normal at the edge. */
+  onContact: ((z: Zombie, nx: number, ny: number) => void) | null;
+}
+
 /** Owns every zombie: pooling, spawning through gates, crowd separation and death stamping. */
 export class Horde {
   readonly view = new Container();
@@ -47,6 +56,9 @@ export class Horde {
   wandering = 0;
   /** False once the player is down: nobody notices him any more. */
   hunting = true;
+  /** Live exclusion zones; add and remove them through addZone and removeZone. */
+  readonly zones: ExclusionZone[] = [];
+  private readonly zonePool: ExclusionZone[] = [];
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
   private readonly pool: Zombie[] = [];
   private elapsed = 0;
@@ -81,6 +93,7 @@ export class Horde {
     for (const z of this.alive) this.hash.insert(z);
     this.separate();
     this.pushOutOfPlayer(playerX, playerY, playerRadius);
+    this.exclude();
     this.wandering = 0;
     for (const z of this.alive) {
       this.contain(z);
@@ -95,6 +108,8 @@ export class Horde {
    * Reads the hash built this frame, so call it after update.
    */
   contact(px: number, py: number, pr: number, margin: number): number {
+    // Nothing bites through a zone's edge, and zombies are never inside one.
+    if (this.inZone(px, py)) return 0;
     const reach = pr + margin + MAX_ZOMBIE_RADIUS;
     let total = 0;
     this.hash.queryBox(px - reach, py - reach, px + reach, py + reach, (z) => {
@@ -105,6 +120,39 @@ export class Horde {
       if (dx * dx + dy * dy < touch * touch) total += z.def.damageScale;
     });
     return total;
+  }
+
+  addZone(x: number, y: number, radius: number): ExclusionZone {
+    const zone = this.zonePool.pop() ?? {
+      x: 0,
+      y: 0,
+      radius: 0,
+      onContact: null,
+    };
+    zone.x = x;
+    zone.y = y;
+    zone.radius = radius;
+    zone.onContact = null;
+    this.zones.push(zone);
+    return zone;
+  }
+
+  removeZone(zone: ExclusionZone): void {
+    const i = this.zones.indexOf(zone);
+    if (i < 0) return;
+    this.zones.splice(i, 1);
+    zone.onContact = null;
+    this.zonePool.push(zone);
+  }
+
+  /** True if the point is inside any exclusion zone. */
+  inZone(x: number, y: number): boolean {
+    for (const zone of this.zones) {
+      const dx = x - zone.x;
+      const dy = y - zone.y;
+      if (dx * dx + dy * dy < zone.radius * zone.radius) return true;
+    }
+    return false;
   }
 
   /** The player is down: every zombie loses interest and nobody notices him again. */
@@ -287,6 +335,49 @@ export class Horde {
         a.x -= dx * push;
         a.y -= dy * push;
       });
+    }
+  }
+
+  /**
+   * Push every zombie inside a zone back out to its edge along the radial, and drop the inward part
+   * of its knockback so it presses against the edge instead of bouncing. Runs after crowding, like the
+   * walls, so the crowd behind can't squeeze anyone through. Only the cells around each zone are visited.
+   */
+  private exclude(): void {
+    for (const zone of this.zones) {
+      // Positions moved a little since the hash was built; pad by a body so nobody slips the query.
+      const reach = zone.radius + MAX_ZOMBIE_RADIUS * 2;
+      this.hash.queryBox(
+        zone.x - reach,
+        zone.y - reach,
+        zone.x + reach,
+        zone.y + reach,
+        (z) => {
+          if (z.dead) return;
+          let dx = z.x - zone.x;
+          let dy = z.y - zone.y;
+          const min = zone.radius + z.def.radius;
+          const d2 = dx * dx + dy * dy;
+          if (d2 >= min * min) return;
+          const d = Math.sqrt(d2);
+          // Dead centre has no direction of its own; send it the way it was facing from.
+          if (d > 0) {
+            dx /= d;
+            dy /= d;
+          } else {
+            dx = -Math.cos(z.facing);
+            dy = -Math.sin(z.facing);
+          }
+          z.x = zone.x + dx * min;
+          z.y = zone.y + dy * min;
+          const inward = z.kx * dx + z.ky * dy;
+          if (inward < 0) {
+            z.kx -= inward * dx;
+            z.ky -= inward * dy;
+          }
+          zone.onContact?.(z, dx, dy);
+        },
+      );
     }
   }
 

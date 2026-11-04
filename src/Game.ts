@@ -1,9 +1,8 @@
 import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
-import type { DropDef } from "./config/drops";
 import { PLAYER } from "./config/player";
-import { POWERUPS } from "./config/powerups";
+import { POWERUP_DEFS, type PowerupDef } from "./config/powerups";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { pick, rand } from "./core/random";
@@ -11,7 +10,6 @@ import { profiler } from "./debug/Profiler";
 import { Drops } from "./entities/Drops";
 import { Horde } from "./entities/Horde";
 import { Loot } from "./entities/Loot";
-import { Powerups } from "./entities/Powerups";
 import { Player } from "./entities/Player";
 import { aiDebug } from "./entities/ZombieBrain";
 import { Weapon } from "./combat/Weapon";
@@ -21,9 +19,12 @@ import { Effects } from "./fx/Effects";
 import type { GameTextures } from "./fx/textures";
 import { GameOver } from "./ui/GameOver";
 import { HealthBar } from "./ui/HealthBar";
+import { PowerupPills } from "./ui/PowerupPills";
 import { Reticle } from "./ui/Reticle";
 import { Vignette } from "./ui/Vignette";
 import { UI_FONT } from "./ui/font";
+import { PowerupContext } from "./powerups/PowerupContext";
+import { Powerups } from "./powerups/Powerups";
 import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
@@ -42,6 +43,11 @@ const DEATH_MUSIC_DUCK = 0.25;
 const HUD_TOP = 10;
 const HUD_LEFT = 12;
 const HEALTH_BAR_HEIGHT = 16;
+const HEALTH_BAR_WIDTH = 200;
+/** Gap between the health bar and the first power-up pill's icon disc. */
+const PILLS_GAP = 32;
+/** Where the P key drops a test orb, ahead of the player along his aim. */
+const TEST_DROP_DISTANCE = 90;
 
 /** Keys typed into the tuning panel's fields must not reach the game. */
 export const isTyping = (e: KeyboardEvent): boolean =>
@@ -50,6 +56,11 @@ export const isTyping = (e: KeyboardEvent): boolean =>
 
 export class Game {
   private readonly world = new Container();
+  /** Power-up visuals: world-space over the horde, and screen-space under the HUD. */
+  private readonly powerupWorld = new Container({ label: "powerupWorld" });
+  private readonly powerupScreen = new Container({ label: "powerupScreen" });
+  /** Next power-up the P key drops, cycling through the table. */
+  private testDrop = 0;
   private readonly input: Input;
   private readonly camera: Camera;
   private readonly arena: Arena;
@@ -64,6 +75,7 @@ export class Game {
   private readonly weapon: Weapon;
   private readonly hud: Text;
   private readonly healthBar = new HealthBar();
+  private readonly pills: PowerupPills;
   private readonly vignette: Vignette;
   private readonly gameOver: GameOver;
   private readonly reticle: Reticle;
@@ -92,9 +104,8 @@ export class Game {
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
     this.loot = new Loot(tex, this.fx, this.audio);
-    this.powerups = new Powerups(this.audio);
-    this.drops = new Drops(tex, this.arena, this.fx, this.audio, (def) =>
-      this.collectDrop(def),
+    this.drops = new Drops(tex, this.arena, this.fx, (def) =>
+      this.powerups.apply(def),
     );
     this.horde.onKill = (z) => {
       this.loot.burst(z.x, z.y, z.kx, z.ky, z.def.lootScale);
@@ -109,25 +120,41 @@ export class Game {
       this.audio,
       this.casings,
     );
+    this.powerups = new Powerups(
+      new PowerupContext(
+        this.horde,
+        this.fx,
+        this.floor,
+        this.camera,
+        this.audio,
+        this.player,
+        this.weapon,
+        this.powerupWorld,
+        this.powerupScreen,
+        app.screen,
+      ),
+    );
     this.audio.duckMusic(1);
     this.onKeyDown = (e) => this.hotkey(e);
     window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
-    // he gets swamped, with additive effects on top. Flying limbs go over the effects so a head
-    // stays readable through its own blood fountain.
+    // he gets swamped, then casings and effects. Flying limbs go over the effects so a head stays
+    // readable through its own blood fountain. Power-up orbs sit over all of it so they are never
+    // lost in the crowd, and power-up visuals (bubbles, domes, planes) over the orbs.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
       this.horde.corpses.view,
       this.loot.view,
-      this.drops.view,
       this.player.view,
       this.horde.view,
       this.casings.view,
       this.fx.view,
       this.horde.limbs.view,
       this.horde.debugView,
+      this.drops.view,
+      this.powerupWorld,
     );
 
     this.hud = new Text({
@@ -149,13 +176,20 @@ export class Game {
     });
     this.hud.position.set(HUD_LEFT, HUD_TOP + HEALTH_BAR_HEIGHT + 6);
     this.healthBar.view.position.set(HUD_LEFT, HUD_TOP);
+    this.pills = new PowerupPills(tex);
+    this.pills.view.position.set(
+      HUD_LEFT + HEALTH_BAR_WIDTH + PILLS_GAP,
+      HUD_TOP + HEALTH_BAR_HEIGHT / 2 + 1,
+    );
     this.vignette = new Vignette(app);
     this.gameOver = new GameOver(app, onRestart);
     this.reticle = new Reticle(this.input);
     app.stage.addChild(
       this.world,
       this.vignette.view,
+      this.powerupScreen,
       this.healthBar.view,
+      this.pills.view,
       this.hud,
       this.gameOver.view,
       this.reticle.view,
@@ -172,12 +206,15 @@ export class Game {
     this.app.ticker.remove(this.tick);
     this.app.ticker.remove(this.endRender);
     window.removeEventListener("keydown", this.onKeyDown);
+    this.powerups.endAll();
     this.input.destroy();
     this.floor.destroy();
     for (const child of [
       this.world,
       this.vignette.view,
+      this.powerupScreen,
       this.healthBar.view,
+      this.pills.view,
       this.hud,
       this.gameOver.view,
       this.reticle.view,
@@ -190,12 +227,6 @@ export class Game {
     this.weapon.equip(id);
   }
 
-  private collectDrop(def: DropDef): void {
-    if (def.kind === "weapon") this.equip(def.weapon);
-    else if (def.kind === "health") this.player.heal(def.heal);
-    else this.powerups.apply(def.powerup);
-  }
-
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
     if (e.code === "KeyR") {
@@ -203,6 +234,8 @@ export class Game {
       else this.onRestart();
     }
     if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
+    if (e.code === "KeyP")
+      this.dropOrb(POWERUP_DEFS[this.testDrop++ % POWERUP_DEFS.length]);
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
     if (theme) this.audio.playMusic(theme);
@@ -212,15 +245,26 @@ export class Game {
     if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
   }
 
+  /** An orb just ahead of the player, so every power-up can be tried on demand (P key, tuning panel). */
+  dropOrb(def: PowerupDef): void {
+    const p = this.player;
+    this.drops.drop(
+      def,
+      p.x + Math.cos(p.aim) * TEST_DROP_DISTANCE,
+      p.y + Math.sin(p.aim) * TEST_DROP_DISTANCE,
+    );
+  }
+
   private step(dt: number): void {
     profiler.beginFrame();
-    this.powerups.update(dt);
-    this.player.speedScale = this.powerups.scale("moveSpeed");
-    this.player.magnetRadiusScale = this.powerups.scale("magnetRadius");
-    this.player.magnetPullScale = this.powerups.scale("magnetPull");
-    this.weapon.fireIntervalScale = this.powerups.scale("fireInterval");
-    this.weapon.spreadScale = this.powerups.scale("spread");
-    this.weapon.damageScale = this.powerups.scale("damage");
+    if (this.player.alive) this.powerups.update(dt);
+    const mods = this.powerups.ctx.modifiers;
+    this.player.speedScale = mods.moveSpeed;
+    this.player.magnetRadiusScale = mods.magnetRadius;
+    this.player.magnetPullScale = mods.magnetPull;
+    this.weapon.fireIntervalScale = mods.fireInterval;
+    this.weapon.spreadScale = mods.spread;
+    this.weapon.damageScale = mods.damage;
     const p = this.player;
     if (p.alive) {
       this.elapsed += dt;
@@ -244,6 +288,7 @@ export class Game {
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.healthBar.update(p.health, PLAYER.maxHealth);
+    this.pills.update(this.powerups.active);
     this.reticle.update(dt, this.weapon);
     this.groan(dt);
     profiler.lap("misc");
@@ -253,11 +298,6 @@ export class Game {
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
     const w = this.weapon;
-    const active = this.powerups.active
-      .map(
-        (p) => `   ${POWERUPS[p.id].name.toUpperCase()} ${p.left.toFixed(1)}s`,
-      )
-      .join("");
     const ai = aiDebug.enabled
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
       : "";
@@ -267,7 +307,7 @@ export class Game {
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
-      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}${active}\n` +
+      `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
       `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
   }
 
@@ -295,6 +335,7 @@ export class Game {
       rotation: p.aim + rand(-0.4, 0.4),
     });
     p.view.visible = false;
+    this.powerups.endAll();
     this.horde.calm();
     this.audio.duckMusic(DEATH_MUSIC_DUCK);
     this.gameOver.show({

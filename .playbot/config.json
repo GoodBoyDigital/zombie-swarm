@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "run": "BROWSER=none npm run dev -- --host 127.0.0.1",
+    "setup": "npm ci"
+  }
+}

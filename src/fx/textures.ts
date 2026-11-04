@@ -10,8 +10,8 @@ import {
 } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
-import type { PowerupId } from "../config/powerups";
-import { WEAPONS, type WeaponId } from "../config/weapons";
+import { POWERUP_DEFS } from "../config/powerups";
+import { WEAPONS } from "../config/weapons";
 import {
   PART_IDS,
   ZOMBIES,
@@ -64,8 +64,6 @@ export interface GameTextures {
   playerFlash: Texture;
   /** The fallen player, stamped into the floor on death. */
   playerCorpse: Texture;
-  /** Health crate icon. */
-  medkit: Texture;
   /** Held weapon art by weapon id, from each WeaponDef's sprite path. */
   weapons: Record<string, Texture>;
   muzzleFlash: Texture;
@@ -78,45 +76,24 @@ export interface GameTextures {
   tiles: { concrete: Texture; wall: Texture };
   /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
   loot: Record<LootId, Texture>;
-  crate: Texture;
-  weaponIcons: Record<WeaponId, Texture>;
-  /** Glowing orb that carries a power-up, with an icon per kind. */
-  orb: Texture;
-  powerupIcons: Record<PowerupId, Texture>;
+  /** Each power-up's icon, from its def's `icon` path. Drawn on orbs and HUD pills. */
+  powerupIcons: Record<string, Texture>;
+  /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch blob. */
+  blast: { boom: Texture; ring: Texture; glow: Texture; scorch: Texture };
 }
 
 const SPRITES = {
   player: "/sprites/player.png",
   playerFlash: "/sprites/player-flash.png",
   playerCorpse: "/sprites/player-corpse.png",
-  medkit: "/sprites/icon-medkit.png",
   tileConcrete: "/sprites/tile-concrete.png",
   tileWall: "/sprites/tile-wall.png",
-  crate: "/sprites/drop-crate.png",
-  orb: "/sprites/powerup-orb.png",
 } as const;
 
 const LOOT_SPRITES: Record<LootId, string> = {
   coin: "/sprites/loot-coin.png",
   gem: "/sprites/loot-gem.png",
   bigGem: "/sprites/loot-big-gem.png",
-};
-
-const POWERUP_ICON_SPRITES: Record<PowerupId, string> = {
-  magnet: "/sprites/icon-powerup-magnet.png",
-  rapidFire: "/sprites/icon-powerup-rapid.png",
-  doubleDamage: "/sprites/icon-powerup-damage.png",
-  speed: "/sprites/icon-powerup-speed.png",
-};
-
-const ICON_SPRITES: Record<WeaponId, string> = {
-  pistol: "/sprites/icon-pistol.png",
-  rifle: "/sprites/icon-rifle.png",
-  shotgun: "/sprites/icon-shotgun.png",
-  railgun: "/sprites/icon-railgun.png",
-  minigun: "/sprites/icon-minigun.png",
-  magnum: "/sprites/icon-magnum.png",
-  uzi: "/sprites/icon-uzi.png",
 };
 
 /**
@@ -136,6 +113,9 @@ const SCALE_MODE: "nearest" | "linear" =
   new URLSearchParams(location.search).get("filter") === "nearest"
     ? "nearest"
     : "linear";
+
+/** Explosion textures are drawn at this radius in world px; Effects scales them to each blast. */
+export const BLAST_TEXTURE_RADIUS = 128;
 
 /** Outline colour shared with the sprite art, for anything drawn here that needs an edge. */
 const INK = 0x151a15;
@@ -170,11 +150,12 @@ export async function createTextures(
       return [paths.body, paths.flash, ...paths.corpses, ...pieces];
     }),
     ...Object.values(LOOT_SPRITES),
-    ...Object.values(ICON_SPRITES),
-    ...Object.values(POWERUP_ICON_SPRITES),
+    ...POWERUP_DEFS.flatMap((d) =>
+      "sprite" in d ? [d.icon, d.sprite] : [d.icon],
+    ),
   ];
   const loaded = (await Assets.load<Texture>(
-    urls.map((src) => ({
+    [...new Set(urls)].map((src) => ({
       alias: src,
       src: assetUrl(src),
       data: { resolution: ART_RESOLUTION, scaleMode: SCALE_MODE },
@@ -201,9 +182,6 @@ export async function createTextures(
       ];
     }),
   );
-  const icons = Object.fromEntries(
-    Object.entries(ICON_SPRITES).map(([id, url]) => [id, loaded[url]]),
-  ) as Record<WeaponId, Texture>;
 
   /** Bake vector shapes into a texture at sprite resolution, antialiased. */
   const make = (g: Graphics, resolution = ART_RESOLUTION) => {
@@ -303,22 +281,60 @@ export async function createTextures(
     return make(g);
   });
 
+  // Explosion parts are drawn at BLAST_TEXTURE_RADIUS and scaled to each blast's size by Effects.
+  const R = BLAST_TEXTURE_RADIUS;
+  // Round vector fireball: ink, orange, yellow, white core, each a lumpy ring of spikes.
+  const boom = new Graphics();
+  const spikes = 11;
+  const ball = (outer: number, inner: number, color: number) => {
+    const points: number[] = [];
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (i / (spikes * 2)) * Math.PI * 2;
+      const d = i % 2 === 0 ? outer : inner;
+      points.push(Math.cos(a) * d, Math.sin(a) * d);
+    }
+    boom.poly(points).fill(color);
+  };
+  ball(R, R * 0.78, INK);
+  ball(R * 0.9, R * 0.68, 0xff7a1a);
+  ball(R * 0.66, R * 0.5, 0xffd23a);
+  boom.circle(0, 0, R * 0.32).fill(0xfff6e0);
+  // Shockwave: a white band with soft inner and outer edges.
+  const ring = new Graphics();
+  [0.2, 0.5, 1, 1, 0.5, 0.2].forEach((alpha, i) =>
+    ring
+      .circle(0, 0, R - 3 * i)
+      .stroke({ width: 3, color: 0xffffff, alpha, alignment: 1 }),
+  );
+  const glow = new Graphics();
+  for (let i = 8; i >= 1; i--)
+    glow.circle(0, 0, (R * i) / 8).fill({ color: 0xffffff, alpha: 0.14 });
+  // Scorch: lumpy blob, grey rim around white, tinted dark when stamped.
+  const scorch = new Graphics();
+  const lobes: [number, number, number][] = [[0, 0, R * 0.62]];
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + rand(-0.3, 0.3);
+    const d = rand(0.35, 0.55) * R;
+    lobes.push([Math.cos(a) * d, Math.sin(a) * d, rand(0.25, 0.42) * R]);
+  }
+  for (const [x, y, r] of lobes) scorch.circle(x, y, r).fill(0x9a9a9a);
+  for (const [x, y, r] of lobes) scorch.circle(x, y, r * 0.72).fill(0xffffff);
+
   return {
     zombies,
     loot: packAtlas(renderer, LOOT_SPRITES, loaded),
-    crate: sprite("crate"),
-    orb: sprite("orb"),
     powerupIcons: Object.fromEntries(
-      Object.entries(POWERUP_ICON_SPRITES).map(([id, url]) => [
-        id,
-        loaded[url],
-      ]),
-    ) as Record<PowerupId, Texture>,
-    weaponIcons: icons,
+      POWERUP_DEFS.map((d) => [d.id, loaded[d.icon]]),
+    ),
+    blast: {
+      boom: make(boom),
+      ring: make(ring),
+      glow: make(glow, 1),
+      scorch: make(scorch, 1),
+    },
     player: sprite("player"),
     playerFlash: sprite("playerFlash"),
     playerCorpse: sprite("playerCorpse"),
-    medkit: sprite("medkit"),
     weapons,
     muzzleFlash: make(flash),
     tracer: make(tracer, 1),

@@ -213,4 +213,13 @@ export const ZOMBIE_AI = {
   stepLengthJitter: 0.25,
   swayJitter: 0.5,
   sizeJitter: 0.07,
+  /** +/- fraction of the type's shuffle, so some zombies lurch hard and others glide. */
+  shuffleJitter: 0.5,
+  /**
+   * Each zombie's speed drifts slowly over time by up to this fraction, on its own period, so the
+   * same zombie speeds up and slows down rather than holding one pace forever.
+   */
+  speedWobble: 0.15,
+  speedWobblePeriodMin: 2.5,
+  speedWobblePeriodMax: 6,
 } satisfies Record<string, number>;

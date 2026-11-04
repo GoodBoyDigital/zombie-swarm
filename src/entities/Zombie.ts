@@ -33,6 +33,10 @@ export class Zombie {
   private stepScale = 1;
   private swayScale = 1;
   private sizeScale = 1;
+  private shuffleScale = 1;
+  /** Slow speed drift: its own phase and rate per zombie. */
+  private wobblePhase = 0;
+  private wobbleRate = 0;
   tint = 0xffffff;
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
@@ -68,6 +72,11 @@ export class Zombie {
     this.stepScale = jitter(ZOMBIE_AI.stepLengthJitter);
     this.swayScale = jitter(ZOMBIE_AI.swayJitter);
     this.sizeScale = jitter(ZOMBIE_AI.sizeJitter);
+    this.shuffleScale = jitter(ZOMBIE_AI.shuffleJitter);
+    this.wobblePhase = rand(0, TWO_PI);
+    this.wobbleRate =
+      TWO_PI /
+      rand(ZOMBIE_AI.speedWobblePeriodMin, ZOMBIE_AI.speedWobblePeriodMax);
     this.tint = shade(def.color, rand(0.8, 1));
     this.wanderTint = blueShade(this.tint, WANDER_TINT_FACTOR);
     this.losingTint = limeShade(this.tint, LOSING_TINT_FACTOR);
@@ -96,7 +105,10 @@ export class Zombie {
     playerY: number,
     playerRadius: number,
   ): void {
-    const move = this.brain.steer(dt, this, playerX, playerY, playerRadius);
+    this.wobblePhase += this.wobbleRate * dt;
+    const move =
+      this.brain.steer(dt, this, playerX, playerY, playerRadius) *
+      (1 + ZOMBIE_AI.speedWobble * Math.sin(this.wobblePhase));
     // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
     const ai = this.def.ai;
     if (move > 0)
@@ -106,8 +118,11 @@ export class Zombie {
         dt;
     this.stepSin = Math.sin(this.phase);
     const pulse = this.stepSin > 0 ? Math.sqrt(this.stepSin) : 0;
-    const gait =
-      1 + (ai.shuffle ?? ZOMBIE_AI.shuffle) * (pulse / PULSE_MEAN - 1);
+    const shuffle = Math.min(
+      1,
+      (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
+    );
+    const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
     this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
     this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);

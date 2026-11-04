@@ -199,10 +199,10 @@ export async function createTextures(
     });
     flash.poly(points).fill(color);
   };
-  burst(52, 9, INK);
-  burst(46, 7, 0xff7a1a);
-  burst(34, 5, 0xffd23a);
-  flash.circle(4, 0, 6).fill(0xffffff);
+  burst(70, 12, INK);
+  burst(62, 9, 0xff7a1a);
+  burst(46, 7, 0xffd23a);
+  flash.circle(6, 0, 8).fill(0xffffff);
 
   // Soft-edged band for tracers: opaque core, fading rows above and below. Stretched to length.
   const tracer = new Graphics();

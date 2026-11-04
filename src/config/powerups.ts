@@ -195,7 +195,7 @@ export const POWERUPS = {
     mode: "timed",
     seconds: 10,
     effect: "modifiers",
-    modifiers: { moveSpeed: 1.4 },
+    modifiers: { moveSpeed: 1.2 },
     icon: "/sprites/icon-powerup-speed.png",
     weight: 2,
   },

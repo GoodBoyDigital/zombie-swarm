@@ -67,7 +67,7 @@ export type PowerupDef = PowerupBase &
     | (Timed & {
         effect: "magnet";
         modifiers: Partial<Modifiers>;
-        /** Ring on the ground at the pull radius, with ripples sweeping in toward the player. */
+        /** Rings rippling in toward the player, and the lightning on incoming loot. */
         ringColor: number;
       })
     | (Timed & {

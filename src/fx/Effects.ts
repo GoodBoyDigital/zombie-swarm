@@ -48,6 +48,10 @@ const TRACER_WIDTH_SCALE = 1.6;
 const HOT_TRACER = 0xff5a1f;
 /** How much thicker the whole power-mode tracer (glow and core) is drawn. */
 const HOT_TRACER_THICKNESS = 3;
+/** Magnet lightning: kinks per bolt, sideways wander in px, and how long one flickers. */
+const ZAP_SEGMENTS = 5;
+const ZAP_JITTER = 9;
+const ZAP_SECONDS = 0.1;
 
 /** Wall chips and dust thrown off a bullet impact: chunk count, then colours. */
 const WALL_DEBRIS = 9;
@@ -118,6 +122,40 @@ export class Effects {
     }
     streak(width * power * 1.6 * HOT_TRACER_THICKNESS, HOT_TRACER, 0.14);
     streak(width * 0.9 * HOT_TRACER_THICKNESS, 0xffffff, 0.1);
+  }
+
+  /** A quick jagged spark of lightning from (x0, y0) to (x1, y1): a coloured bolt with a white core. */
+  zap(x0: number, y0: number, x1: number, y1: number, color: number): void {
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    if (length < 1) return;
+    const nx = -(y1 - y0) / length;
+    const ny = (x1 - x0) / length;
+    const jitter = Math.min(ZAP_JITTER, length * 0.15);
+    let ax = x0;
+    let ay = y0;
+    for (let i = 1; i <= ZAP_SEGMENTS; i++) {
+      const f = i / ZAP_SEGMENTS;
+      const off = i < ZAP_SEGMENTS ? rand(-jitter, jitter) : 0;
+      const bx = x0 + (x1 - x0) * f + nx * off;
+      const by = y0 + (y1 - y0) * f + ny * off;
+      const angle = Math.atan2(by - ay, bx - ax);
+      const run = Math.hypot(bx - ax, by - ay);
+      for (const [w, tint] of [
+        [3, color],
+        [1.2, 0xffffff],
+      ] as const) {
+        const p = this.spawn("tracer", this.tex.tracer, ZAP_SECONDS);
+        p.sprite.anchor.set(0, 0.5);
+        p.sprite.position.set(ax, ay);
+        p.sprite.rotation = angle;
+        p.sprite.width = run;
+        p.sprite.height = w * TRACER_WIDTH_SCALE;
+        p.sprite.tint = tint;
+        p.sprite.alpha = 0.9;
+      }
+      ax = bx;
+      ay = by;
+    }
   }
 
   /** One discharge along the fixed shot line, flaring and fading out. */

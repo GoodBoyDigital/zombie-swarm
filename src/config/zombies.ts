@@ -244,7 +244,7 @@ export const MAX_ZOMBIE_RADIUS = Math.max(
 
 /**
  * What spawns when. Each row gives relative weights per type at `at` seconds of play; weights are
- * interpolated between rows and held flat after the last one. Brutes start at 75 s; runners are off for now.
+ * interpolated between rows and held flat after the last one. Brutes start at 150 s; runners are off for now.
  */
 /**
  * Spawns per second at the start and after `rampSeconds` of play. The curve eases in (`rampPower`):
@@ -266,11 +266,11 @@ export const SPAWN_TABLE: readonly {
   weights: Record<ZombieId, number>;
 }[] = [
   { at: 0, weights: { walker: 1, runner: 0, brute: 0 } },
-  { at: 30, weights: { walker: 1, runner: 0, brute: 0 } },
   { at: 60, weights: { walker: 1, runner: 0, brute: 0 } },
-  { at: 75, weights: { walker: 1, runner: 0, brute: 0.03 } },
-  { at: 150, weights: { walker: 1, runner: 0, brute: 0.12 } },
-  { at: 240, weights: { walker: 1, runner: 0, brute: 0.2 } },
+  { at: 120, weights: { walker: 1, runner: 0, brute: 0 } },
+  { at: 150, weights: { walker: 1, runner: 0, brute: 0.03 } },
+  { at: 300, weights: { walker: 1, runner: 0, brute: 0.12 } },
+  { at: 480, weights: { walker: 1, runner: 0, brute: 0.2 } },
 ];
 
 /**

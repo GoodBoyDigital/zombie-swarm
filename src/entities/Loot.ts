@@ -9,6 +9,7 @@ import {
   type LootId,
 } from "../config/loot";
 import { PLAYER } from "../config/player";
+import { POWERUPS } from "../config/powerups";
 import { pickWeighted, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
 import type { Effects } from "../fx/Effects";
@@ -28,6 +29,8 @@ const COMBO_PITCH_STEP = 0.05;
 const COMBO_MAX = 14;
 /** How much faster than the player homing loot always travels, px/s. */
 const MAGNET_LEAD = 100;
+/** While a magnet power-up runs, one item being pulled in sparks lightning to the player this often, s. */
+const ZAP_INTERVAL = 0.15;
 const SPARKLE: Record<LootId, number> = {
   coin: 0xffd84a,
   bill: 0xa5d985,
@@ -75,6 +78,7 @@ export class Loot {
   private readonly hash = new SpatialHash<LootItem>(CELL_SIZE);
   private combo = 0;
   private comboTimer = 0;
+  private zapTimer = 0;
 
   constructor(
     private readonly tex: GameTextures,
@@ -199,6 +203,11 @@ export class Loot {
     // Always faster than the player, even running away with a gun kicking him backwards.
     const minSpeed = Math.max(player.moveSpeed, player.speed) + MAGNET_LEAD;
     const maxSpeed = Math.max(PLAYER.magnetMaxSpeed, minSpeed);
+    // A magnet power-up crackles: now and then one random incoming item zaps to the player.
+    this.zapTimer -= dt;
+    const zapping = player.magnetPullScale > 1 && this.zapTimer <= 0;
+    let zapTarget: LootItem | null = null;
+    let incoming = 0;
     // Once caught, keep homing even if the player runs beyond the pickup radius.
     for (let i = this.live.length - 1; i >= 0; i--) {
       const it = this.live[i];
@@ -217,7 +226,13 @@ export class Loot {
       );
       it.vx = (dx / d) * speed;
       it.vy = (dy / d) * speed;
+      // Reservoir pick, so every incoming item has the same chance without a second pass.
+      if (zapping && d > collect * 2 && Math.random() * ++incoming < 1)
+        zapTarget = it;
     }
+    if (!zapTarget) return;
+    this.zapTimer = ZAP_INTERVAL;
+    this.fx.zap(zapTarget.x, zapTarget.y, px, py, POWERUPS.magnet.ringColor);
   }
 
   private collect(it: LootItem): void {

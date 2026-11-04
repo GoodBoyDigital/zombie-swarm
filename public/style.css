@@ -18,3 +18,9 @@ canvas {
     display: block;
     cursor: crosshair;
 }
+
+/* Tweakpane tuning overlay */
+.tp-dfwv {
+    width: 320px;
+    z-index: 10;
+}

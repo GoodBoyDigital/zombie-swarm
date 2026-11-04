@@ -3,6 +3,7 @@ import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
+import { setupTuning } from "./debug/TuningPanel";
 import { Horde } from "./entities/Horde";
 import { Player } from "./entities/Player";
 import { Weapon } from "./combat/Weapon";
@@ -20,6 +21,11 @@ const THEME_KEYS: Record<string, MusicName> = {
   F3: "chiptuneFrenzy",
 };
 const GROAN_INTERVAL = 0.35;
+
+/** Keys typed into the tuning panel's fields must not reach the game. */
+export const isTyping = (e: KeyboardEvent): boolean =>
+  e.target instanceof HTMLInputElement ||
+  e.target instanceof HTMLTextAreaElement;
 
 export class Game {
   private readonly world = new Container();
@@ -61,6 +67,7 @@ export class Game {
       this.audio.playMusic("synthwaveDread");
     });
     window.addEventListener("keydown", (e) => this.hotkey(e));
+    setupTuning();
 
     // Draw order: floor gore, walls, zombies, player, then additive effects on top.
     this.world.addChild(
@@ -95,6 +102,7 @@ export class Game {
   }
 
   private hotkey(e: KeyboardEvent): void {
+    if (isTyping(e)) return;
     if (e.code === "KeyR") this.weapon.reload();
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];

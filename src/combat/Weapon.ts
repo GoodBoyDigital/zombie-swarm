@@ -101,10 +101,6 @@ export class Weapon {
     this.player.barrelSpin = 0;
   }
 
-  /** Winding up: trigger held, barrels not yet at speed. */
-  get spinningUp(): boolean {
-    return this.spin < 1 && this.spinHeld;
-  }
 
   /** Current half-angle of spread, base plus bloom. */
   get spread(): number {

@@ -17,15 +17,13 @@ const RING_WIDTH = RETICLE_SIZE * 0.1;
 const RING_BACK = 0x000000;
 const RING_FILL = 0xffd84a;
 const RING_DONE = 0xffffff;
-/** Spin-up guns (minigun) fill the ring in this colour while the barrels wind up. */
-const RING_SPIN = 0xff8a2a;
 /** The ring snaps bright and shrinks back when a reload lands. */
 const FLASH_SECONDS = 0.18;
 const FLASH_SCALE = 1.35;
 
 /**
  * Crosshair under the pointer in screen space, so camera shake never moves it. While the weapon
- * reloads a ring fills clockwise around it; a spin-up gun fills it orange while its barrels wind up.
+ * reloads a ring fills clockwise around it with the seconds left underneath.
  */
 export class Reticle {
   readonly view = new Container();
@@ -56,8 +54,7 @@ export class Reticle {
     this.flash = Math.max(0, this.flash - dt);
 
     const flashing = this.flash > 0;
-    const spinning = !reloading && weapon.spinningUp;
-    this.reloadUi.visible = reloading || flashing || spinning;
+    this.reloadUi.visible = reloading || flashing;
     if (!this.reloadUi.visible) {
       this.reloadUi.scale.set(1);
       return;
@@ -65,14 +62,9 @@ export class Reticle {
     const t = flashing ? this.flash / FLASH_SECONDS : 0;
     const progress = reloading
       ? 1 - weapon.reloadLeft / weapon.reloadDuration
-      : spinning
-        ? weapon.spin
-        : 1;
+      : 1;
     this.reloadUi.scale.set(1 + (FLASH_SCALE - 1) * t);
-    this.drawRing(
-      progress,
-      flashing ? RING_DONE : spinning ? RING_SPIN : RING_FILL,
-    );
+    this.drawRing(progress, flashing ? RING_DONE : RING_FILL);
   }
 
   /** Full dark ring underneath, the filled share on top, starting at 12 o'clock and going clockwise. */

@@ -229,6 +229,6 @@ export class Player {
       const x = this.barrelX0 - kick + len * ((this.barrelPhase + i / BARREL_BANDS) % 1);
       g.moveTo(x, this.gun.y - this.barrelHalf).lineTo(x, this.gun.y + this.barrelHalf);
     }
-    g.stroke({ width: 1.5, color: 0x000000, alpha: 0.45 * this.barrelSpin });
+    g.stroke({ width: 2, color: 0x000000, alpha: 0.7 * this.barrelSpin });
   }
 }

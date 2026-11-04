@@ -55,6 +55,7 @@ export class Weapon {
   /** Swap to a weapon with a full magazine, dropping any reload in progress. */
   equip(id: WeaponId): void {
     this.id = id;
+    this.player.equip(this.def);
     this.rounds = this.def.magazine;
     this.reloadLeft = 0;
     this.cooldown = 0;
@@ -100,14 +101,8 @@ export class Weapon {
     this.shots.fx.muzzleFlash(m.x, m.y, aim);
     this.player.recoil(aimX, aimY, def.recoil);
     if (def.casing) {
-      // Port sits a little way up the barrel from the body, not at the muzzle.
-      const port = 14;
-      this.casings.eject(
-        this.player.x + aimX * port,
-        this.player.y + aimY * port,
-        aim,
-        def.casing,
-      );
+      const port = this.player.ejectPort();
+      this.casings.eject(port.x, port.y, aim, def.casing);
     }
     this.camera.addTrauma(def.shake);
     this.camera.kick(aimX * 3, aimY * 3);

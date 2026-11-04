@@ -1,10 +1,22 @@
 import type { ShotType } from "../combat/shots";
 import type { CasingId } from "./casings";
 
+export interface WeaponSprite {
+  /** Image under public/sprites, point-sampled like the character art. */
+  path: string;
+  /** Point the player's hands hold, as fractions of the sprite. It is pinned to the player's hand point. */
+  grip: { x: number; y: number };
+  /** Barrel tip as fractions of the sprite. Shots, flash and tracer originate here. */
+  muzzle: { x: number; y: number };
+  /** Ejection port as fractions of the sprite, on the receiver. Casings leave from here. */
+  eject: { x: number; y: number };
+}
+
 export interface WeaponDef {
   id: string;
   /** Shown in the HUD and on crates. */
   name: string;
+  sprite: WeaponSprite;
   /** How a pellet reaches its target. See `SHOT_HANDLERS`. */
   shot: ShotType;
   /** Shell ejected per trigger pull, or null for weapons that leave nothing behind. */
@@ -36,6 +48,12 @@ export const WEAPONS = {
   pistol: {
     id: "pistol",
     name: "Pistol",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     shot: "hitscan",
     casing: "pistol",
     pellets: 1,
@@ -54,6 +72,12 @@ export const WEAPONS = {
   rifle: {
     id: "rifle",
     name: "Rifle",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     shot: "hitscan",
     casing: "rifle",
     pellets: 1,
@@ -72,6 +96,12 @@ export const WEAPONS = {
   shotgun: {
     id: "shotgun",
     name: "Shotgun",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     shot: "hitscan",
     casing: "shotgun",
     pellets: 8,
@@ -90,6 +120,12 @@ export const WEAPONS = {
   railgun: {
     id: "railgun",
     name: "Railgun",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     shot: "hitscan",
     casing: null,
     pellets: 1,
@@ -108,6 +144,12 @@ export const WEAPONS = {
   minigun: {
     id: "minigun",
     name: "Minigun",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
     shot: "hitscan",
     casing: "rifle",
     pellets: 1,

@@ -9,7 +9,7 @@ import {
 } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
-import type { WeaponId } from "../config/weapons";
+import { WEAPONS, type WeaponId } from "../config/weapons";
 import { rand } from "../core/random";
 
 export interface GameTextures {
@@ -18,6 +18,8 @@ export interface GameTextures {
   zombieFlash: Texture;
   zombieCorpse: Texture;
   player: Texture;
+  /** Held weapon art by weapon id, from each WeaponDef's sprite path. */
+  weapons: Record<string, Texture>;
   muzzleFlash: Texture;
   spark: Texture;
   splats: Texture[];
@@ -66,12 +68,17 @@ const PIXEL_SCALE = 0.25;
 export async function createTextures(
   renderer: Renderer,
 ): Promise<GameTextures> {
+  const weaponDefs = Object.values(WEAPONS);
   const loaded = await Assets.load<Texture>([
     ...Object.values(SPRITES),
+    ...weaponDefs.map((w) => w.sprite.path),
     ...Object.values(LOOT_SPRITES),
     ...Object.values(ICON_SPRITES),
   ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
+  const weapons = Object.fromEntries(
+    weaponDefs.map((w) => [w.id, pixelate(loaded[w.sprite.path])]),
+  );
   const icons = Object.fromEntries(
     Object.entries(ICON_SPRITES).map(([id, url]) => [
       id,
@@ -137,6 +144,7 @@ export async function createTextures(
     zombieFlash: sprite("zombieFlash"),
     zombieCorpse: sprite("zombieCorpse"),
     player: sprite("player"),
+    weapons,
     muzzleFlash: sprite("muzzleFlash"),
     spark: make(spark),
     splats,

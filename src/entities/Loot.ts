@@ -49,12 +49,16 @@ interface LootItem {
  * Coins and gems on the floor. One ParticleContainer draws everything in a single call; items
  * are plain objects over pooled Particles, swap-removed, and parked at alpha 0 rather than
  * removed from the container so the per-frame loop never allocates or splices.
+ *
+ * Pixi bakes a particle's scale and anchor into the `vertex` attribute, so `vertex` must be
+ * dynamic for the pop-in to animate; uvs stay static and are re-uploaded only when a reused
+ * particle changes kind.
  */
 export class Loot {
   readonly view = new ParticleContainer({
     dynamicProperties: {
+      vertex: true,
       position: true,
-      scale: true,
       color: true,
       rotation: false,
       uvs: false,
@@ -84,7 +88,7 @@ export class Loot {
   }
 
   private spawn(def: LootDef, x: number, y: number): void {
-    if (this.live.length >= LOOT_RULES.maxItems) this.release(this.oldest());
+    while (this.live.length >= LOOT_RULES.maxItems) this.release(this.oldest());
     const item = this.pool.pop() ?? this.create();
     item.def = def;
     item.x = x;
@@ -99,7 +103,11 @@ export class Loot {
     item.index = this.live.length;
     this.live.push(item);
     const p = item.particle;
-    p.texture = this.tex.loot[def.id as LootId];
+    const texture = this.tex.loot[def.id as LootId];
+    if (p.texture !== texture) {
+      p.texture = texture;
+      this.view.update();
+    }
     p.alpha = 1;
     p.scaleX = p.scaleY = 0;
   }

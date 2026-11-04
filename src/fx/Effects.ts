@@ -31,9 +31,7 @@ interface RailBeam {
   age: number;
 }
 
-const RAIL_FIRST_SECONDS = 0.12;
-const RAIL_SECOND_AT = 0.2;
-const RAIL_SECONDS = 0.35;
+const RAIL_SECONDS = 0.25;
 
 /** Anything with a barrel tip the muzzle flash should stay attached to while it fades. */
 export interface MuzzleSource {
@@ -122,7 +120,7 @@ export class Effects {
     streak(width * 0.9 * HOT_TRACER_THICKNESS, 0xffffff, 0.1);
   }
 
-  /** Two visual discharges on one fixed shot line. Only the initial hitscan deals damage. */
+  /** One discharge along the fixed shot line, flaring and fading out. */
   railBeam(
     x0: number,
     y0: number,
@@ -200,13 +198,8 @@ export class Effects {
   }
 
   private drawRail(beam: RailBeam): void {
-    const second = beam.age >= RAIL_SECOND_AT;
-    const t = second
-      ? (beam.age - RAIL_SECOND_AT) / (RAIL_SECONDS - RAIL_SECOND_AT)
-      : beam.age / RAIL_FIRST_SECONDS;
-    const strength = Math.max(0, 1 - t);
-    const pulse = second ? 0.78 : 1;
-    const width = strength * strength * pulse;
+    const strength = Math.max(0, 1 - beam.age / RAIL_SECONDS);
+    const width = strength * strength;
     beam.view.visible = strength > 0;
     beam.glow.height = 7 + 113 * width;
     beam.glow.alpha = strength * 0.55;

@@ -41,10 +41,10 @@
 <script>
 const WANT = "__WEAPON__";
 const PATH = "src/config/weapons.ts";
-const FIELDS = ["pellets","spread","spreadBloom","spreadMax","fireInterval","magazine","reloadSeconds","damage","knockback","recoil","pierce","range","shake","tracerWidth","noiseRadius"];
-const STEP = { spread: 0.005, spreadBloom: 0.01, spreadMax: 0.01, fireInterval: 0.005, reloadSeconds: 0.1, shake: 0.01, damage: 0.5 };
+const FIELDS = ["pellets","spread","spreadBloom","spreadMax","fireInterval","magazine","magazines","reloadSeconds","damage","knockback","recoil","cameraKick","gunKick","pierce","range","shake","tracerWidth","noiseRadius"];
+const STEP = { spread: 0.005, spreadBloom: 0.01, spreadMax: 0.01, fireInterval: 0.005, reloadSeconds: 0.1, shake: 0.01, damage: 0.5, cameraKick: 0.5, gunKick: 0.5 };
 // Rough upper bounds for the bars so a card is readable on its own.
-const SCALE = { pellets: 10, spread: 0.3, spreadBloom: 0.3, spreadMax: 0.3, fireInterval: 1, magazine: 150, reloadSeconds: 4, damage: 12, knockback: 900, recoil: 520, pierce: 5, range: 2400, shake: 1, tracerWidth: 8, noiseRadius: 800 };
+const SCALE = { pellets: 10, spread: 0.5, spreadBloom: 0.6, spreadMax: 0.5, fireInterval: 1, magazine: 150, magazines: 8, reloadSeconds: 4, damage: 12, knockback: 900, recoil: 600, cameraKick: 12, gunKick: 14, pierce: 5, range: 2400, shake: 1, tracerWidth: 8, noiseRadius: 800 };
 let file = null, weapons = [], current = null;
 const msg = (t, err) => { const m = document.getElementById("msg"); m.textContent = t; m.className = "msg" + (err ? " err" : ""); };
 
@@ -95,7 +95,7 @@ function render() {
   const v = w.values;
   const perShot = v.damage * v.pellets, burst = perShot / v.fireInterval;
   const magTime = v.magazine * v.fireInterval, sustained = (v.magazine * perShot) / (magTime + v.reloadSeconds);
-  const art = w.path ? `<img src="${playbot.fileUrl("public" + w.path)}" alt="${w.name}">` : "no sprite";
+  const art = w.path ? `<img src="${playbot.fileUrl(w.path.replace(/^\/sprites\//, "assets/sprites{tps}/"))}" alt="${w.name}">` : "no sprite";
   let rows = "";
   for (const f of FIELDS) {
     if (!(f in v)) continue;

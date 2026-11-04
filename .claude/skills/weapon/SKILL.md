@@ -23,7 +23,7 @@ back into the file. With no argument it shows a picker over every weapon.
 - The page reads the config through the Playbot SDK, so it always reflects the file on disk in this
   workspace, not a worktree branch. If the weapon isn't found, the page says so; check the id with
   `grep -n "^  \w\+: {" src/config/weapons.ts`.
-- The sprite comes from the weapon's `sprite.path` under `public/`, rendered with nearest filtering.
+- The sprite comes from the weapon's `sprite.path`, read from the atlas source folder `assets/sprites{tps}/`.
 - Save only touches the numeric lines inside that weapon's block and refuses if the file changed
   underneath; the user presses Reload and redoes the edit.
 - The main dev server on port 8080 hot-reloads the config on save.

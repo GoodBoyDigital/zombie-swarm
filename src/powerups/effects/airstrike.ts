@@ -71,6 +71,8 @@ interface Strike {
   blast: ExplosionDef;
   finale: ExplosionDef;
   root: Container;
+  /** Plane and falling bombs, in the sky layer over the blasts. */
+  sky: Container;
   warning: Container;
   chevrons: Graphics[];
   plane: Container;
@@ -157,8 +159,11 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     plane.addChild(new Sprite({ texture: tex, anchor: 0.5 }));
     plane.scale.set(STRETCH * PLANE_SCALE, PLANE_SCALE / STRETCH ** 0.5);
     plane.visible = shadow.visible = false;
-    root.addChild(warning, shadow, plane);
+    root.addChild(warning, shadow);
     ctx.world.addChild(root);
+    const sky = new Container({ label: "airstrikeSky" });
+    sky.addChild(plane);
+    ctx.sky.addChild(sky);
 
     active.state = {
       y,
@@ -186,6 +191,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
         pitch: base.pitch / s ** 0.5,
       },
       root,
+      sky,
       warning,
       chevrons,
       plane,
@@ -235,7 +241,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
         1,
         (t - b.release) / Math.max(0.001, def.bombDelay),
       );
-      b.view ??= st.root.addChild(drawBomb());
+      b.view ??= st.sky.addChild(drawBomb());
       const carry = def.planeSpeed * BOMB_CARRY * def.bombDelay;
       // From the wing on that side down to the impact point.
       const wing = st.y + (b.y - st.y) * 0.5 - ALTITUDE;
@@ -254,6 +260,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
 
   end(_ctx, _def, active) {
     active.state.root.destroy({ children: true });
+    active.state.sky.destroy({ children: true });
   },
 };
 

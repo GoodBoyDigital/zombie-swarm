@@ -62,6 +62,8 @@ const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
 /** Short-lived visuals: muzzle flash, hitscan tracer, blood sparks, explosions. Sprites are pooled. */
 export class Effects {
   readonly view = new Container({ sortableChildren: true });
+  /** Fireballs, flashes, shockwaves and blast debris: add it to the world above the power-up layers. */
+  readonly blastView = new Container();
   private readonly live: Particle[] = [];
   private readonly pool: Sprite[] = [];
   private readonly rails: RailBeam[] = [];
@@ -339,7 +341,12 @@ export class Effects {
       ring.size1 = (radius * def.ring) / R;
     }
     for (let i = 0; i < def.debris; i++) {
-      const p = this.spawn("spark", this.tex.spark, rand(0.3, 0.7));
+      const p = this.spawn(
+        "spark",
+        this.tex.spark,
+        rand(0.3, 0.7),
+        this.blastView,
+      );
       const a = rand(0, Math.PI * 2);
       const speed = rand(1.5, 4) * radius;
       p.vx = Math.cos(a) * speed;
@@ -419,7 +426,12 @@ export class Effects {
     }
   }
 
-  private spawn(kind: Kind, texture: Texture, life: number): Particle {
+  private spawn(
+    kind: Kind,
+    texture: Texture,
+    life: number,
+    layer = this.view,
+  ): Particle {
     const sprite = this.pool.pop() ?? new Sprite();
     sprite.texture = texture;
     sprite.label = kind;
@@ -428,7 +440,7 @@ export class Effects {
     // The flash is an outlined vector star, so it draws normally; only the tracer glows additively.
     sprite.blendMode = kind === "tracer" ? "add" : "normal";
     sprite.visible = true;
-    this.view.addChild(sprite);
+    layer.addChild(sprite);
     const p: Particle = {
       sprite,
       kind,
@@ -452,7 +464,7 @@ export class Effects {
     x: number,
     y: number,
   ): Particle {
-    const p = this.spawn(kind, texture, life);
+    const p = this.spawn(kind, texture, life, this.blastView);
     p.sprite.anchor.set(0.5);
     p.sprite.position.set(x, y);
     p.sprite.rotation = rand(0, Math.PI * 2);
@@ -471,7 +483,7 @@ export class Effects {
 
   private recycle(index: number): void {
     const p = this.live[index];
-    this.view.removeChild(p.sprite);
+    p.sprite.removeFromParent();
     this.pool.push(p.sprite);
     this.live[index] = this.live[this.live.length - 1];
     this.live.pop();

@@ -27,8 +27,10 @@ export class PowerupContext extends CombatContext {
     casings: Casings,
     readonly player: Player,
     readonly weapon: Weapon,
-    /** World-space layer for effect visuals (bubbles, domes, planes), drawn over the horde. */
+    /** World-space layer for effect visuals (bubbles, domes, strike lines), drawn over the horde and orbs. */
     readonly world: Container,
+    /** World-space layer over the explosions, for things in the air (planes and falling bombs). */
+    readonly sky: Container,
     /** World-space layer on the floor, under the player and the horde, for auras and ground marks. */
     readonly ground: Container,
     /** Screen-space layer over the world and under the HUD, for flashes and overlays. */

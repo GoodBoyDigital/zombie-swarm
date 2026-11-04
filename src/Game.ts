@@ -59,6 +59,7 @@ export class Game {
   /** Power-up visuals: world-space over the horde, and screen-space under the HUD. */
   private readonly powerupWorld = new Container({ label: "powerupWorld" });
   private readonly powerupGround = new Container({ label: "powerupGround" });
+  private readonly powerupSky = new Container({ label: "powerupSky" });
   private readonly powerupScreen = new Container({ label: "powerupScreen" });
   /** Next power-up the P key drops, cycling through the table. */
   private testDrop = 0;
@@ -136,6 +137,7 @@ export class Game {
         this.player,
         this.weapon,
         this.powerupWorld,
+        this.powerupSky,
         this.powerupGround,
         this.powerupScreen,
         app.screen,
@@ -148,7 +150,8 @@ export class Game {
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
     // he gets swamped, then casings and effects. Flying limbs go over the effects so a head stays
     // readable through its own blood spray. Power-up orbs sit over all of it so they are never
-    // lost in the crowd, and power-up visuals (bubbles, domes, planes) over the orbs.
+    // lost in the crowd, and power-up visuals (bubbles, domes) over the orbs. Explosions go over
+    // everything on the ground, and only planes and falling bombs fly over the explosions.
     this.world.addChild(
       this.floor.view,
       this.arena.view,
@@ -164,6 +167,8 @@ export class Game {
       this.horde.debugView,
       this.drops.view,
       this.powerupWorld,
+      this.fx.blastView,
+      this.powerupSky,
     );
 
     this.hud = new Text({

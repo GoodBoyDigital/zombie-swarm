@@ -14,7 +14,7 @@ export const DROP_RULES = {
    * one doesn't fill the arena with more.
    */
   weaponChanceWhileWaiting: 0.1,
-  /** Chance a kill drops a red or green power-up, rolled independently of guns. */
+  /** Chance a kill drops a red or pink power-up, rolled independently of guns. */
   powerupChancePerKill: 0.04,
   /**
    * Most orbs one action can drop (a trigger pull, a blast, a bomb), per kind, so a nuke through

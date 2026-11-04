@@ -4,7 +4,7 @@ import { PLAYER } from "./player";
 import type { WeaponId } from "./weapons";
 import { applyHotConfig, trackHotConfig } from "../debug/hotConfig";
 
-/** Blue arms you, green helps you out, red hurts everything around you. */
+/** Blue arms you, pink helps you out, red hurts everything around you. Pink so it never hides in the green gore. */
 export type PowerupCategory = "weapon" | "support" | "destructive";
 
 export interface CategoryDef {
@@ -16,7 +16,7 @@ export interface CategoryDef {
 
 export const POWERUP_CATEGORIES = {
   weapon: { color: 0x3d8bff, sound: "pickupWeapon" },
-  support: { color: 0x46d160, sound: "powerupPickup" },
+  support: { color: 0xff3fc8, sound: "powerupPickup" },
   destructive: { color: 0xff4436, sound: "powerupPickup" },
 } as const satisfies Record<PowerupCategory, CategoryDef>;
 
@@ -271,7 +271,7 @@ export type PowerupId = keyof typeof POWERUPS;
 export const POWERUP_DEFS: readonly PowerupDef[] = Object.values(POWERUPS);
 /** Gun pickups (blue). The backup pistol is never one of them. */
 export const WEAPON_DROPS = POWERUP_DEFS.filter((d) => d.category === "weapon");
-/** Everything else: support (green) and destructive (red). */
+/** Everything else: support (pink) and destructive (red). */
 export const POWERUP_DROPS = POWERUP_DEFS.filter(
   (d) => d.category !== "weapon",
 );

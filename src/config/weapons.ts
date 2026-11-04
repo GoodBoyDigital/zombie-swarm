@@ -38,7 +38,7 @@ export const WEAPONS = {
     id: "rifle",
     sprite: {
       path: "/sprites/weapon-rifle.png",
-      grip: { x: 0.4, y: 0.43 },
+      grip: { x: 0.3, y: 0.43 },
       muzzle: { x: 1, y: 0.43 },
       eject: { x: 0.52, y: 0.43 },
     },

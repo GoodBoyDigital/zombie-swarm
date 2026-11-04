@@ -1,4 +1,4 @@
-import { Application, Container, Text } from "pixi.js";
+import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
 import type { DropDef } from "./config/drops";
@@ -126,6 +126,12 @@ export class Game {
     app.ticker.add((ticker) =>
       this.step(Math.min(MAX_DT, ticker.deltaMS / 1000)),
     );
+    // Pixi renders in its own LOW-priority listener; one below it sees the render's CPU cost.
+    app.ticker.add(
+      () => profiler.endRender(),
+      undefined,
+      UPDATE_PRIORITY.LOW - 1,
+    );
   }
 
   /** Pickups call this; number keys use it for testing. */
@@ -191,7 +197,7 @@ export class Game {
     const ai = aiDebug.enabled
       ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
       : "";
-    const step = `   step ${(profiler.smoothed.step ?? 0).toFixed(1)} ms`;
+    const step = `   step ${(profiler.smoothed.step ?? 0).toFixed(1)} ms   render ${(profiler.smoothed.render ?? 0).toFixed(1)} ms`;
     const ammo = w.reloading
       ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
       : `${w.rounds}/${w.def.magazine}`;

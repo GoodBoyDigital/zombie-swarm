@@ -13,6 +13,7 @@ export class Profiler {
   private readonly frame: Record<string, number> = {};
   private last = 0;
   private frameStart = 0;
+  private renderStart = 0;
 
   beginFrame(): void {
     this.frameStart = this.last = performance.now();
@@ -30,17 +31,26 @@ export class Profiler {
   }
 
   endFrame(): void {
-    this.add("step", performance.now() - this.frameStart);
-    for (const name in this.frame) {
-      const prev = this.smoothed[name] ?? this.frame[name];
-      this.smoothed[name] = prev + (this.frame[name] - prev) * ALPHA;
-    }
+    const now = performance.now();
+    this.add("step", now - this.frameStart);
+    for (const name in this.frame) this.smooth(name, this.frame[name]);
+    this.renderStart = now;
+  }
+
+  /** Called after Pixi's render pass: everything since the step ended is the render's CPU cost. */
+  endRender(): void {
+    this.smooth("render", performance.now() - this.renderStart);
+  }
+
+  private smooth(name: string, ms: number): void {
+    const prev = this.smoothed[name] ?? ms;
+    this.smoothed[name] = prev + (ms - prev) * ALPHA;
   }
 
   /** One line per system, for the debug HUD. */
   report(): string {
     return Object.entries(this.smoothed)
-      .filter(([name]) => name !== "step")
+      .filter(([name]) => name !== "step" && name !== "render")
       .map(([name, ms]) => `${name} ${ms.toFixed(2)}`)
       .join("   ");
   }

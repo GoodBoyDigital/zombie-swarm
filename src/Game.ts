@@ -1,7 +1,7 @@
 import { Application, Container, Text } from "pixi.js";
 import { Audio, type MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
-import { WEAPONS } from "./config/weapons";
+import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { Horde } from "./entities/Horde";
 import { Player } from "./entities/Player";
@@ -13,12 +13,12 @@ import { Arena } from "./world/Arena";
 import { FloorCanvas } from "./world/FloorCanvas";
 
 const MAX_DT = 1 / 30;
-/** Number keys 1..n pick a music theme; 0 stops it. */
-const THEME_KEYS: MusicName[] = [
-  "surfRock",
-  "synthwaveDread",
-  "chiptuneFrenzy",
-];
+/** F1..F3 pick a music theme; F4 stops it. */
+const THEME_KEYS: Record<string, MusicName> = {
+  F1: "surfRock",
+  F2: "synthwaveDread",
+  F3: "chiptuneFrenzy",
+};
 const GROAN_INTERVAL = 0.35;
 
 export class Game {
@@ -49,10 +49,10 @@ export class Game {
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
     this.weapon = new Weapon(
-      WEAPONS.rifle,
       this.player,
       this.horde,
       this.fx,
+      this.floor,
       this.camera,
       this.audio,
     );
@@ -60,11 +60,7 @@ export class Game {
       this.audio.loop("hordeAmbience", 0.35);
       this.audio.playMusic("synthwaveDread");
     });
-    window.addEventListener("keydown", (e) => {
-      if (e.code === "Digit0") this.audio.stopMusic();
-      const theme = THEME_KEYS[Number(e.key) - 1];
-      if (theme) this.audio.playMusic(theme);
-    });
+    window.addEventListener("keydown", (e) => this.hotkey(e));
 
     // Draw order: floor gore, walls, zombies, player, then additive effects on top.
     this.world.addChild(
@@ -93,6 +89,22 @@ export class Game {
     );
   }
 
+  /** Pickups call this; number keys use it for testing. */
+  equip(id: WeaponId): void {
+    this.weapon.equip(id);
+  }
+
+  private hotkey(e: KeyboardEvent): void {
+    if (e.code === "KeyR") this.weapon.reload();
+    if (e.code === "F4") this.audio.stopMusic();
+    const theme = THEME_KEYS[e.code];
+    if (theme) this.audio.playMusic(theme);
+    // Digit1..Digit5 swap weapons in config order.
+    const weapon = WEAPON_IDS[Number(e.key) - 1];
+    if (weapon && /^Digit\d$/.test(e.code)) this.equip(weapon);
+    if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
+  }
+
   private step(dt: number): void {
     this.player.update(dt, this.input, this.camera, this.arena);
     this.horde.update(dt, this.player.x, this.player.y, this.player.radius);
@@ -104,7 +116,13 @@ export class Game {
     if (this.hudTimer > 0) return;
     this.hudTimer = 0.25;
     const theme = this.audio.currentMusic ?? "off";
-    this.hud.text = `kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   music [1-3, 0 off]: ${theme}`;
+    const w = this.weapon;
+    const ammo = w.reloading
+      ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
+      : `${w.rounds}/${w.def.magazine}`;
+    this.hud.text =
+      `${w.def.name.toUpperCase()} ${ammo}   [1-5 weapon, R reload]\n` +
+      `kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

@@ -44,6 +44,8 @@ export class Weapon {
   /** Power-up multipliers, set each frame by the game. Damage lives on the shot context. */
   fireIntervalScale = 1;
   spreadScale = 1;
+  /** Power-up multiplier on reload time. */
+  reloadScale = 1;
   private readonly shots: CombatContext;
 
   constructor(
@@ -62,6 +64,16 @@ export class Weapon {
   /** Live def, so tuning edits apply to the next shot. */
   get def(): WeaponDef {
     return WEAPONS[this.id];
+  }
+
+  /** Seconds a full reload takes right now, power-ups included. */
+  get reloadDuration(): number {
+    return this.def.reloadSeconds * this.reloadScale;
+  }
+
+  /** Tracer intensity from power-ups; 1 = normal. */
+  set shotPower(power: number) {
+    this.shots.shotPower = power;
   }
 
   get reloading(): boolean {
@@ -99,7 +111,7 @@ export class Weapon {
       return;
     }
     this.spareMagazines--;
-    this.reloadLeft = this.def.reloadSeconds;
+    this.reloadLeft = this.reloadDuration;
     this.audio.play("reload", { pitch: rand(0.95, 1.05), volume: 0.6 });
   }
 

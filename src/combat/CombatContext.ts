@@ -20,8 +20,10 @@ export class CombatContext {
   hitSoundPlayed = false;
   deathSoundPlayed = false;
   tearSoundPlayed = false;
-  /** Damage multiplier on every applyHit through this context (the weapon's is double damage). */
+  /** Damage multiplier on every applyHit through this context (the weapon's comes from power mode). */
   damageScale = 1;
+  /** Tracer intensity for shots through this context: 1 = normal, higher = thicker and hotter. */
+  shotPower = 1;
 
   constructor(
     readonly horde: Horde,

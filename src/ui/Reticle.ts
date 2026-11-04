@@ -61,7 +61,7 @@ export class Reticle {
     }
     const t = flashing ? this.flash / FLASH_SECONDS : 0;
     const progress = reloading
-      ? 1 - weapon.reloadLeft / weapon.def.reloadSeconds
+      ? 1 - weapon.reloadLeft / weapon.reloadDuration
       : 1;
     this.reloadUi.scale.set(1 + (FLASH_SCALE - 1) * t);
     this.drawRing(progress, flashing ? RING_DONE : RING_FILL);

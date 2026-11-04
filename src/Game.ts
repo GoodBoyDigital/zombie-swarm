@@ -58,6 +58,7 @@ export class Game {
   private readonly world = new Container();
   /** Power-up visuals: world-space over the horde, and screen-space under the HUD. */
   private readonly powerupWorld = new Container({ label: "powerupWorld" });
+  private readonly powerupGround = new Container({ label: "powerupGround" });
   private readonly powerupScreen = new Container({ label: "powerupScreen" });
   /** Next power-up the P key drops, cycling through the table. */
   private testDrop = 0;
@@ -134,6 +135,7 @@ export class Game {
         this.player,
         this.weapon,
         this.powerupWorld,
+        this.powerupGround,
         this.powerupScreen,
         app.screen,
       ),
@@ -151,6 +153,7 @@ export class Game {
       this.arena.view,
       this.horde.corpses.view,
       this.loot.view,
+      this.powerupGround,
       this.player.view,
       this.horde.view,
       this.casings.view,
@@ -269,6 +272,8 @@ export class Game {
     this.weapon.fireIntervalScale = mods.fireInterval;
     this.weapon.spreadScale = mods.spread;
     this.weapon.damageScale = mods.damage;
+    this.weapon.reloadScale = mods.reload;
+    this.weapon.shotPower = mods.shotPower;
     const p = this.player;
     if (p.alive) {
       this.elapsed += dt;

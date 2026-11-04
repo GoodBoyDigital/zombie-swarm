@@ -31,6 +31,8 @@ const FLASH_TILT = 0.05;
 
 /** Tracers draw a little wider than the weapon's tracerWidth; the soft edge eats the outer rows. */
 const TRACER_WIDTH_SCALE = 1.6;
+/** Power-mode tracer glow: an angry orange-red under a white core. */
+const HOT_TRACER = 0xff5a1f;
 
 /** Fireball, chunks and embers thrown out by a blast. */
 const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
@@ -61,15 +63,37 @@ export class Effects {
     p.sprite.alpha = 1;
   }
 
-  tracer(x0: number, y0: number, x1: number, y1: number, width: number): void {
-    const p = this.spawn("tracer", this.tex.tracer, 0.09);
-    p.sprite.anchor.set(0, 0.5);
-    p.sprite.position.set(x0, y0);
-    p.sprite.rotation = Math.atan2(y1 - y0, x1 - x0);
-    p.sprite.width = Math.hypot(x1 - x0, y1 - y0);
-    p.sprite.height = width * TRACER_WIDTH_SCALE;
-    p.sprite.tint = 0xfff1c2;
-    p.sprite.alpha = 0.9;
+  /**
+   * Hitscan streak. `power` above 1 (power mode) makes it thicker, linger longer and run hot
+   * orange with a white core laid over it.
+   */
+  tracer(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    width: number,
+    power = 1,
+  ): void {
+    const hot = power > 1;
+    const angle = Math.atan2(y1 - y0, x1 - x0);
+    const length = Math.hypot(x1 - x0, y1 - y0);
+    const streak = (w: number, tint: number, life: number) => {
+      const p = this.spawn("tracer", this.tex.tracer, life);
+      p.sprite.anchor.set(0, 0.5);
+      p.sprite.position.set(x0, y0);
+      p.sprite.rotation = angle;
+      p.sprite.width = length;
+      p.sprite.height = w * TRACER_WIDTH_SCALE;
+      p.sprite.tint = tint;
+      p.sprite.alpha = 0.9;
+    };
+    if (!hot) {
+      streak(width, 0xfff1c2, 0.09);
+      return;
+    }
+    streak(width * power * 1.6, HOT_TRACER, 0.14);
+    streak(width * 0.9, 0xffffff, 0.1);
   }
 
   /** Blood spray leaving a hit point, biased along the shot direction. */

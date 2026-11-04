@@ -34,7 +34,7 @@ const hitscan: ShotHandler = {
     const stoppedBy = hits.length >= def.pierce ? hits[hits.length - 1] : null;
     const endX = stoppedBy ? stoppedBy.x : ox + dirX * def.range;
     const endY = stoppedBy ? stoppedBy.y : oy + dirY * def.range;
-    ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth);
+    ctx.fx.tracer(ox, oy, endX, endY, def.tracerWidth, ctx.shotPower);
     for (const hit of hits)
       ctx.applyHit(
         hit.zombie,

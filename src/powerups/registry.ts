@@ -4,6 +4,7 @@ import { equip } from "./effects/equip";
 import { heal } from "./effects/heal";
 import { modifiers } from "./effects/modifiers";
 import { nuke } from "./effects/nuke";
+import { power } from "./effects/power";
 import { portal } from "./effects/portal";
 import { shield } from "./effects/shield";
 import type { PowerupEffect } from "./PowerupContext";
@@ -12,6 +13,7 @@ import type { PowerupEffect } from "./PowerupContext";
 export const POWERUP_EFFECTS: { [K in EffectId]: PowerupEffect<EffectDef<K>> } =
   {
     modifiers,
+    power,
     equip,
     heal,
     nuke,

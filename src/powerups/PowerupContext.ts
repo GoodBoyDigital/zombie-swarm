@@ -27,6 +27,8 @@ export class PowerupContext extends CombatContext {
     readonly weapon: Weapon,
     /** World-space layer for effect visuals (bubbles, domes, planes), drawn over the horde. */
     readonly world: Container,
+    /** World-space layer on the floor, under the player and the horde, for auras and ground marks. */
+    readonly ground: Container,
     /** Screen-space layer over the world and under the HUD, for flashes and overlays. */
     readonly screen: Container,
     /** Live screen size in CSS px, for anything sized to the screen layer. */
@@ -44,6 +46,8 @@ const noModifiers = (): Modifiers => ({
   moveSpeed: 1,
   fireInterval: 1,
   damage: 1,
+  reload: 1,
+  shotPower: 1,
   magnetRadius: 1,
   magnetPull: 1,
   spread: 1,

@@ -24,6 +24,10 @@ export interface Modifiers {
   moveSpeed: number;
   fireInterval: number;
   damage: number;
+  /** Multiplier on reload time. */
+  reload: number;
+  /** Shot intensity: tracer width and heat. 1 = normal. */
+  shotPower: number;
   magnetRadius: number;
   magnetPull: number;
   spread: number;
@@ -60,6 +64,14 @@ interface Instant {
 export type PowerupDef = PowerupBase &
   (
     | (Timed & { effect: "modifiers"; modifiers: Partial<Modifiers> })
+    | (Timed & {
+        effect: "power";
+        modifiers: Partial<Modifiers>;
+        /** Spinning aura on the ground under the player: radius px, turns per second, colour. */
+        auraRadius: number;
+        auraSpin: number;
+        auraColor: number;
+      })
     | (Instant & { effect: "equip"; weapon: WeaponId })
     | (Instant & { effect: "heal"; heal: number })
     | (Instant & {
@@ -161,27 +173,19 @@ export const POWERUPS = {
     icon: "/sprites/icon-powerup-magnet.png",
     weight: 2,
   },
-  rapidFire: {
-    id: "rapidFire",
-    name: "Rapid fire",
+  powerMode: {
+    id: "powerMode",
+    name: "Power mode",
     category: "support",
     mode: "timed",
     seconds: 10,
-    effect: "modifiers",
-    modifiers: { fireInterval: 0.5 },
-    icon: "/sprites/icon-powerup-rapid.png",
-    weight: 2,
-  },
-  doubleDamage: {
-    id: "doubleDamage",
-    name: "Double damage",
-    category: "support",
-    mode: "timed",
-    seconds: 12,
-    effect: "modifiers",
-    modifiers: { damage: 2 },
-    icon: "/sprites/icon-powerup-damage.png",
-    weight: 2,
+    effect: "power",
+    modifiers: { fireInterval: 0.5, reload: 0.5, damage: 2, shotPower: 2 },
+    auraRadius: 34,
+    auraSpin: 0.6,
+    auraColor: 0xffc23a,
+    icon: "/sprites/icon-powerup-power.png",
+    weight: 3,
   },
   speed: {
     id: "speed",

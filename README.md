@@ -7,6 +7,8 @@ npm install
 npm run dev     # opens http://localhost:8080
 ```
 
+Play online: https://goodboydigital.github.io/zombie-swarm/ (rebuilt from `main` on every push by `.github/workflows/pages.yml`).
+
 ## Controls
 
 - Arrow keys or WASD: move

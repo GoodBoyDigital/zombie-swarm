@@ -1,3 +1,4 @@
+import { assetUrl } from "../core/assetUrl";
 /** Web Audio playback: pooled one-shots with pitch variation, a looping bed, and switchable music. */
 
 const SFX = {
@@ -77,7 +78,7 @@ export class Audio {
     const entries = [...Object.entries(SFX), ...Object.entries(MUSIC)];
     await Promise.all(
       entries.map(async ([name, url]) => {
-        const data = await fetch(url).then((r) => r.arrayBuffer());
+        const data = await fetch(assetUrl(url)).then((r) => r.arrayBuffer());
         this.buffers.set(name, await this.ctx.decodeAudioData(data));
       }),
     );

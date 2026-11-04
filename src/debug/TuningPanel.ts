@@ -41,6 +41,16 @@ const LOOT_RANGES: Ranges = {
   bobSpeed: { min: 0, max: 10, step: 0.1 },
 };
 
+const PLAYER_RANGES: Ranges = {
+  ...LOOT_RANGES,
+  maxHealth: { min: 1, max: 500, step: 1 },
+  contactDamage: { min: 0, max: 100, step: 1 },
+  contactMargin: { min: 0, max: 30, step: 1 },
+  invulnSeconds: { min: 0, max: 2, step: 0.05 },
+  regenPerSecond: { min: 0, max: 50, step: 0.5 },
+  regenDelay: { min: 0, max: 20, step: 0.5 },
+};
+
 const ZOMBIE_AI_RANGES: Ranges = {
   wanderSpeedScale: { min: 0, max: 1.5, step: 0.05 },
   turnNoise: { min: 0, max: 4, step: 0.05 },
@@ -214,7 +224,7 @@ export function setupTuning(): TuningPanel {
   panel.add("WEAPONS", "WeaponDef", WEAPONS, WEAPON_RANGES);
   panel.add("LOOT", "LootDef", LOOT, LOOT_RANGES);
   panel.add("LOOT_RULES", null, LOOT_RULES, LOOT_RANGES);
-  panel.add("PLAYER", null, PLAYER, LOOT_RANGES);
+  panel.add("PLAYER", null, PLAYER, PLAYER_RANGES);
   panel.add("DROPS", "DropDef", DROPS, LOOT_RANGES);
   panel.add("DROP_RULES", null, DROP_RULES, LOOT_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);

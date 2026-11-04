@@ -1,5 +1,7 @@
 import { Application } from "pixi.js";
+import { Audio } from "./audio/Audio";
 import { applyBuildLabel } from "./debug/buildLabel";
+import { setupTuning } from "./debug/TuningPanel";
 import { createTextures } from "./fx/textures";
 import { Game } from "./Game";
 
@@ -14,5 +16,19 @@ import { Game } from "./Game";
     autoDensity: true,
   });
   document.getElementById("pixi-container")!.appendChild(app.canvas);
-  new Game(app, await createTextures(app.renderer));
+  const tex = await createTextures(app.renderer);
+  const audio = new Audio();
+  void audio.load().then(() => {
+    audio.loop("hordeAmbience", 0.35);
+    audio.playMusic("synthwaveDread");
+  });
+  setupTuning();
+
+  // Restart tears the whole world down and builds a fresh one on the same app, textures and audio.
+  let game: Game | null = null;
+  const start = () => {
+    game?.destroy();
+    game = new Game(app, tex, audio, start);
+  };
+  start();
 })();

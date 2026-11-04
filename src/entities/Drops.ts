@@ -89,9 +89,10 @@ export class Drops {
     d.life = DROP_RULES.lifetime;
     d.bob = rand(0, Math.PI * 2);
     // Power-ups will get their own icon set; until then the crate shows nothing for them.
-    d.icon.visible = def.kind === "weapon";
+    d.icon.visible = def.kind !== "powerup";
     if (def.kind === "weapon")
       d.icon.texture = this.tex.weaponIcons[def.weapon];
+    if (def.kind === "health") d.icon.texture = this.tex.medkit;
     d.view.position.set(x, y);
     d.view.alpha = 1;
     this.view.addChild(d.view);
@@ -100,7 +101,9 @@ export class Drops {
 
   private collect(index: number): void {
     const d = this.live[index];
-    this.audio.play("pickupWeapon", { volume: 0.7 });
+    this.audio.play(d.def.kind === "health" ? "pickupHealth" : "pickupWeapon", {
+      volume: 0.7,
+    });
     this.fx.sparkle(d.x, d.y, SPARKLE, 14);
     this.onCollect(d.def);
     this.release(index);

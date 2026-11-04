@@ -1,8 +1,9 @@
 import type { WeaponId } from "./weapons";
 
-/** Rare pickups shown on a crate. Power-ups are planned as a second kind and not built yet. */
+/** Rare pickups shown on a crate. Power-ups are planned as a further kind and not built yet. */
 export type DropDef =
   | { id: string; kind: "weapon"; weapon: WeaponId; weight: number }
+  | { id: string; kind: "health"; heal: number; weight: number }
   | { id: string; kind: "powerup"; powerup: string; weight: number };
 
 export const DROPS = {
@@ -13,6 +14,7 @@ export const DROPS = {
   minigun: { id: "minigun", kind: "weapon", weapon: "minigun", weight: 1 },
   magnum: { id: "magnum", kind: "weapon", weapon: "magnum", weight: 2 },
   uzi: { id: "uzi", kind: "weapon", weapon: "uzi", weight: 3 },
+  medkit: { id: "medkit", kind: "health", heal: 40, weight: 4 },
 } as const satisfies Record<string, DropDef>;
 
 export const DROP_DEFS: readonly DropDef[] = Object.values(DROPS);

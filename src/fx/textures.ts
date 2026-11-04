@@ -25,6 +25,12 @@ export interface GameTextures {
   /** Sprite sets by ZombieArt key. */
   zombies: Record<string, ZombieTextures>;
   player: Texture;
+  /** White silhouette for the hurt flash. */
+  playerFlash: Texture;
+  /** The fallen player, stamped into the floor on death. */
+  playerCorpse: Texture;
+  /** Health crate icon. */
+  medkit: Texture;
   /** Held weapon art by weapon id, from each WeaponDef's sprite path. */
   weapons: Record<string, Texture>;
   muzzleFlash: Texture;
@@ -42,6 +48,9 @@ export interface GameTextures {
 
 const SPRITES = {
   player: "/sprites/player.png",
+  playerFlash: "/sprites/player-flash.png",
+  playerCorpse: "/sprites/player-corpse.png",
+  medkit: "/sprites/icon-medkit.png",
   muzzleFlash: "/sprites/muzzle-flash.png",
   tileConcrete: "/sprites/tile-concrete.png",
   tileDirt: "/sprites/tile-dirt.png",
@@ -178,6 +187,9 @@ export async function createTextures(
     crosshair: sprite("crosshair"),
     weaponIcons: icons,
     player: sprite("player"),
+    playerFlash: sprite("playerFlash"),
+    playerCorpse: sprite("playerCorpse"),
+    medkit: sprite("medkit"),
     weapons,
     muzzleFlash: sprite("muzzleFlash"),
     spark: make(spark),

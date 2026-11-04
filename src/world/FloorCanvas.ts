@@ -38,6 +38,11 @@ export class FloorCanvas {
     this.paintBase(size.width, size.height, tex);
   }
 
+  /** Free the render texture. The view is destroyed with the world. */
+  destroy(): void {
+    this.target.destroy(true);
+  }
+
   /** Burn a texture into the floor at a world position. */
   stampTexture(
     texture: Texture,

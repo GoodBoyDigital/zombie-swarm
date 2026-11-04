@@ -88,8 +88,16 @@ export class Zombie {
     playerX: number,
     playerY: number,
     playerRadius: number,
+    hunting: boolean,
   ): void {
-    const move = this.brain.steer(dt, this, playerX, playerY, playerRadius);
+    const move = this.brain.steer(
+      dt,
+      this,
+      playerX,
+      playerY,
+      playerRadius,
+      hunting,
+    );
     // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
     const ai = this.def.ai;
     if (move > 0)

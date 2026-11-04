@@ -11,6 +11,8 @@ export const DROPS = {
   shotgun: { id: "shotgun", kind: "weapon", weapon: "shotgun", weight: 3 },
   railgun: { id: "railgun", kind: "weapon", weapon: "railgun", weight: 1 },
   minigun: { id: "minigun", kind: "weapon", weapon: "minigun", weight: 1 },
+  magnum: { id: "magnum", kind: "weapon", weapon: "magnum", weight: 2 },
+  uzi: { id: "uzi", kind: "weapon", weapon: "uzi", weight: 3 },
 } as const satisfies Record<string, DropDef>;
 
 export const DROP_DEFS: readonly DropDef[] = Object.values(DROPS);

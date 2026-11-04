@@ -139,7 +139,7 @@ export class Game {
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
     if (theme) this.audio.playMusic(theme);
-    // Digit1..Digit5 swap weapons in config order.
+    // Digit1..Digit7 swap weapons in config order.
     const weapon = WEAPON_IDS[Number(e.key) - 1];
     if (weapon && /^Digit\d$/.test(e.code)) this.equip(weapon);
     if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
@@ -168,7 +168,7 @@ export class Game {
       ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
       : `${w.rounds}/${w.def.magazine}`;
     this.hud.text =
-      `${w.def.name.toUpperCase()} ${ammo}   [1-5 weapon, R reload]\n` +
+      `${w.def.name.toUpperCase()} ${ammo}   [1-7 weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
       `kills ${this.horde.kills}   horde ${this.horde.alive.length}${ai}   fps ${Math.round(this.app.ticker.FPS)}   music [F1-F3, F4 off]: ${theme}`;
   }

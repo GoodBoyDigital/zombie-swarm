@@ -25,6 +25,13 @@ export interface WeaponDef {
   pellets: number;
   /** Half-angle of random spread in radians, rolled independently per pellet. */
   spread: number;
+  /**
+   * Extra spread gained per second of held trigger, decaying twice as fast when released.
+   * 0 = fixed accuracy. Lets an SMG go wild on long bursts and tighten when feathered.
+   */
+  spreadBloom: number;
+  /** Ceiling on spread + bloom, radians. */
+  spreadMax: number;
   /** Seconds between shots while the trigger is held. */
   fireInterval: number;
   /** Shots per magazine. Each pull spends one round regardless of pellets. */
@@ -62,7 +69,9 @@ export const WEAPONS = {
     shot: "hitscan",
     casing: "pistol",
     pellets: 1,
-    spread: 0.02,
+    spread: 0.04,
+    spreadBloom: 0,
+    spreadMax: 0.04,
     fireInterval: 0.18,
     magazine: 12,
     reloadSeconds: 0.9,
@@ -87,7 +96,9 @@ export const WEAPONS = {
     shot: "hitscan",
     casing: "rifle",
     pellets: 1,
-    spread: 0.025,
+    spread: 0.02,
+    spreadBloom: 0,
+    spreadMax: 0.02,
     fireInterval: 0.11,
     magazine: 30,
     reloadSeconds: 1.6,
@@ -113,6 +124,8 @@ export const WEAPONS = {
     casing: "shotgun",
     pellets: 8,
     spread: 0.22,
+    spreadBloom: 0,
+    spreadMax: 0.22,
     fireInterval: 0.75,
     magazine: 6,
     reloadSeconds: 2.2,
@@ -138,6 +151,8 @@ export const WEAPONS = {
     casing: null,
     pellets: 1,
     spread: 0,
+    spreadBloom: 0,
+    spreadMax: 0,
     fireInterval: 0.5,
     magazine: 1,
     reloadSeconds: 1.8,
@@ -162,7 +177,9 @@ export const WEAPONS = {
     shot: "hitscan",
     casing: "rifle",
     pellets: 1,
-    spread: 0.09,
+    spread: 0.1,
+    spreadBloom: 0.1,
+    spreadMax: 0.22,
     fireInterval: 0.035,
     magazine: 150,
     reloadSeconds: 3.5,
@@ -174,6 +191,60 @@ export const WEAPONS = {
     shake: 0.12,
     tracerWidth: 2,
     noiseRadius: 450,
+  },
+  magnum: {
+    id: "magnum",
+    name: "Magnum",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
+    shot: "hitscan",
+    casing: "pistol",
+    pellets: 1,
+    spread: 0,
+    spreadBloom: 0,
+    spreadMax: 0,
+    fireInterval: 0.45,
+    magazine: 6,
+    reloadSeconds: 1.4,
+    damage: 6,
+    knockback: 700,
+    recoil: 300,
+    pierce: 2,
+    range: 1800,
+    shake: 0.45,
+    tracerWidth: 4,
+    noiseRadius: 650,
+  },
+  uzi: {
+    id: "uzi",
+    name: "Uzi",
+    sprite: {
+      path: "/sprites/weapon-rifle.png",
+      grip: { x: 0.3, y: 0.43 },
+      muzzle: { x: 1, y: 0.43 },
+      eject: { x: 0.52, y: 0.43 },
+    },
+    shot: "hitscan",
+    casing: "pistol",
+    pellets: 1,
+    spread: 0.08,
+    spreadBloom: 0.25,
+    spreadMax: 0.18,
+    fireInterval: 0.06,
+    magazine: 32,
+    reloadSeconds: 1.2,
+    damage: 1,
+    knockback: 120,
+    recoil: 40,
+    pierce: 1,
+    range: 900,
+    shake: 0.1,
+    tracerWidth: 2,
+    noiseRadius: 380,
   },
 } as const satisfies Record<string, WeaponDef>;
 

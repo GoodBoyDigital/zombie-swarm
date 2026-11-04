@@ -20,6 +20,8 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
   shotgun: "shotShotgun",
   railgun: "shotRailgun",
   minigun: "shotMinigun",
+  magnum: "shotMagnum",
+  uzi: "shotUzi",
 };
 
 /**
@@ -33,6 +35,8 @@ export class Weapon {
   /** Seconds left on the current reload, 0 when ready. */
   reloadLeft = 0;
   private cooldown = 0;
+  /** Extra spread built up by holding the trigger. See WeaponDef.spreadBloom. */
+  bloom = 0;
   private readonly shots: ShotContext;
 
   constructor(
@@ -64,6 +68,12 @@ export class Weapon {
     this.rounds = this.def.magazine;
     this.reloadLeft = 0;
     this.cooldown = 0;
+    this.bloom = 0;
+  }
+
+  /** Current half-angle of spread, base plus bloom. */
+  get spread(): number {
+    return Math.min(this.def.spreadMax, this.def.spread + this.bloom);
   }
 
   reload(): void {
@@ -76,6 +86,11 @@ export class Weapon {
     for (const handler of Object.values(SHOT_HANDLERS))
       handler.update?.(this.shots, dt);
     this.cooldown = Math.max(0, this.cooldown - dt);
+    const firing = triggerHeld && !this.reloading && this.rounds > 0;
+    const { spreadBloom, spreadMax, spread } = this.def;
+    this.bloom = firing
+      ? Math.min(Math.max(0, spreadMax - spread), this.bloom + spreadBloom * dt)
+      : Math.max(0, this.bloom - spreadBloom * 2 * dt);
     if (this.reloading) {
       this.reloadLeft -= dt;
       if (this.reloadLeft > 0) return;
@@ -116,8 +131,9 @@ export class Weapon {
     this.shots.hitSoundPlayed = false;
     this.shots.deathSoundPlayed = false;
     const handler = SHOT_HANDLERS[def.shot];
+    const spread = this.spread;
     for (let i = 0; i < def.pellets; i++) {
-      const a = aim + rand(-def.spread, def.spread);
+      const a = aim + rand(-spread, spread);
       handler.fire(this.shots, def, m.x, m.y, Math.cos(a), Math.sin(a));
     }
   }

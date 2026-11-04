@@ -66,6 +66,8 @@ const CASING_RANGES: Ranges = {
 const WEAPON_RANGES: Ranges = {
   pellets: { min: 1, max: 24, step: 1 },
   spread: { min: 0, max: 0.6, step: 0.005 },
+  spreadBloom: { min: 0, max: 1, step: 0.01 },
+  spreadMax: { min: 0, max: 0.6, step: 0.005 },
   fireInterval: { min: 0.02, max: 1.5, step: 0.005 },
   magazine: { min: 1, max: 300, step: 1 },
   reloadSeconds: { min: 0.1, max: 6, step: 0.05 },

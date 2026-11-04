@@ -58,6 +58,9 @@ const ICON_SPRITES: Record<WeaponId, string> = {
   shotgun: "/sprites/icon-shotgun.png",
   railgun: "/sprites/icon-railgun.png",
   minigun: "/sprites/icon-minigun.png",
+  // Rifle icon until the magnum and uzi get their own art.
+  magnum: "/sprites/icon-rifle.png",
+  uzi: "/sprites/icon-rifle.png",
 };
 
 /** Procedural art is rendered at this fraction of world resolution so it reads as chunky pixels. */

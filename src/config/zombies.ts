@@ -17,9 +17,13 @@ export interface ZombieArt {
 export const PART_IDS = ["leftArm", "rightArm", "headChunk"] as const;
 export type PartId = (typeof PART_IDS)[number];
 
-/** An outline in a sprite's own pixels (the 2x source file): a polygon as flat x,y pairs, or a circle. */
+/**
+ * An outline in a sprite's own pixels (the 2x source file): a polygon as flat x,y pairs, or a circle.
+ * A polygon lists the edges where the part tears from the body first; `cut` counts them, and only
+ * those get a stump. Its other edges run through empty space past the part's own outline.
+ */
 export type PartShape =
-  | { poly: readonly number[] }
+  | { poly: readonly number[]; cut: number }
   | { circle: readonly [x: number, y: number, r: number] };
 
 export interface ZombiePart {
@@ -80,23 +84,36 @@ export const ZOMBIES = {
       corpses: [1, 2, 3],
       radius: 12,
       anchor: { x: 0.28, y: 0.52 },
-      // Faces right, so the left arm is the upper one. Arms tear off at the sleeve; the head chunk
+      // Faces right, so the left arm is the upper one. Outer edges run past the sprite so the torn
+      // wobble never leaves slivers. Arms tear off at the sleeve; the head chunk
       // is the back-left of the skull. Corpse 1 lies face up head-left, 2 is curled, 3 face down.
       parts: {
         leftArm: {
-          body: { poly: [46, 0, 92, 0, 92, 31, 52, 31, 46, 17] },
+          body: {
+            poly: [60, 34, 52, 31, 46, 17, 46, -4, 96, -4, 96, 34],
+            cut: 3,
+          },
           corpses: [
-            { poly: [42, 0, 80, 0, 78, 20, 62, 28, 50, 28, 42, 22] },
-            { poly: [40, 4, 58, 4, 62, 22, 63, 44, 48, 46, 40, 28] },
-            { poly: [71, 0, 120, 0, 120, 32, 98, 32, 88, 22, 71, 20] },
+            { poly: [62, 29, 50, 29, 40, 22, 40, -4, 82, -4, 80, 20], cut: 2 },
+            { poly: [63, 22, 64, 45, 48, 47, 39, 28, 39, 2, 58, 2], cut: 2 },
+            {
+              poly: [98, 33, 88, 22, 70, 20, 70, -4, 124, -4, 124, 36],
+              cut: 3,
+            },
           ],
         },
         rightArm: {
-          body: { poly: [46, 46, 52, 40, 92, 38, 92, 69, 46, 69] },
+          body: {
+            poly: [60, 35, 52, 40, 46, 46, 46, 73, 96, 73, 96, 34],
+            cut: 3,
+          },
           corpses: [
-            { poly: [36, 76, 58, 74, 70, 82, 72, 107, 36, 107] },
-            { poly: [76, 2, 102, 2, 102, 40, 78, 40, 74, 22] },
-            { poly: [71, 58, 86, 56, 96, 48, 120, 46, 120, 80, 71, 80] },
+            { poly: [34, 76, 58, 74, 72, 82, 74, 111, 34, 111], cut: 2 },
+            { poly: [108, 46, 78, 46, 73, 22, 75, -4, 108, -4], cut: 3 },
+            {
+              poly: [70, 82, 70, 58, 86, 56, 96, 46, 124, 38, 124, 82],
+              cut: 3,
+            },
           ],
         },
         headChunk: {
@@ -104,7 +121,7 @@ export const ZOMBIES = {
           corpses: [
             { circle: [8, 36, 10] },
             { circle: [16, 14, 10] },
-            { circle: [70, 28, 10] },
+            { circle: [65, 27, 10] },
           ],
         },
       },

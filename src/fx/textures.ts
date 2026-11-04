@@ -321,7 +321,7 @@ const STUMP_FLESH_WIDTH = 16;
 const STUMP_INK_WIDTH = 6;
 /** Cut edges are split every TEAR_STEP source px and alternate points pushed TEAR_DEPTH in or out. */
 const TEAR_STEP = 5;
-const TEAR_DEPTH = 3;
+const TEAR_DEPTH = 2.5;
 
 /**
  * Every combination of missing parts for the body, its flash and each corpse pose, plus each part
@@ -361,8 +361,16 @@ function carveParts(
   };
 }
 
-/** A part outline as flat source-px points with a ragged edge, so cuts read torn rather than clipped. */
-function tornOutline(shape: PartShape): number[] {
+/** A part's region as flat source-px points, and the stretch of it that tears from the body. */
+interface Torn {
+  points: number[];
+  /** Polyline the stump band follows; the whole ring for a circle. */
+  cut: number[];
+  closed: boolean;
+}
+
+/** A part outline with a ragged edge, so cuts read torn rather than clipped. */
+function tornOutline(shape: PartShape): Torn {
   const points: number[] = [];
   // Deterministic wobble so the stump and the flying piece share one edge.
   const offset = (i: number) =>
@@ -375,11 +383,14 @@ function tornOutline(shape: PartShape): number[] {
       const d = r + offset(i) / 2;
       points.push(cx + Math.cos(a) * d, cy + Math.sin(a) * d);
     }
-    return points;
+    return { points, cut: points, closed: true };
   }
   const p = shape.poly;
+  let cutLength = 0;
   let i = 0;
   for (let v = 0; v < p.length; v += 2) {
+    // The cut ends on the corner that starts the first edge past it.
+    if (v / 2 === shape.cut) cutLength = points.length + 2;
     const x0 = p[v];
     const y0 = p[v + 1];
     const dx = p[(v + 2) % p.length] - x0;
@@ -393,65 +404,88 @@ function tornOutline(shape: PartShape): number[] {
       points.push(x0 + dx * t - (dy / len) * o, y0 + dy * t + (dx / len) * o);
     }
   }
-  return points;
+  return { points, cut: points.slice(0, cutLength), closed: false };
 }
 
-/** The sprite plus, if `stumps`, a flesh-and-ink band along each outline clipped to its silhouette. */
+/**
+ * The sprite plus, if `stumps`, a flesh-and-ink band along each cut clipped to its silhouette.
+ * Destroy `band` once the root is baked.
+ */
 function withStumps(
+  renderer: Renderer,
   source: Texture,
-  outlines: number[][],
+  outlines: Torn[],
   stumps: boolean,
-): Container {
+): { root: Container; band: Texture | null } {
   const root = new Container();
   root.addChild(new Sprite(source));
-  if (!stumps) return root;
-  const silhouette = new Sprite(source);
-  const band = new Graphics();
-  for (const points of outlines)
-    band
-      .poly(points)
-      .stroke({ width: STUMP_FLESH_WIDTH, color: STUMP_FLESH, join: "round" });
-  for (const points of outlines)
-    band
-      .poly(points)
-      .stroke({ width: STUMP_INK_WIDTH, color: INK, join: "round" });
-  band.scale.set(ART_SCALE);
-  band.mask = silhouette;
-  root.addChild(silhouette, band);
-  return root;
+  if (!stumps) return { root, band: null };
+  const frame = new Rectangle(0, 0, source.width, source.height);
+  // A sprite mask drifts and fades inside generateTexture, so clip the band by erasing it with
+  // everything outside the silhouette instead.
+  const outside = outsideOf(renderer, new Sprite(source), frame);
+  const strokes = new Graphics();
+  for (const { cut, closed } of outlines)
+    strokes.poly(cut, closed).stroke({
+      width: STUMP_FLESH_WIDTH,
+      color: STUMP_FLESH,
+      join: "round",
+      cap: "round",
+    });
+  for (const { cut, closed } of outlines)
+    strokes.poly(cut, closed).stroke({
+      width: STUMP_INK_WIDTH,
+      color: INK,
+      join: "round",
+      cap: "round",
+    });
+  strokes.scale.set(ART_SCALE);
+  const clip = new Sprite(outside);
+  clip.blendMode = "erase";
+  const bandRoot = new Container();
+  bandRoot.addChild(strokes, clip);
+  const band = bake(renderer, bandRoot, frame);
+  outside.destroy(true);
+  root.addChild(new Sprite(band));
+  return { root, band };
 }
 
 /** `source` with the outlines erased, at the source's own size so anchors keep working. */
 function carve(
   renderer: Renderer,
   source: Texture,
-  outlines: number[][],
+  outlines: Torn[],
   stumps: boolean,
 ): Texture {
-  const root = withStumps(source, outlines, stumps);
+  const { root, band } = withStumps(renderer, source, outlines, stumps);
   const cut = new Graphics();
-  for (const points of outlines) cut.poly(points).fill(0xffffff);
+  for (const { points } of outlines) cut.poly(points).fill(0xffffff);
   cut.scale.set(ART_SCALE);
   cut.blendMode = "erase";
   root.addChild(cut);
-  return bake(renderer, root, new Rectangle(0, 0, source.width, source.height));
+  const texture = bake(
+    renderer,
+    root,
+    new Rectangle(0, 0, source.width, source.height),
+  );
+  band?.destroy(true);
+  return texture;
 }
 
 /** Everything outside the outline erased, cropped to the outline's bounds. */
-function sever(
-  renderer: Renderer,
-  source: Texture,
-  outline: number[],
-): SeveredPart {
-  const root = withStumps(source, [outline], true);
+function sever(renderer: Renderer, source: Texture, torn: Torn): SeveredPart {
+  const { root, band } = withStumps(renderer, source, [torn], true);
+  const outline = torn.points;
   const w = source.width / ART_SCALE;
   const h = source.height / ART_SCALE;
-  const keep = new Graphics()
-    .rect(0, 0, w, h)
-    .fill(0xffffff)
-    .poly(outline)
-    .cut();
-  keep.scale.set(ART_SCALE);
+  const shape = new Graphics().poly(outline).fill(0xffffff);
+  shape.scale.set(ART_SCALE);
+  const outside = outsideOf(
+    renderer,
+    shape,
+    new Rectangle(0, 0, source.width, source.height),
+  );
+  const keep = new Sprite(outside);
   keep.blendMode = "erase";
   root.addChild(keep);
   let minX = w;
@@ -475,11 +509,31 @@ function sever(
     (maxX - minX) * ART_SCALE,
     (maxY - minY) * ART_SCALE,
   );
+  const texture = bake(renderer, root, frame);
+  band?.destroy(true);
+  outside.destroy(true);
   return {
-    texture: bake(renderer, root, frame),
+    texture,
     x: frame.x + frame.width / 2,
     y: frame.y + frame.height / 2,
   };
+}
+
+/** White everywhere in `frame` that `shape` doesn't cover; erasing with it keeps only the shape. */
+function outsideOf(
+  renderer: Renderer,
+  shape: Container,
+  frame: Rectangle,
+): Texture {
+  shape.blendMode = "erase";
+  const root = new Container();
+  root.addChild(
+    new Graphics()
+      .rect(frame.x, frame.y, frame.width, frame.height)
+      .fill(0xffffff),
+    shape,
+  );
+  return bake(renderer, root, frame);
 }
 
 function bake(renderer: Renderer, root: Container, frame: Rectangle): Texture {

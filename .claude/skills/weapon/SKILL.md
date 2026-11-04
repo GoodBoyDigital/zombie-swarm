@@ -6,7 +6,7 @@ description: Throw up an editable card for one weapon (or all) from src/config/w
 # Weapon card
 
 Shows one weapon from `src/config/weapons.ts` as an inline page: the gun's sprite scaled up, every
-numeric field editable, live bars and derived damage rates, and a save button that writes the numbers
+numeric field editable, draggable bars and derived damage rates, and a save button that writes the numbers
 back into the file. With no argument it shows a picker over every weapon.
 
 ## Steps
@@ -20,6 +20,17 @@ back into the file. With no argument it shows a picker over every weapon.
 
 ## Notes
 
+- Keep the panel compact. Only the property list scrolls, capped at 230 px; the weapon picker,
+  sprite, summary and Save button stay outside it. Bars span the panel width beneath the preview.
+- Use actual range sliders alongside number inputs. Update their values, fills and derived stats
+  in place during edits so dragging, focus and scroll position survive. Retain unlimited options
+  for magazine count and piercing; writes happen only when the user clicks Save.
+- Put ammunition controls first: rounds per magazine, reloads per pickup and reload seconds.
+  The reloads control displays and edits spare magazines, so map it to `magazines - 1` on read
+  and `reloads + 1` on save. Zero reloads means just the loaded magazine. Keep the ammo summary
+  visible above the scrolling properties; do not add a separate reload-count config field.
+- Show the pistol's reload count as a read-only ∞, not a finite slider or number input.
+  Preserve its `magazines: Infinity` on save. Its per-magazine round capacity is separate.
 - The page reads the config through the Playbot SDK, so it always reflects the file on disk in this
   workspace, not a worktree branch. If the weapon isn't found, the page says so; check the id with
   `grep -n "^  \w\+: {" src/config/weapons.ts`.

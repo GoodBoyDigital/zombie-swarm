@@ -23,6 +23,8 @@ const GHOSTS = [
   { gap: 22, alpha: 0.12 },
   { gap: 44, alpha: 0.05 },
 ];
+/** Smallest share of bombSpread a bomb lands off the line, so the alternation always shows. */
+const MIN_SPREAD = 0.35;
 /** Bombs keep this fraction of the plane's speed as they fall. */
 const BOMB_CARRY = 0.3;
 /** Candidate strike lines are this far apart across the view. */
@@ -46,6 +48,7 @@ const ROAR_PEAK = 0.35;
 interface Bomb {
   /** Impact point, and the time it's released and lands, in seconds since pickup. */
   x: number;
+  y: number;
   release: number;
   land: number;
   view: Graphics | null;
@@ -95,16 +98,26 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     const enter = def.warningSeconds;
     const planeAt = (x: number) => enter + (x - x0) / def.planeSpeed;
 
-    // Bombs centred on the view, skipping any that would land past the arena wall.
+    // Bombs centred on the view, alternating either side of the line with a random scatter, and
+    // skipping any that would land past the arena wall.
     const carry = def.planeSpeed * BOMB_CARRY * def.bombDelay;
     const centre = (view.left + view.right) / 2;
     const bombs: Bomb[] = [];
     for (let i = 0; i < def.bombs; i++) {
-      const x = centre + (i - (def.bombs - 1) / 2) * def.bombSpacing;
+      const x =
+        centre +
+        (i - (def.bombs - 1) / 2) * def.bombSpacing +
+        rand(-def.bombJitter, def.bombJitter);
+      const side = i % 2 === 0 ? -1 : 1;
+      const by = Math.min(
+        ARENA.height,
+        Math.max(0, y + side * def.bombSpread * rand(MIN_SPREAD, 1)),
+      );
       if (x < 0 || x > ARENA.width) continue;
       const release = planeAt(x - carry);
       bombs.push({
         x,
+        y: by,
         release,
         land: release + def.bombDelay,
         view: null,
@@ -230,16 +243,18 @@ export const airstrike: PowerupEffect<Def, Strike> = {
       );
       b.view ??= st.root.addChild(drawBomb());
       const carry = def.planeSpeed * BOMB_CARRY * def.bombDelay;
+      // From the wing on that side down to the impact point.
+      const wing = st.y + (b.y - st.y) * 0.5 - ALTITUDE;
       b.view.position.set(
         b.x - carry * (1 - fall),
-        st.y - ALTITUDE * (1 - fall * fall),
+        wing + (b.y - wing) * fall * fall,
       );
       b.view.scale.set(1 - 0.45 * fall);
       if (fall < 1) return;
       b.done = true;
       b.view.destroy();
       b.view = null;
-      explode(ctx, b.x, st.y, i === st.bombs.length - 1 ? st.finale : st.blast);
+      explode(ctx, b.x, b.y, i === st.bombs.length - 1 ? st.finale : st.blast);
     });
   },
 

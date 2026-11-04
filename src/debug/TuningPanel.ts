@@ -107,6 +107,8 @@ const POWERUP_RANGES: Ranges = {
   bombs: { min: 1, max: 24, step: 1 },
   bombSpacing: { min: 20, max: 300, step: 5 },
   bombDelay: { min: 0, max: 1.5, step: 0.05 },
+  bombSpread: { min: 0, max: 150, step: 5 },
+  bombJitter: { min: 0, max: 100, step: 5 },
   lastBombScale: { min: 1, max: 3, step: 0.05 },
   shakeBudget: { min: 0, max: 4, step: 0.05 },
   strafeBursts: { min: 0, max: 8, step: 1 },

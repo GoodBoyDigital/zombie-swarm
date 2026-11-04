@@ -83,6 +83,10 @@ export type PowerupDef = PowerupBase &
         bombSpacing: number;
         /** Seconds from release to impact. */
         bombDelay: number;
+        /** Bombs alternate either side of the line, up to this far off it, world px. */
+        bombSpread: number;
+        /** Random nudge along the line, either way, world px, so impacts never sit in a row. */
+        bombJitter: number;
         /** Radius, damage and shake multiplier on the final bomb. */
         lastBombScale: number;
         /** Total camera trauma the bombs before the last may add between them, so the run doesn't blur. */
@@ -198,6 +202,8 @@ export const POWERUPS = {
     bombs: 8,
     bombSpacing: 105,
     bombDelay: 0.35,
+    bombSpread: 45,
+    bombJitter: 30,
     lastBombScale: 1.35,
     shakeBudget: 1.4,
     strafeBursts: 3,

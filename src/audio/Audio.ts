@@ -12,6 +12,8 @@ const SFX = {
   pickupCoin: "/audio/sfx/pickup-coin.mp3",
   pickupGem: "/audio/sfx/pickup-gem.mp3",
   pickupWeapon: "/audio/sfx/pickup-weapon.mp3",
+  powerupPickup: "/audio/sfx/powerup-pickup.mp3",
+  powerupEnd: "/audio/sfx/powerup-end.mp3",
   zombieHit: "/audio/sfx/zombie-hit.mp3",
   zombieDeath: "/audio/sfx/zombie-death.mp3",
   groan1: "/audio/sfx/zombie-groan-1.mp3",

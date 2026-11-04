@@ -9,6 +9,7 @@ import {
 } from "pixi.js";
 import { CASINGS, type CasingId } from "../config/casings";
 import type { LootId } from "../config/loot";
+import type { PowerupId } from "../config/powerups";
 import { WEAPONS, type WeaponId } from "../config/weapons";
 import { rand } from "../core/random";
 
@@ -30,6 +31,9 @@ export interface GameTextures {
   loot: Record<LootId, Texture>;
   crate: Texture;
   weaponIcons: Record<WeaponId, Texture>;
+  /** Glowing orb that carries a power-up, with an icon per kind. */
+  orb: Texture;
+  powerupIcons: Record<PowerupId, Texture>;
   crosshair: Texture;
 }
 
@@ -43,6 +47,7 @@ const SPRITES = {
   tileDirt: "/sprites/tile-dirt.png",
   tileWall: "/sprites/tile-wall.png",
   crate: "/sprites/drop-crate.png",
+  orb: "/sprites/powerup-orb.png",
   crosshair: "/sprites/ui-crosshair.png",
 } as const;
 
@@ -50,6 +55,13 @@ const LOOT_SPRITES: Record<LootId, string> = {
   coin: "/sprites/loot-coin.png",
   gem: "/sprites/loot-gem.png",
   bigGem: "/sprites/loot-big-gem.png",
+};
+
+const POWERUP_ICON_SPRITES: Record<PowerupId, string> = {
+  magnet: "/sprites/icon-powerup-magnet.png",
+  rapidFire: "/sprites/icon-powerup-rapid.png",
+  doubleDamage: "/sprites/icon-powerup-damage.png",
+  speed: "/sprites/icon-powerup-speed.png",
 };
 
 const ICON_SPRITES: Record<WeaponId, string> = {
@@ -78,6 +90,7 @@ export async function createTextures(
     ...weaponDefs.map((w) => w.sprite.path),
     ...Object.values(LOOT_SPRITES),
     ...Object.values(ICON_SPRITES),
+    ...Object.values(POWERUP_ICON_SPRITES),
   ]);
   const sprite = (key: keyof typeof SPRITES) => pixelate(loaded[SPRITES[key]]);
   const weapons = Object.fromEntries(
@@ -143,6 +156,13 @@ export async function createTextures(
   return {
     loot: packAtlas(renderer, LOOT_SPRITES, loaded),
     crate: sprite("crate"),
+    orb: sprite("orb"),
+    powerupIcons: Object.fromEntries(
+      Object.entries(POWERUP_ICON_SPRITES).map(([id, url]) => [
+        id,
+        pixelate(loaded[url]),
+      ]),
+    ) as Record<PowerupId, Texture>,
     crosshair: sprite("crosshair"),
     weaponIcons: icons,
     zombie: sprite("zombie"),

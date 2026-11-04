@@ -166,8 +166,8 @@ export class Loot {
   private attract(player: Player): void {
     const px = player.x;
     const py = player.y;
-    const radius = PLAYER.magnetRadius * player.magnetScale;
-    const pull = PLAYER.magnetPull * player.magnetScale;
+    const radius = PLAYER.magnetRadius * player.magnetRadiusScale;
+    const pull = PLAYER.magnetPull * player.magnetPullScale;
     const collect = player.radius + PLAYER.collectRadius;
     this.hash.queryBox(
       px - radius,

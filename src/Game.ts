@@ -83,6 +83,7 @@ export class Game {
     this.arena = new Arena(tex);
     this.floor = new FloorCanvas(app.renderer, tex);
     this.player = new Player(tex, ARENA.width / 2, ARENA.height / 2);
+    this.camera.snapTo(this.player.x, this.player.y);
     this.horde = new Horde(tex, this.arena, this.floor);
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
@@ -217,7 +218,7 @@ export class Game {
     }
     this.fx.update(dt);
     this.casings.update(dt);
-    this.camera.update(dt);
+    this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.reticle.update(dt, this.weapon);

@@ -30,7 +30,8 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
  * Two states: ready (rounds left in the magazine) and reloading. An empty magazine reloads itself.
  */
 export class Weapon {
-  id: WeaponId = "rifle";
+  /** The gun every run starts with. */
+  id: WeaponId = "pistol";
   rounds = 0;
   /** Seconds left on the current reload, 0 when ready. */
   reloadLeft = 0;

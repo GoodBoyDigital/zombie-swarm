@@ -294,6 +294,8 @@ export const ZOMBIE_AI = {
   wanderLegMax: 500,
   /** Distance at which a wanderer notices the player, px. */
   aggroRadius: 260,
+  /** With this many zombies alive or fewer, every one of them shuffles toward the player wherever he is. */
+  fewChaseAll: 4,
   /** Seconds between noticing the player or a noise and starting to chase, min..max per zombie. */
   reactionDelayMin: 0.1,
   reactionDelayMax: 0.5,

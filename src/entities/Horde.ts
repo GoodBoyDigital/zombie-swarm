@@ -88,8 +88,11 @@ export class Horde {
     this.corpses.update(dt);
     this.limbs.update(dt);
 
+    // Down to the last few: they all know where he is.
+    const everyoneHunts =
+      this.hunting && this.alive.length <= ZOMBIE_AI.fewChaseAll;
     for (const z of this.alive)
-      z.update(dt, playerX, playerY, playerRadius, this.hunting);
+      z.update(dt, playerX, playerY, playerRadius, this.hunting, everyoneHunts);
 
     this.hash.clear();
     for (const z of this.alive) this.hash.insert(z);

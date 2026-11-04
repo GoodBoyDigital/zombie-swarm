@@ -178,10 +178,19 @@ export class Zombie {
     playerY: number,
     playerRadius: number,
     hunting: boolean,
+    everyoneHunts: boolean,
   ): void {
     this.wobblePhase += this.wobbleRate * dt;
     const move =
-      this.brain.steer(dt, this, playerX, playerY, playerRadius, hunting) *
+      this.brain.steer(
+        dt,
+        this,
+        playerX,
+        playerY,
+        playerRadius,
+        hunting,
+        everyoneHunts,
+      ) *
       (1 + ZOMBIE_AI.speedWobble * Math.sin(this.wobblePhase));
     // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
     const ai = this.def.ai;

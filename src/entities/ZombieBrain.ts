@@ -96,7 +96,8 @@ export class ZombieBrain {
 
   /**
    * Turns the zombie toward where it wants to go and returns its move speed for this frame, px/s.
-   * With `hunting` false the player is never noticed, so a fallen player is left alone.
+   * With `hunting` false the player is never noticed, so a fallen player is left alone. With
+   * `everyoneHunts` (only a few zombies left) he is noticed from anywhere and never lost.
    */
   steer(
     dt: number,
@@ -105,6 +106,7 @@ export class ZombieBrain {
     playerY: number,
     playerRadius: number,
     hunting: boolean,
+    everyoneHunts: boolean,
   ): number {
     const ai = ZOMBIE_AI;
     if (this.reactIn >= 0) {
@@ -118,7 +120,11 @@ export class ZombieBrain {
     const py = playerY - z.y;
     const playerDist2 = px * px + py * py;
     const aggro = this.def.ai.aggroRadius ?? ai.aggroRadius;
-    if (hunting && this.mode === "wander" && playerDist2 < aggro * aggro)
+    if (
+      hunting &&
+      this.mode === "wander" &&
+      (everyoneHunts || playerDist2 < aggro * aggro)
+    )
       this.alert();
 
     // Still in the gate corridor: head for the entry point whatever the mood.
@@ -136,7 +142,7 @@ export class ZombieBrain {
 
     if (this.mode === "chase") {
       const lose = this.def.ai.loseRadius ?? ai.loseRadius;
-      if (playerDist2 < lose * lose) this.sinceContact = 0;
+      if (everyoneHunts || playerDist2 < lose * lose) this.sinceContact = 0;
       else this.sinceContact += dt;
       if (this.sinceContact > this.loseAfter) {
         this.mode = "wander";

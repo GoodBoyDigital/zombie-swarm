@@ -86,6 +86,7 @@ const ZOMBIE_AI_RANGES: Ranges = {
   wanderLegMin: { min: 20, max: 1000, step: 10 },
   wanderLegMax: { min: 20, max: 1000, step: 10 },
   aggroRadius: { min: 0, max: 800, step: 10 },
+  fewChaseAll: { min: 0, max: 50, step: 1 },
   reactionDelayMin: { min: 0, max: 2, step: 0.05 },
   reactionDelayMax: { min: 0, max: 2, step: 0.05 },
   loseRadius: { min: 0, max: 1200, step: 10 },

@@ -57,6 +57,10 @@ interface Round {
 }
 
 interface Strike {
+  /** Seconds since pickup on the world clock, so the strike plays out in slow motion with the world. */
+  t: number;
+  /** World seconds until the last blast has faded. */
+  end: number;
   /** Ground track and the plane's run across it, world px. */
   y: number;
   x0: number;
@@ -166,6 +170,8 @@ export const airstrike: PowerupEffect<Def, Strike> = {
     ctx.sky.addChild(sky);
 
     active.state = {
+      t: 0,
+      end: 0,
       y,
       x0,
       enter,
@@ -197,14 +203,15 @@ export const airstrike: PowerupEffect<Def, Strike> = {
       plane,
       shadow,
     };
-    const exit = active.state.exit;
     const lastLand = bombs[bombs.length - 1]?.land ?? 0;
-    active.left = Math.max(exit, lastLand + base.seconds);
+    active.state.end = Math.max(active.state.exit, lastLand + base.seconds);
+    active.left = active.state.end;
   },
 
-  update(ctx, def, _dt, active) {
+  update(ctx, def, dt, active) {
     const st = active.state;
-    const t = active.age;
+    const t = (st.t += dt * ctx.timeScale);
+    active.left = st.end - t;
 
     // Warning: the band flashes and its chevrons march along the strike path, then fade as the plane arrives.
     const warn = t / def.warningSeconds;
@@ -225,7 +232,7 @@ export const airstrike: PowerupEffect<Def, Strike> = {
       st.roared = true;
       ctx.audio.play("airstrikeRoar", {
         volume: 0.9,
-        pan: { from: -0.6, to: 1, seconds: st.exit - t },
+        pan: { from: -0.6, to: 1, seconds: (st.exit - t) / ctx.timeScale },
       });
     }
 

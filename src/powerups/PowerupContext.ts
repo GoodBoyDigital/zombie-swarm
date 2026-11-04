@@ -7,6 +7,7 @@ import type { Horde } from "../entities/Horde";
 import type { Player } from "../entities/Player";
 import type { Camera } from "../fx/Camera";
 import type { Casings } from "../fx/Casings";
+import type { ColorGrade } from "../fx/ColorGrade";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
 
@@ -17,6 +18,8 @@ import type { FloorCanvas } from "../world/FloorCanvas";
 export class PowerupContext extends CombatContext {
   /** Product of every running stat multiplier this frame. Reset to 1 before effects update; read after. */
   readonly modifiers: Modifiers = noModifiers();
+  /** The world clock rate (modifiers.timeScale) as of last frame, for effects that live in the world, like the airstrike plane. */
+  timeScale = 1;
 
   constructor(
     horde: Horde,
@@ -37,6 +40,8 @@ export class PowerupContext extends CombatContext {
     readonly screen: Container,
     /** Live screen size in CSS px, for anything sized to the screen layer. */
     readonly screenRect: Rectangle,
+    /** Full-screen colour grade; add a look each frame while it should show. */
+    readonly grade: ColorGrade,
   ) {
     super(horde, fx, floor, camera, audio, casings);
   }
@@ -55,6 +60,8 @@ const noModifiers = (): Modifiers => ({
   magnetRadius: 1,
   magnetPull: 1,
   spread: 1,
+  timeScale: 1,
+  playerTimeScale: 1,
 });
 
 /** One pickup in progress. */

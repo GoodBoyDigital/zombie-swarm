@@ -7,6 +7,7 @@ import { nuke } from "./effects/nuke";
 import { power } from "./effects/power";
 import { portal } from "./effects/portal";
 import { shield } from "./effects/shield";
+import { slowMo } from "./effects/slowMo";
 import { speed } from "./effects/speed";
 import type { PowerupEffect } from "./PowerupContext";
 
@@ -16,6 +17,7 @@ export const POWERUP_EFFECTS: { [K in EffectId]: PowerupEffect<EffectDef<K>> } =
     magnet,
     speed,
     power,
+    slowMo,
     equip,
     heal,
     nuke,

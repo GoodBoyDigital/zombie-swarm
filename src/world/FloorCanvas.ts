@@ -229,23 +229,29 @@ export class FloorCanvas {
     });
   }
 
-  /** Where a frozen zombie shattered: slush thrown along the hit, and a little frost. */
-  frostSplat(x: number, y: number, dirX: number, dirY: number): void {
+  /** Where a frozen zombie shattered: slush thrown along the hit, and a little frost, `size` times the usual. */
+  frostSplat(
+    x: number,
+    y: number,
+    dirX: number,
+    dirY: number,
+    size: number,
+  ): void {
     const splats = this.tex.splats;
-    const throwDist = 6 + Math.random() * 16;
+    const throwDist = (6 + Math.random() * 16) * size;
     this.stampTexture(
       splats[Math.floor(Math.random() * splats.length)],
       x + dirX * throwDist,
       y + dirY * throwDist,
       {
         rotation: Math.atan2(dirY, dirX),
-        scaleX: 0.9 + Math.random() * 0.4,
-        scaleY: 0.6 + Math.random() * 0.3,
+        scaleX: (0.9 + Math.random() * 0.4) * size,
+        scaleY: (0.6 + Math.random() * 0.3) * size,
         tint: SLUSH_TINT,
         alpha: 0.6,
       },
     );
-    this.frost(x, y, SHATTER_FROST);
+    this.frost(x, y, SHATTER_FROST * size);
   }
 
   /** A faint blue burn, clipped at the wall so the black beyond the arena stays black. */

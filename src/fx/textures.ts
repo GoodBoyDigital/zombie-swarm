@@ -604,14 +604,14 @@ function iceTextures(
     cracked.push(draw(true));
   }
 
-  // Broken-off lumps of block: a few px of faceted ice in an ink outline.
-  const chunks = Array.from({ length: 4 }, () => {
-    const pts = hull(rand(3, 5), rand(2.4, 4), 4 + Math.floor(rand(0, 3)), 0.3);
+  // Broken-off lumps of block, a third to half a block across: faceted ice in an ink outline.
+  const chunks = Array.from({ length: 5 }, () => {
+    const pts = hull(rand(9, 15), rand(7, 12), 4 + Math.floor(rand(0, 3)), 0.3);
     const g = new Graphics();
     g.poly(pts).fill({ color: ICE_MID, alpha: 0.55 });
-    facets(g, pts, rand(-1.5, 0), rand(-1.5, 0));
-    highlight(g, pts, 0.75, 1);
-    g.poly(pts).stroke({ width: 1, color: INK, alpha: 0.9, join: "round" });
+    facets(g, pts, rand(-4, 0), rand(-4, 0));
+    highlight(g, pts, 0.82, 1.4);
+    g.poly(pts).stroke({ width: 1.6, color: INK, alpha: 0.9, join: "round" });
     return make(g);
   });
 

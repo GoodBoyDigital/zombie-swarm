@@ -1,8 +1,10 @@
 import type { EffectDef } from "../../config/powerups";
-import { ICE } from "../../config/ice";
 import { rand } from "../../core/random";
 import type { Zombie } from "../../entities/Zombie";
 import type { PowerupEffect } from "../PowerupContext";
+
+/** How the shove fades toward the edge: 0 = flat across the radius, 1 = zero at the edge. */
+const KNOCKBACK_FALLOFF = 0.5;
 
 /** Zombies in the blast, collected first: blast damage can kill and release them mid-query. */
 const caught: Zombie[] = [];
@@ -23,17 +25,22 @@ export const iceBlast: PowerupEffect<EffectDef<"iceBlast">> = {
     });
     for (const z of caught) {
       const d = Math.hypot(z.x - x, z.y - y);
+      // Dead centre has no direction of its own; throw it any way.
+      const a = d > 0 ? Math.atan2(z.y - y, z.x - x) : rand(0, Math.PI * 2);
+      const dirX = Math.cos(a);
+      const dirY = Math.sin(a);
       // Hurt before freezing: a frozen zombie would shatter at any damage.
       if (def.blastDamage > 0) {
-        const a = d > 0 ? Math.atan2(z.y - y, z.x - x) : rand(0, Math.PI * 2);
-        ctx.applyHit(z, z.x, z.y, Math.cos(a), Math.sin(a), def.blastDamage, 0);
+        ctx.applyHit(z, z.x, z.y, dirX, dirY, def.blastDamage, 0);
         if (z.dead) continue;
       }
       ctx.horde.ice.freeze(
         z,
         def.freezeSeconds,
         def.thawWarningSeconds,
-        (d / r) * ICE.popStagger,
+        dirX,
+        dirY,
+        def.knockback * (1 - (KNOCKBACK_FALLOFF * d) / r),
       );
     }
     caught.length = 0;

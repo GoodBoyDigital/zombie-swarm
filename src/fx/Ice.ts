@@ -10,18 +10,15 @@ import type { Limbs } from "./Limbs";
 import type { GameTextures } from "./textures";
 
 const TWO_PI = Math.PI * 2;
-/** A popping block starts this much bigger and settles onto the zombie. */
-const POP_GROW = 0.35;
 /** Alpha of the block on the dim beats of the thaw flicker, as a share of full. */
 const FLICKER_DIM = 0.4;
-/** Ice chunks thrown by a shatter: world px scale, and their spread off the hit direction. */
-const CHUNK_SCALE = 1.1;
+/** Spread of the ice chunks thrown by a shatter off the hit direction, radians. */
 const CHUNK_SPREAD = 1.2;
 
 interface Block {
   sprite: Sprite;
   variant: number;
-  /** Seconds since frozen; negative while the blast front is still on its way. */
+  /** Seconds since frozen. */
   age: number;
   /** Final seconds of the freeze that crack and flicker, from whatever froze it. */
   warning: number;
@@ -69,33 +66,45 @@ export class IceBlocks {
   }
 
   /**
-   * Freeze `z` solid for `seconds`, the last `warning` of them cracking. Its block pops in after
-   * `delay`, as the blast front reaches it. Freezing a frozen zombie again refreshes it.
+   * Freeze `z` solid for `seconds`, the last `warning` of them cracking, and send the block
+   * skidding off along (dirX, dirY) at `knockback` px/s. The block is there at once, flashing white
+   * for a moment. Freezing a frozen zombie again refreshes it.
    */
-  freeze(z: Zombie, seconds: number, warning: number, delay: number): void {
-    z.freeze(seconds);
+  freeze(
+    z: Zombie,
+    seconds: number,
+    warning: number,
+    dirX: number,
+    dirY: number,
+    knockback: number,
+  ): void {
+    z.freeze(seconds, dirX, dirY, knockback);
     const current = this.blocks.get(z);
     if (current) {
       current.warning = warning;
       current.cracked = false;
+      current.age = 0;
       current.sprite.texture = this.tex.ice.blocks[current.variant];
+      this.place(z, current);
       return;
     }
     const sprite = this.pool.pop() ?? new Sprite({ anchor: 0.5 });
     const variant = Math.floor(Math.random() * this.tex.ice.blocks.length);
     sprite.texture = this.tex.ice.blocks[variant];
-    sprite.visible = false;
+    sprite.visible = true;
     this.view.addChild(sprite);
-    this.blocks.set(z, {
+    const block: Block = {
       sprite,
       variant,
-      age: -delay,
+      age: 0,
       warning,
       scale: 1 + rand(-ICE.blockJitter, ICE.blockJitter),
       tilt: rand(-ICE.blockTilt, ICE.blockTilt),
       phase: rand(0, TWO_PI),
       cracked: false,
-    });
+    };
+    this.blocks.set(z, block);
+    this.place(z, block);
   }
 
   /** After the horde has moved: blocks follow their zombies, crack near the end and break on thaw. */
@@ -117,8 +126,8 @@ export class IceBlocks {
    */
   shatter(z: Zombie): void {
     const b = this.blocks.get(z);
-    const x = b?.sprite.visible ? b.sprite.x : z.x;
-    const y = b?.sprite.visible ? b.sprite.y : z.y;
+    const x = b ? b.sprite.x : z.x;
+    const y = b ? b.sprite.y : z.y;
     let dirX = z.kx;
     let dirY = z.ky;
     const speed = Math.hypot(dirX, dirY);
@@ -150,9 +159,9 @@ export class IceBlocks {
         y + rand(-4, 4),
         along + rand(-CHUNK_SPREAD, CHUNK_SPREAD),
         rand(80, 220) + speed * 0.3,
-        CHUNK_SCALE * rand(0.8, 1.3),
+        ICE.chunkScale * rand(0.7, 1.3),
       );
-    this.floor.frostSplat(x, y, dirX, dirY);
+    this.floor.frostSplat(x, y, dirX, dirY, ICE.splatScale);
     // One per volley: everything one shot or blast breaks lands on the same frame.
     if (this.clock - this.lastShatter >= ICE.soundGap) {
       this.lastShatter = this.clock;
@@ -161,10 +170,9 @@ export class IceBlocks {
     if (b) this.release(z, b);
   }
 
-  /** Stretch the block over the zombie's sprite, popping in, then cracking and flickering near the end. */
+  /** Stretch the block over the zombie's sprite, flashing white at first, cracking and flickering near the end. */
   private place(z: Zombie, b: Block): void {
     const ice = b.sprite;
-    if (b.age < 0) return;
     const s = z.sprite;
     const t = s.texture;
     const cos = Math.cos(s.rotation);
@@ -174,15 +182,15 @@ export class IceBlocks {
     const oy = (0.5 - s.anchor.y) * t.height * s.scale.y;
     let x = s.x + ox * cos - oy * sin;
     let y = s.y + ox * sin + oy * cos;
-    const pop = Math.min(1, b.age / ICE.popSeconds);
-    const size = ICE.blockSize * b.scale * (1 + (1 - pop) * POP_GROW);
-    ice.visible = true;
+    const size = ICE.blockSize * b.scale;
+    // Additive for the first moments: the block lands as a white flash, then settles to ice.
+    ice.blendMode = b.age < ICE.flashSeconds ? "add" : "normal";
     ice.rotation = s.rotation + b.tilt;
     ice.scale.set(
       (t.width * Math.abs(s.scale.x) * size) / ice.texture.width,
       (t.height * Math.abs(s.scale.y) * size) / ice.texture.height,
     );
-    ice.alpha = ICE.blockAlpha * pop;
+    ice.alpha = ICE.blockAlpha;
     if (z.frozenFor < b.warning) {
       if (!b.cracked) {
         b.cracked = true;
@@ -199,14 +207,13 @@ export class IceBlocks {
 
   /** Time's up: the block breaks off in a few shards and the zombie carries on. */
   private thaw(z: Zombie, b: Block): void {
-    if (b.sprite.visible)
-      this.fx.iceShards(
-        b.sprite.x,
-        b.sprite.y,
-        Math.cos(z.facing),
-        Math.sin(z.facing),
-        ICE.thawShards,
-      );
+    this.fx.iceShards(
+      b.sprite.x,
+      b.sprite.y,
+      Math.cos(z.facing),
+      Math.sin(z.facing),
+      ICE.thawShards,
+    );
     this.crack(0.8);
     this.release(z, b);
   }
@@ -220,7 +227,7 @@ export class IceBlocks {
   private release(z: Zombie, b: Block): void {
     this.blocks.delete(z);
     this.view.removeChild(b.sprite);
-    b.sprite.visible = false;
+    b.sprite.blendMode = "normal";
     this.pool.push(b.sprite);
   }
 }

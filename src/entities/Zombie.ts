@@ -118,11 +118,15 @@ export class Zombie {
     return this.frozenFor > 0;
   }
 
-  /** Freeze solid for at least `seconds`: it stops dead, mid-stride, in a cold tint. */
-  freeze(seconds: number): void {
+  /**
+   * Freeze solid for at least `seconds`: it stops mid-stride, in a cold tint. The freezing blast's
+   * shove along (dirX, dirY) is the only push it takes: the block skids on it until drag stops it.
+   */
+  freeze(seconds: number, dirX = 0, dirY = 0, knockback = 0): void {
     this.frozenFor = Math.max(this.frozenFor, seconds);
-    this.kx = 0;
-    this.ky = 0;
+    const k = knockback * this.def.knockbackScale;
+    this.kx = dirX * k;
+    this.ky = dirY * k;
     this.flash = 0;
     this.sprite.texture = this.look.body;
     this.sprite.tint = ICE.frozenTint;
@@ -214,6 +218,7 @@ export class Zombie {
   ): void {
     if (this.frozenFor > 0) {
       this.frozenFor = Math.max(0, this.frozenFor - dt);
+      this.coast(dt);
       if (this.frozenFor === 0) this.sprite.tint = this.debugTint();
       return;
     }
@@ -243,11 +248,9 @@ export class Zombie {
       (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
     );
     const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
-    this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
-    this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
-    const decay = Math.exp(-dt * KNOCKBACK_DRAG);
-    this.kx *= decay;
-    this.ky *= decay;
+    this.x += Math.cos(this.facing) * move * gait * dt;
+    this.y += Math.sin(this.facing) * move * gait * dt;
+    this.coast(dt);
 
     if (this.flash > 0) {
       this.flash -= dt;
@@ -256,6 +259,15 @@ export class Zombie {
     const flashing = this.flash > 0;
     const tint = flashing ? 0xffffff : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
+  }
+
+  /** Carry on along the knockback velocity, which drag bleeds away. */
+  private coast(dt: number): void {
+    this.x += this.kx * dt;
+    this.y += this.ky * dt;
+    const decay = Math.exp(-dt * KNOCKBACK_DRAG);
+    this.kx *= decay;
+    this.ky *= decay;
   }
 
   private debugTint(): number {

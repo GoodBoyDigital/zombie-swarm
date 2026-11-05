@@ -158,6 +158,8 @@ export type PowerupDef = PowerupBase &
         thawWarningSeconds: number;
         /** Damage the blast itself does before freezing whatever survives. 0 = it only freezes. */
         blastDamage: number;
+        /** Outward shove at the centre, px/s, halving toward the edge; frozen blocks skid on it to a stop. */
+        knockback: number;
         /** Seconds the flash, crystal burst and frost ring take to play out. */
         blastSeconds: number;
         /** Ice crystals flung out by the blast. */
@@ -350,6 +352,7 @@ export const POWERUPS = {
     freezeSeconds: 7,
     thawWarningSeconds: 1.5,
     blastDamage: 0,
+    knockback: 650,
     blastSeconds: 0.7,
     crystals: 46,
     frostMark: 0.85,

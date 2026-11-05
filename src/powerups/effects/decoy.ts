@@ -9,7 +9,7 @@ import {
 import type { LoopVoice } from "../../audio/Audio";
 import type { EffectDef } from "../../config/powerups";
 import { rand } from "../../core/random";
-import type { Lure } from "../../entities/Horde";
+import type { ExclusionZone, Lure } from "../../entities/Horde";
 import type { PowerupContext, PowerupEffect } from "../PowerupContext";
 
 type Def = EffectDef<"decoy">;
@@ -27,8 +27,8 @@ const DROP_SECONDS = 0.18;
 /** Rings drawn in toward the puck while it charges, px out where they start. */
 const CHARGE_RINGS = 3;
 const CHARGE_RADIUS = 46;
-/** Seconds for the hologram to flicker into being once it switches on. */
-const BOOT_SECONDS = 0.25;
+/** The puck's radius, px, where the charge rings close in to. */
+const PUCK_RADIUS = 12;
 /** Hologram scanlines: rows across the sprite and the share of each row left dark. */
 const SCAN_ROWS = 10;
 const SCAN_GAP = 0.18;
@@ -55,11 +55,18 @@ const GLITCH_SHIFT = 3;
 const FACE_RADIUS = 260;
 const FACE_INTERVAL = 0.25;
 const FACE_RATE = 5;
-/** Pulsing lure ring and glow round the puck, drawn over the pile. */
-const LURE_RING = 34;
-const GLOW_RADIUS = 30;
-/** Seconds a call ring takes to reach `lureRadius`. */
-const CALL_SECONDS = 1.1;
+/** Pulsing ring along the keep-out edge, and the glow inside it, drawn over the pile. */
+const GLOW_SHARE = 0.7;
+/** Spring-up: peak overshoot of the hologram's size, how high it hops (px), and the puck's squash. */
+const SPRING_OVERSHOOT = 1.6;
+const SPRING_HOP = 14;
+const SPRING_SQUASH = 0.25;
+/** Flash disc thrown out by the spring-up, px across at its widest. */
+const BURST_RADIUS = 70;
+/** Call fronts: trailing bands behind the bright edge, their spacing px, and the edge's colour. */
+const FRONT_BANDS = 4;
+const FRONT_BAND_GAP = 14;
+const FRONT_EDGE = 0xe8ffff;
 const HUM_VOLUME = 0.35;
 /** The dead puck left on the floor. */
 const DEAD_TINT = 0x6a6f6a;
@@ -67,25 +74,28 @@ const DEAD_TINT = 0x6a6f6a;
 interface DecoyState {
   x: number;
   y: number;
-  /** Seconds of arming left; it switches on at 0. */
+  /** Seconds of arming left; it springs up at 0. */
   armLeft: number;
-  /** Set on the horde once armed. */
+  /** Set on the horde once it springs up; zombies hunt it once a call front has reached them. */
   lure: Lure;
   on: boolean;
-  /** Floor layer: puck, its light and the call rings. */
+  /** Seconds since it sprang up. */
+  onFor: number;
+  /** Keeps zombies off the puck from the spring-up on. */
+  zone: ExclusionZone | null;
+  /** Floor layer: puck and its light. */
   floor: Container;
-  calls: Graphics;
   puck: Sprite;
   light: Graphics;
-  /** World layer over the horde, so the swarm piling in never hides it: charge or lure rings, and the hologram. */
+  /** World layer over the horde, so the swarm piling in never hides it: charge rings, call fronts, keep-out edge and the hologram. */
   top: Container;
   halo: Graphics;
   holo: Container;
   rows: Sprite[];
   /** Each row's resting x, so a glitched row can jump back. */
   rowX: number[];
-  /** Ages of the call rings still expanding. */
-  callAges: number[];
+  /** Radii of the call fronts still travelling out, world px. */
+  fronts: number[];
   pulseIn: number;
   glitchIn: number;
   glitchRow: number;
@@ -95,24 +105,24 @@ interface DecoyState {
 }
 
 /**
- * Decoy: a projector puck lands where the orb was. It arms for a moment (spinning up, blinking,
- * beeping), then throws up a hologram of the player. While it runs the horde hunts it instead of
- * him: every chaser turns for it, and it calls out every so often, pulling in wanderers from far
- * around. A repeat pickup tops up the running decoy rather than placing a second.
+ * Decoy: a projector puck lands where the orb was. It charges for a moment (spinning up, blinking,
+ * beeping), then springs up a hologram of the player and sends out a call: a wavefront travelling
+ * out to `lureRadius`. Each zombie the front reaches drops the player and hunts the decoy, and
+ * keeps at it until the decoy dies. It calls again every `pulseSeconds`, catching anyone new. Nothing
+ * gets within `keepOutRadius` of it; the crowd piles up round that edge. A repeat pickup tops up
+ * the running decoy rather than placing a second.
  */
 export const decoy: PowerupEffect<Def, DecoyState> = {
   start(ctx, def, active) {
     const { x, y } = active.origin;
     const floor = new Container({ label: "decoy" });
     floor.position.set(x, y);
-    const calls = new Graphics();
-    calls.blendMode = "add";
     const puck = new Sprite({
       texture: Assets.get<Texture>(def.sprite),
       anchor: 0.5,
     });
     const light = new Graphics().circle(0, 0, 3.5).fill(0xffffff);
-    floor.addChild(calls, puck, light);
+    floor.addChild(puck, light);
     ctx.ground.addChild(floor);
 
     const top = new Container({ label: "decoyHologram" });
@@ -154,10 +164,11 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       x,
       y,
       armLeft: def.armSeconds,
-      lure: { x, y, radius: def.bodyRadius },
+      lure: { x, y, radius: def.keepOutRadius },
       on: false,
+      onFor: 0,
+      zone: null,
       floor,
-      calls,
       puck,
       light,
       top,
@@ -165,7 +176,7 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       holo,
       rows,
       rowX: rows.map((r) => r.x),
-      callAges: [],
+      fronts: [],
       pulseIn: 0,
       glitchIn: GLITCH_MAX,
       glitchRow: -1,
@@ -178,22 +189,28 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
 
   update(ctx, def, dt, active) {
     const st = active.state;
-    st.lure.radius = def.bodyRadius;
+    st.lure.radius = def.keepOutRadius;
     if (!st.on) {
       st.armLeft -= dt;
       // The active time only starts counting once it's on.
       active.left = def.seconds;
       active.windup =
         def.armSeconds > 0 ? Math.max(0, st.armLeft) / def.armSeconds : 0;
-      if (st.armLeft <= 0) switchOn(ctx, st);
+      if (st.armLeft <= 0) switchOn(ctx, def, st);
     }
-    drawFloor(ctx, def, dt, active.age, active.left, st);
-    if (st.on) updateHologram(ctx, def, dt, active.left, st);
+    if (st.on) st.onFor += dt;
+    drawPuck(def, dt, active.age, st);
+    st.halo.clear();
+    if (st.on) {
+      call(ctx, def, dt, active.age, active.left, st);
+      updateHologram(ctx, def, dt, active.left, st);
+    } else drawCharge(def, st);
   },
 
   end(ctx, def, active) {
     const st = active.state;
     if (ctx.horde.lure === st.lure) ctx.horde.lure = null;
+    if (st.zone) ctx.horde.removeZone(st.zone);
     st.hum?.stop();
     ctx.fx.sparkle(st.x, st.y, def.holoColor, 16);
     ctx.fx.sparkle(st.x, st.y, ARM_LIGHT, 8);
@@ -210,18 +227,56 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
   },
 };
 
-function switchOn(ctx: PowerupContext, st: DecoyState): void {
+/** Spring up: the hologram pops out, the keep-out opens, and the first call goes once it lands. */
+function switchOn(ctx: PowerupContext, def: Def, st: DecoyState): void {
   st.on = true;
   st.holo.visible = true;
   ctx.horde.lure = st.lure;
+  // The player walks through it freely, and isn't sheltered inside it.
+  st.zone = ctx.horde.addZone(st.x, st.y, 0, false);
   ctx.audio.play("decoyOn", { volume: 0.8 });
   st.hum = ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
-  ctx.fx.sparkle(st.x, st.y, 0xffffff, 12);
-  st.pulseIn = 0;
+  ctx.fx.sparkle(st.x, st.y, 0xffffff, 14);
+  ctx.fx.sparkle(st.x, st.y, def.holoColor, 10);
+  st.pulseIn = def.springSeconds;
 }
 
-/** Puck spin and pop, arming light, charge rings while arming; lure ring and call rings once on. */
-function drawFloor(
+/** Spin (winding up while arming), the landing pop and the spring-up squash, and the arming light. */
+function drawPuck(def: Def, dt: number, age: number, st: DecoyState): void {
+  const arming = armed(def, st);
+  const spin = st.on ? SPIN_IDLE : SPIN_ARMING * arming * arming;
+  st.puck.rotation += spin * Math.PI * 2 * dt;
+  const drop = Math.min(1, age / DROP_SECONDS);
+  const spring = springAt(def, st);
+  const squash = spring < 1 ? SPRING_SQUASH * Math.sin(spring * Math.PI) : 0;
+  st.puck.scale.set(
+    (DROP_SCALE + (1 - DROP_SCALE) * drop * (2 - drop)) * (1 - squash),
+  );
+  const rate = BLINK_FROM + (BLINK_TO - BLINK_FROM) * arming;
+  st.light.tint = st.on ? def.holoColor : ARM_LIGHT;
+  st.light.alpha = st.on || (age * rate) % 1 < 0.5 ? 1 : 0.15;
+}
+
+/** Rings drawn in toward the puck while it charges. */
+function drawCharge(def: Def, st: DecoyState): void {
+  const arming = armed(def, st);
+  const g = st.halo;
+  for (let i = 0; i < CHARGE_RINGS; i++) {
+    const t = (arming * 3 + i / CHARGE_RINGS) % 1;
+    const r = CHARGE_RADIUS - (CHARGE_RADIUS - PUCK_RADIUS) * t * t;
+    g.circle(0, 0, r).stroke({
+      width: 2.5,
+      color: ARM_LIGHT,
+      alpha: 0.7 * arming * Math.sin(t * Math.PI),
+    });
+  }
+}
+
+/**
+ * Once sprung: open the keep-out, flash the spring-up burst, send out a call front every
+ * `pulseSeconds` (each capturing the zombies it sweeps over this frame) and pulse the keep-out edge.
+ */
+function call(
   ctx: PowerupContext,
   def: Def,
   dt: number,
@@ -229,65 +284,83 @@ function drawFloor(
   left: number,
   st: DecoyState,
 ): void {
-  const arming =
-    def.armSeconds > 0 ? 1 - Math.max(0, st.armLeft) / def.armSeconds : 1;
-  const spin = st.on ? SPIN_IDLE : SPIN_ARMING * arming * arming;
-  st.puck.rotation += spin * Math.PI * 2 * dt;
-  const drop = Math.min(1, age / DROP_SECONDS);
-  st.puck.scale.set(DROP_SCALE + (1 - DROP_SCALE) * drop * (2 - drop));
-
-  const rate = BLINK_FROM + (BLINK_TO - BLINK_FROM) * arming;
-  st.light.tint = st.on ? def.holoColor : ARM_LIGHT;
-  st.light.alpha = st.on || (age * rate) % 1 < 0.5 ? 1 : 0.15;
-
-  const g = st.halo.clear();
-  const calls = st.calls.clear();
-  if (!st.on) {
-    for (let i = 0; i < CHARGE_RINGS; i++) {
-      const t = (arming * 3 + i / CHARGE_RINGS) % 1;
-      const r = CHARGE_RADIUS - (CHARGE_RADIUS - def.bodyRadius) * t * t;
-      g.circle(0, 0, r).stroke({
-        width: 2.5,
-        color: ARM_LIGHT,
-        alpha: 0.7 * arming * Math.sin(t * Math.PI),
-      });
-    }
-    return;
+  const g = st.halo;
+  const fade = flicker(age, left, def.flickerSeconds);
+  const spring = springAt(def, st);
+  if (st.zone) {
+    st.zone.radius = def.keepOutRadius * Math.min(1, easeOutBack(spring));
+  }
+  if (spring < 1) {
+    const r = BURST_RADIUS * (1 - (1 - spring) * (1 - spring));
+    g.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.35 * (1 - spring) });
   }
 
-  // Call out: wake every wanderer in range and send a ring out to show how far it reaches.
   st.pulseIn -= dt;
   if (st.pulseIn <= 0) {
     st.pulseIn = def.pulseSeconds;
-    ctx.horde.noise(st.x, st.y, def.lureRadius);
-    st.callAges.push(0);
+    st.fronts.push(0);
   }
-  for (let i = st.callAges.length - 1; i >= 0; i--) {
-    const t = (st.callAges[i] += dt / CALL_SECONDS);
-    if (t >= 1) {
-      st.callAges.splice(i, 1);
+  // Fronts travel on the world clock, so slow-mo slows the sweep with the crowd.
+  const step = def.pulseSpeed * dt * ctx.timeScale;
+  for (let i = st.fronts.length - 1; i >= 0; i--) {
+    const from = st.fronts[i];
+    const to = Math.min(def.lureRadius, from + step);
+    ctx.horde.capture(st.lure, from, to);
+    if (to >= def.lureRadius) {
+      st.fronts.splice(i, 1);
       continue;
     }
-    const ease = 1 - (1 - t) * (1 - t);
-    calls
-      .circle(0, 0, def.bodyRadius + (def.lureRadius - def.bodyRadius) * ease)
-      .stroke({
-        width: 3 + 5 * (1 - t),
-        color: def.holoColor,
-        alpha: 0.4 * (1 - t),
-      });
+    st.fronts[i] = to;
+    drawFront(g, def, to, fade);
   }
+
   const pulse = 0.5 + 0.5 * Math.sin(age * Math.PI * 2 * 2);
-  const fade = flicker(age, left, def.flickerSeconds);
-  g.circle(0, 0, GLOW_RADIUS)
+  const edge = def.keepOutRadius * Math.min(1, easeOutBack(spring));
+  g.circle(0, 0, edge * GLOW_SHARE)
     .fill({ color: def.holoColor, alpha: (0.15 + 0.1 * pulse) * fade })
-    .circle(0, 0, LURE_RING + 4 * pulse)
+    .circle(0, 0, edge)
     .stroke({
-      width: 2.5,
+      width: 2.5 + 1.5 * pulse,
       color: def.holoColor,
       alpha: (0.5 + 0.3 * pulse) * fade,
     });
-  calls.alpha = fade;
+}
+
+/** A call front: a bright leading edge with fainter bands trailing inside it, fading near full reach. */
+function drawFront(g: Graphics, def: Def, r: number, fade: number): void {
+  const t = r / def.lureRadius;
+  const life = (1 - t * t) * fade;
+  for (let k = FRONT_BANDS; k >= 1; k--) {
+    const br = r - k * FRONT_BAND_GAP;
+    if (br <= 0) continue;
+    g.circle(0, 0, br).stroke({
+      width: FRONT_BAND_GAP,
+      color: def.holoColor,
+      alpha: 0.16 * (1 - k / (FRONT_BANDS + 1)) * life,
+    });
+  }
+  g.circle(0, 0, r)
+    .stroke({ width: 8, color: def.holoColor, alpha: 0.55 * life })
+    .circle(0, 0, r)
+    .stroke({ width: 3, color: FRONT_EDGE, alpha: 0.95 * life });
+}
+
+/** Share of arming done, 0 to 1. */
+function armed(def: Def, st: DecoyState): number {
+  return def.armSeconds > 0 ? 1 - Math.max(0, st.armLeft) / def.armSeconds : 1;
+}
+
+/** Share of the spring-up done, 0 to 1; 0 while still arming. */
+function springAt(def: Def, st: DecoyState): number {
+  if (!st.on) return 0;
+  return def.springSeconds > 0 ? Math.min(1, st.onFor / def.springSeconds) : 1;
+}
+
+/** Overshoots a little before settling. */
+function easeOutBack(t: number): number {
+  const c = 1.7;
+  const u = t - 1;
+  return 1 + (c + 1) * u * u * u + c * u * u;
 }
 
 /** Boot flicker, scanline glitches, turning to face the nearest zombie, and dying flicker. */
@@ -299,10 +372,14 @@ function updateHologram(
   st: DecoyState,
 ): void {
   const holo = st.holo;
-  const onFor = def.seconds - left;
-  const boot = Math.min(1, onFor / BOOT_SECONDS);
-  const bob = HOLO_SCALE * (1 + BOB * Math.sin(onFor * BOB_HZ * Math.PI * 2));
-  holo.scale.set(bob, bob * boot);
+  const onFor = st.onFor;
+  const spring = springAt(def, st);
+  // Springs up: grows past full size and settles, hopping up and landing as it goes.
+  const pop = spring < 1 ? springScale(spring) : 1;
+  const bob =
+    HOLO_SCALE * pop * (1 + BOB * Math.sin(onFor * BOB_HZ * Math.PI * 2));
+  holo.scale.set(bob);
+  holo.y = spring < 1 ? -SPRING_HOP * Math.sin(spring * Math.PI) : 0;
 
   st.faceIn -= dt;
   if (st.faceIn <= 0) {
@@ -327,10 +404,20 @@ function updateHologram(
   holo.alpha =
     HOLO_ALPHA *
     shimmer *
-    (boot < 1 ? (Math.random() < 0.5 ? 0.3 : 1) : 1) *
+    (spring < 0.4 ? (Math.random() < 0.5 ? 0.4 : 1) : 1) *
     flicker(onFor, left, def.flickerSeconds);
   st.hum?.volume(
     HUM_VOLUME * (left < def.flickerSeconds ? left / def.flickerSeconds : 1),
+  );
+}
+
+/** 0 up past SPRING_OVERSHOOT, then a damped wobble down to 1. */
+function springScale(t: number): number {
+  const rise = 0.35;
+  if (t < rise) return SPRING_OVERSHOOT * Math.sin(((t / rise) * Math.PI) / 2);
+  const u = (t - rise) / (1 - rise);
+  return (
+    1 + (SPRING_OVERSHOOT - 1) * Math.cos(u * Math.PI * 2.5) * (1 - u) * (1 - u)
   );
 }
 

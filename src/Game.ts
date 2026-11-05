@@ -382,7 +382,7 @@ export class Game {
     const theme = this.audio.currentMusic ?? "off";
     const w = this.weapon;
     const ai = aiDebug.enabled
-      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}\n${profiler.report()}`
+      ? `   wander ${this.horde.wandering} / chase ${this.horde.alive.length - this.horde.wandering}${this.horde.lured ? ` (decoy ${this.horde.lured})` : ""}\n${profiler.report()}`
       : "";
     const step = `   step ${(profiler.smoothed.step ?? 0).toFixed(1)} ms   render ${(profiler.smoothed.render ?? 0).toFixed(1)} ms`;
     const spare =

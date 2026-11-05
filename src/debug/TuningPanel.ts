@@ -138,8 +138,10 @@ const POWERUP_RANGES: Ranges = {
   strafeDamage: { min: 0, max: 20, step: 0.5 },
   armSeconds: { min: 0, max: 5, step: 0.1 },
   lureRadius: { min: 0, max: 2000, step: 25 },
-  pulseSeconds: { min: 0.1, max: 5, step: 0.1 },
-  bodyRadius: { min: 4, max: 40, step: 1 },
+  springSeconds: { min: 0.05, max: 2, step: 0.05 },
+  pulseSpeed: { min: 50, max: 2000, step: 10 },
+  pulseSeconds: { min: 0.2, max: 6, step: 0.1 },
+  keepOutRadius: { min: 10, max: 200, step: 1 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

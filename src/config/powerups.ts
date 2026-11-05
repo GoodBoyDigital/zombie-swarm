@@ -122,13 +122,19 @@ export type PowerupDef = PowerupBase &
     | (Timed & { effect: "portal" } & DomeParams)
     | (Timed & {
         effect: "decoy";
-        /** Seconds from pickup until it switches on; `seconds` (how long it calls) starts after. */
+        /** Seconds from pickup until it springs up; `seconds` (how long it runs) starts after. */
         armSeconds: number;
-        /** Every `pulseSeconds` it calls out, waking every wanderer inside `lureRadius`, world px. */
+        /** Seconds the hologram takes to spring up; the first call goes out when it lands. */
+        springSeconds: number;
+        /**
+         * Every `pulseSeconds` a call front travels out at `pulseSpeed` px/s to `lureRadius` px.
+         * Each zombie it reaches stops hunting the player and hunts the decoy until it dies.
+         */
         lureRadius: number;
+        pulseSpeed: number;
         pulseSeconds: number;
-        /** Chasers crowd round it at this body radius, world px. */
-        bodyRadius: number;
+        /** No zombie gets closer than this, world px; the crowd piles up round the edge. The player walks through. */
+        keepOutRadius: number;
         /** Final seconds in which the hologram glitches to warn it is about to die. */
         flickerSeconds: number;
         /** Hologram, lure ring and call rings. */
@@ -309,9 +315,11 @@ export const POWERUPS = {
     seconds: 10,
     effect: "decoy",
     armSeconds: 1.5,
+    springSeconds: 0.45,
     lureRadius: 650,
-    pulseSeconds: 0.8,
-    bodyRadius: 12,
+    pulseSpeed: 420,
+    pulseSeconds: 2,
+    keepOutRadius: 45,
     flickerSeconds: 1.5,
     holoColor: 0x5ff2ff,
     sprite: "/sprites/decoy-puck.png",

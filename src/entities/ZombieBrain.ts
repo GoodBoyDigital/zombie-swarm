@@ -102,6 +102,13 @@ export class ZombieBrain {
       );
   }
 
+  /** Called straight to the hunt with no reaction delay (a decoy's call reaching it). */
+  engage(): void {
+    this.mode = "chase";
+    this.reactIn = -1;
+    this.sinceContact = 0;
+  }
+
   /** The player is gone: drop any chase and carry on wandering from the current heading. */
   forget(z: Zombie): void {
     if (this.mode === "wander" && this.reactIn < 0) return;

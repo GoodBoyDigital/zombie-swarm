@@ -1,5 +1,7 @@
 import { Container, Graphics } from "pixi.js";
+import type { RunPhase } from "../run/Run";
 import {
+  countdownSpawnRate,
   MAX_ZOMBIE_RADIUS,
   SPAWN,
   SPAWN_TABLE,
@@ -76,6 +78,8 @@ export class Horde {
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
   /** Share of the run's countdown gone, 0 to 1, set by the run each frame; drives the spawn ramp and mix. */
   progress = 0;
+  /** Where the run is (countdown, chopper inbound, landed...); picks the spawn rate. Set by Game. */
+  phase: RunPhase = "countdown";
   private readonly pool: Zombie[] = [];
   private spawnDebt = 0;
 
@@ -285,11 +289,14 @@ export class Horde {
   }
 
   private spawnWave(dt: number): void {
-    const t = Math.min(1, this.progress) ** SPAWN.rampPower;
-    this.spawnDebt +=
-      dt *
-      this.level.spawnRate *
-      (SPAWN.rateStart + (SPAWN.rateEnd - SPAWN.rateStart) * t);
+    // Gentle build through the countdown; the crush comes once the chopper is on its way.
+    const rate =
+      this.phase === "countdown"
+        ? countdownSpawnRate(this.progress)
+        : this.phase === "inbound"
+          ? SPAWN.inboundRate
+          : SPAWN.landedRate;
+    this.spawnDebt += dt * this.level.spawnRate * rate;
     while (this.spawnDebt >= 1 && this.alive.length < SPAWN.maxAlive) {
       this.spawnDebt -= 1;
       this.spawn(ZOMBIES[this.pickType()]);

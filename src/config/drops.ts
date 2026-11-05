@@ -15,7 +15,7 @@ export const DROP_RULES = {
    */
   weaponChanceWhileWaiting: 0.1,
   /** Chance a kill drops a red or pink power-up, rolled independently of guns. */
-  powerupChancePerKill: 0.06,
+  powerupChancePerKill: 0.072,
   /** Most red or pink orbs lying on the floor at once; kills past it drop none. */
   maxPowerupOrbs: 6,
   /**

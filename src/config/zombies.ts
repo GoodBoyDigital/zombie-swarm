@@ -243,19 +243,39 @@ export const MAX_ZOMBIE_RADIUS = Math.max(
 );
 
 /**
- * Spawns per second at the start of a run and when the countdown runs out; the swarm holds at the
- * peak while the chopper comes in. The ramp runs on the run's progress, so it peaks at extraction
- * whatever the level's length. The curve eases in (`rampPower`): the first few minutes feel sparse
- * and harmless, then the rate climbs steeply so the arena fills before the player notices it
- * happening. Over a 12 minute run: about 1.5/s at 2 min, 4/s at 4 min, 7.5/s at 6 min, 12.5/s at
- * 9 min, 17.5/s in the last minute. Levels scale both rates. `maxAlive` caps the horde.
+ * How fast zombies arrive, in spawns per second. Through the countdown the rate follows `curve`:
+ * points over the run's progress (`at` 0 is the start, 1 is when the chopper is called) joined by
+ * straight lines, so the swarm builds without the player noticing. The real crush is saved for the
+ * finale: `inboundRate` while the chopper flies in and sets down, `landedRate` from touchdown until
+ * the player boards. Levels scale every rate (`LevelDef.spawnRate`). `maxAlive` caps the horde.
+ * Edit by hand or with the spawn curve editor; both keep this exact shape.
  */
 export const SPAWN = {
-  rateStart: 0.75,
-  rateEnd: 20,
-  rampPower: 1.8,
+  curve: [
+    { at: 0, rate: 0.6 },
+    { at: 0.36, rate: 0.8 },
+    { at: 0.71, rate: 1.5 },
+    { at: 1, rate: 3 },
+  ],
+  inboundRate: 4.5,
+  landedRate: 5,
   maxAlive: 600,
 };
+
+/** Countdown spawn rate at `progress` (0..1) along `SPAWN.curve`, before the level's multiplier. */
+export function countdownSpawnRate(progress: number): number {
+  const { curve } = SPAWN;
+  if (progress <= curve[0].at) return curve[0].rate;
+  for (let i = 1; i < curve.length; i++) {
+    const a = curve[i - 1];
+    const b = curve[i];
+    if (progress <= b.at)
+      return (
+        a.rate + ((b.rate - a.rate) * (progress - a.at)) / (b.at - a.at || 1)
+      );
+  }
+  return curve[curve.length - 1].rate;
+}
 
 /**
  * What spawns when. Each row gives relative weights per type at `at`, a share of the run (0 at the

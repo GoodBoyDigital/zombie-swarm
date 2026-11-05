@@ -180,9 +180,10 @@ const EXPLOSION_RANGES: Ranges = {
 };
 
 const SPAWN_RANGES: Ranges = {
-  rateStart: { min: 0, max: 100, step: 0.5 },
-  rateEnd: { min: 0, max: 100, step: 0.5 },
-  rampPower: { min: 0.5, max: 4, step: 0.1 },
+  at: { min: 0, max: 1, step: 0.01 },
+  rate: { min: 0, max: 40, step: 0.1 },
+  inboundRate: { min: 0, max: 60, step: 0.5 },
+  landedRate: { min: 0, max: 60, step: 0.5 },
   maxAlive: { min: 10, max: 2000, step: 10 },
 };
 

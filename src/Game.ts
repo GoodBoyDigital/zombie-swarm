@@ -186,8 +186,8 @@ export class Game {
     window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
-    // he gets swamped, ice over the frozen ones, then casings and effects. Flying limbs go over the effects so a head stays
-    // readable through its own blood spray. Power-up orbs sit over all of it so they are never
+    // he gets swamped, ice over the frozen ones, then casings and effects. Flying limbs go over
+    // the effects so a head stays readable through its own blood spray. Power-up orbs sit over all of it so they are never
     // lost in the crowd, and power-up visuals (bubbles, domes) over the orbs. Explosions go over
     // everything on the ground, and only planes and falling bombs fly over the explosions.
     this.world.addChild(
@@ -347,6 +347,7 @@ export class Game {
     if (playing) p.update(playerDt, this.input, this.camera, this.arena);
     this.run.update(dt, worldDt, p);
     this.horde.progress = this.run.progress;
+    this.horde.phase = this.run.phase;
     profiler.lap("player");
     this.horde.update(worldDt, p.x, p.y, p.radius);
     profiler.lap("horde");

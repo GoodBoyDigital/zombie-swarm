@@ -173,7 +173,7 @@ export const WEAPONS = {
     fireInterval: 0.5,
     magazine: 1,
     magazines: 15,
-    reloadSeconds: 1.26,
+    reloadSeconds: 0.67,
     damage: 12,
     knockback: 900,
     recoil: 600,

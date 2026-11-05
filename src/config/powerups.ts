@@ -162,7 +162,7 @@ export type PowerupDef = PowerupBase &
         bladeSpeed: number;
         bladeRange: number;
         bladeDamage: number;
-        /** Zombies one blade cuts through before it's spent; each is hit once. */
+        /** Zombies one blade hits before it's spent and drops to the floor; each is hit once. 1 = stops in the first. */
         bladePierce: number;
         bladeKnockback: number;
         /** Multiplier on the part tear-off chances in DISMEMBER for blade hits. */
@@ -357,8 +357,8 @@ export const POWERUPS = {
     arms: 2,
     bladeSpeed: 420,
     bladeRange: 420,
-    bladeDamage: 2,
-    bladePierce: 4,
+    bladeDamage: 3,
+    bladePierce: 1,
     bladeKnockback: 260,
     dismemberScale: 2,
     discRadius: 22,

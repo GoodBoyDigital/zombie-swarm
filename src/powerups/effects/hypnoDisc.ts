@@ -1,4 +1,4 @@
-import { Container, Graphics, GraphicsContext } from "pixi.js";
+import { Container, Graphics, GraphicsContext, type Texture } from "pixi.js";
 import { raycastZombies } from "../../combat/raycast";
 import type { EffectDef } from "../../config/powerups";
 import { rand } from "../../core/random";
@@ -16,6 +16,11 @@ const CREAM = 0xf6eccb;
 const TAU = Math.PI * 2;
 /** Blade spin in flight, radians per second. */
 const BLADE_SPIN = 28;
+/** A spent blade drops onto the floor at this share of its flying size, tinted darker so it reads as lying flat. */
+const SPENT_SCALE = 0.8;
+const SPENT_TINT = 0x8c8c8c;
+/** Radius the spent-blade texture is baked at, px; stamps scale it down to the blade. */
+const SPENT_BAKE_RADIUS = 32;
 /** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
 const STUCK_SECONDS = 0.6;
 const STUCK_FADE = 0.25;
@@ -133,11 +138,14 @@ interface Spin {
 
 /** Spent blades, kept for the next disc. */
 const pool: Blade[] = [];
+/** The disc baked once for stamping spent blades into the floor. */
+let spentTexture: Texture | null = null;
 
 /**
  * A saw disc deploys where the player stands and spins there for `seconds`, flinging razor blades out along spiral arms.
- * Each blade flies straight, cutting through up to `bladePierce` zombies (each once, through
- * applyHit with a raised tear-off chance), and sticks in a wall if it reaches one.
+ * Each blade flies straight and stops in the first `bladePierce` zombies it hits (each once,
+ * through applyHit with a raised tear-off chance), then drops onto the floor where it stays; one
+ * that reaches a wall sticks in it and fades.
  */
 export const hypnoDisc: PowerupEffect<Def, Spin> = {
   start(ctx, def, active) {
@@ -331,7 +339,9 @@ function fly(
   b.saw.rotation += BLADE_SPIN * dt;
   b.left -= travel;
   if (b.pierce <= 0) {
+    // Thunk: it stops dead in the zombie and drops, left on the floor with the rest of the mess.
     ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);
+    dropSpent(ctx, b);
     return false;
   }
   if (wall && travel >= reach && reach < step) {
@@ -343,6 +353,23 @@ function fly(
     return true;
   }
   return b.left > 0;
+}
+
+/** Stamp a spent blade into the floor where it stopped: a little smaller and darker than in flight. */
+function dropSpent(ctx: PowerupContext, b: Blade): void {
+  if (!spentTexture) {
+    const holder = new Container();
+    holder
+      .addChild(new Graphics({ context: DISC }))
+      .scale.set(SPENT_BAKE_RADIUS);
+    spentTexture = ctx.floor.bake(holder);
+    holder.destroy({ children: true });
+  }
+  ctx.floor.stampTexture(spentTexture, b.view.x, b.view.y, {
+    rotation: rand(0, TAU),
+    scale: (b.radius * SPENT_SCALE) / SPENT_BAKE_RADIUS,
+    tint: SPENT_TINT,
+  });
 }
 
 /** A blade stuck in a wall waits, then fades. False once it's gone. */

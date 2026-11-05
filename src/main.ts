@@ -1,6 +1,7 @@
 import { Application } from "pixi.js";
 import { Audio } from "./audio/Audio";
 import { applyBuildLabel } from "./debug/buildLabel";
+import { setupDropBar } from "./debug/DropBar";
 import { setupTuning } from "./debug/TuningPanel";
 import { LEVELS } from "./config/run";
 import { createTextures } from "./fx/textures";
@@ -40,5 +41,6 @@ import { loadSave } from "./meta/save";
     );
   };
   tuning.addDrops((def) => game?.dropOrb(def));
+  setupDropBar((def) => game?.dropOrb(def));
   start();
 })();

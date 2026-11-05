@@ -39,6 +39,21 @@ const STARTLE_TWIST = 0.35;
  * Pad spatial hash queries by this so a hit near a cell edge isn't missed. Only ever grows.
  */
 export const hitReach = { radius: MAX_ZOMBIE_RADIUS };
+/** Share of its walking speed a stunned or staggered zombie keeps. */
+const STUN_MOVE = 0.1;
+/**
+ * A stunned zombie's shudder: it eases toward a new random lean, up to this far either way in
+ * radians, every TWITCH_PERIOD world seconds, so it shakes the same at any frame rate.
+ */
+const STUN_TWITCH = 0.3;
+const TWITCH_PERIOD = 0.05;
+/** How fast the lean chases its target, per second. */
+const TWITCH_EASE = 40;
+/** Electrocuted: an electric-blue tint flickering between two shades instead of the white hit flash. */
+const SHOCK_TINTS = [0x5aa8ff, 0xa8dcff];
+/** Tumbling: spin drag per second, and how hard the body springs back to upright, per second squared. */
+const TUMBLE_DRAG = 4;
+const TUMBLE_SPRING = 60;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -68,6 +83,19 @@ export class Zombie {
   private losingTint = 0xffffff;
   private flash = 0;
   private startleLeft = 0;
+  /** Seconds left reeling from a stun: barely walking, shuddering on the spot. */
+  private stunLeft = 0;
+  /** Seconds left staggering: barely walking, but no shudder. */
+  private staggerLeft = 0;
+  /** The shudder's lean now and the one it's easing toward, radians, and world seconds to the next. */
+  private twitch = 0;
+  private twitchTarget = 0;
+  private twitchLeft = 0;
+  /** Seconds left lit up electric blue. */
+  private shockLeft = 0;
+  /** Tumble angle off the facing, and its spin, from being blown back. */
+  private tilt = 0;
+  private tiltVel = 0;
   readonly brain = new ZombieBrain();
   /** The decoy whose call reached this zombie. While it's the horde's lure, this zombie hunts it instead of the player. */
   lure: Lure | null = null;
@@ -110,6 +138,14 @@ export class Zombie {
     this.startleLeft = 0;
     this.lure = null;
     this.frozenFor = 0;
+    this.stunLeft = 0;
+    this.staggerLeft = 0;
+    this.twitch = 0;
+    this.twitchTarget = 0;
+    this.twitchLeft = 0;
+    this.shockLeft = 0;
+    this.tilt = 0;
+    this.tiltVel = 0;
     const along = rand(-gate.halfWidth, gate.halfWidth);
     const horizontal = gate.side === "top" || gate.side === "bottom";
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
@@ -228,6 +264,32 @@ export class Zombie {
     this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
   }
 
+  /** Reel for a moment: it all but stops walking and shudders. A longer stun replaces a shorter one. */
+  stun(seconds: number): void {
+    this.stunLeft = Math.max(this.stunLeft, seconds);
+  }
+
+  /** Knocked off its feet for a moment: it all but stops walking, without the stun's shudder. */
+  stagger(seconds: number): void {
+    this.staggerLeft = Math.max(this.staggerLeft, seconds);
+  }
+
+  /**
+   * Electrocuted: stunned, and lit electric blue instead of flashing white, so lightning drawn over
+   * the body still reads. Call after the hit.
+   */
+  shock(seconds: number): void {
+    this.stun(seconds);
+    this.shockLeft = Math.max(this.shockLeft, seconds);
+    this.flash = 0;
+    this.sprite.texture = this.look.body;
+  }
+
+  /** Spin the body off its facing, radians/s; it springs back upright as the spin dies. */
+  tumble(spin: number): void {
+    this.tiltVel += spin;
+  }
+
   /** Shove along a unit direction without hurting, scaled by the type's knockbackScale. */
   push(dirX: number, dirY: number, knockback: number): void {
     if (this.frozenFor > 0) return;
@@ -266,17 +328,33 @@ export class Zombie {
       1,
       (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
     );
-    const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
+    const reeling = this.stunLeft > 0 || this.staggerLeft > 0 ? STUN_MOVE : 1;
+    this.stunLeft -= dt;
+    this.staggerLeft -= dt;
+    this.shudder(dt);
+    const gait = (1 + shuffle * (pulse / PULSE_MEAN - 1)) * reeling;
     this.x += Math.cos(this.facing) * move * gait * dt;
     this.y += Math.sin(this.facing) * move * gait * dt;
     this.coast(dt);
+    if (this.tiltVel !== 0 || this.tilt !== 0) {
+      this.tiltVel -=
+        (this.tilt * TUMBLE_SPRING + this.tiltVel * TUMBLE_DRAG) * dt;
+      this.tilt += this.tiltVel * dt;
+      if (Math.abs(this.tilt) < 0.01 && Math.abs(this.tiltVel) < 0.1)
+        this.tilt = this.tiltVel = 0;
+    }
 
     if (this.flash > 0) {
       this.flash -= dt;
       this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
     }
     const flashing = this.flash > 0;
-    const tint = flashing ? 0xffffff : this.debugTint();
+    this.shockLeft -= dt;
+    const tint = flashing
+      ? 0xffffff
+      : this.shockLeft > 0
+        ? SHOCK_TINTS[Math.random() < 0.5 ? 0 : 1]
+        : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
   }
 
@@ -320,6 +398,19 @@ export class Zombie {
     this.ky *= decay;
   }
 
+  /** Ease the stun's lean toward a fresh random target a few times per stun, back to upright after. */
+  private shudder(dt: number): void {
+    if (this.stunLeft > 0) {
+      this.twitchLeft -= dt;
+      if (this.twitchLeft <= 0) {
+        this.twitchLeft = TWITCH_PERIOD;
+        this.twitchTarget = rand(-STUN_TWITCH, STUN_TWITCH);
+      }
+    } else this.twitchTarget = 0;
+    this.twitch +=
+      (this.twitchTarget - this.twitch) * (1 - Math.exp(-dt * TWITCH_EASE));
+  }
+
   private debugTint(): number {
     if (!aiDebug.enabled) return this.tint;
     if (this.brain.wandering) return this.wanderTint;
@@ -334,7 +425,9 @@ export class Zombie {
     this.sprite.rotation =
       this.facing +
       this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale +
-      STARTLE_TWIST * k * Math.sin(k * Math.PI * 3);
+      STARTLE_TWIST * k * Math.sin(k * Math.PI * 3) +
+      this.tilt +
+      this.twitch;
     const base =
       (this.def.radius / this.def.art.radius) *
       this.sizeScale *

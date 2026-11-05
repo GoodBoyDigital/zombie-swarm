@@ -4,7 +4,7 @@ import type { ExplosionDef } from "../config/explosions";
 import { pick, rand } from "../core/random";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "./textures";
 
-type Kind = "flash" | "tracer" | "spark" | "glow" | "boom" | "ring";
+type Kind = "flash" | "tracer" | "spark" | "puff" | "glow" | "boom" | "ring";
 
 interface Particle {
   sprite: Sprite;
@@ -16,7 +16,9 @@ interface Particle {
   /** Flash only: the gun it's pinned to, and its small random tilt off the barrel. */
   source: MuzzleSource | null;
   tilt: number;
-  /** Blast parts: scale at birth and at full size. Tracers: thickness at birth in size0. */
+  /** Puffs only: alpha at birth, fading to nothing. */
+  peak: number;
+  /** Blast parts and puffs: scale at birth and at full size. Tracers: thickness at birth in size0. */
   size0: number;
   size1: number;
 }
@@ -52,6 +54,23 @@ const HOT_TRACER_THICKNESS = 3;
 const ZAP_SEGMENTS = 5;
 const ZAP_JITTER = 9;
 const ZAP_SECONDS = 0.1;
+export interface ZapOptions {
+  /** Bolt thickness, px. The white core is a share of it. */
+  width?: number;
+  life?: number;
+  /** Most sideways wander per kink, px. */
+  jitter?: number;
+  /** Lay a wide faint halo and a softer inner glow under the bolt. */
+  glow?: boolean;
+  /** Kink at least this often along the bolt, px, so long bolts stay jagged. Omitted = a fixed few kinks. */
+  kinkEvery?: number;
+}
+
+/** Floor dust kicked up by a pressure wave: colour, peak alpha, size in px. */
+const DUST_TINT = 0x9a9180;
+const DUST_ALPHA = 0.3;
+/** Torn flesh flung off a saw. */
+const GORE_TINTS = [0x3f9a28, 0x2c6b1c, 0x6fe04a, 0x7a3a2a];
 
 /** Wall chips and dust thrown off a bullet impact: chunk count, then colours. */
 const WALL_DEBRIS = 9;
@@ -76,7 +95,7 @@ export class Effects {
   private readonly rails: RailBeam[] = [];
   private readonly railPool: RailBeam[] = [];
 
-  constructor(private readonly tex: GameTextures) {}
+  constructor(readonly tex: GameTextures) {}
 
   /**
    * Flash at the gun's barrel tip. It follows the tip for its whole short life, because the gun
@@ -134,27 +153,49 @@ export class Effects {
     streak(width * 0.9 * HOT_TRACER_THICKNESS, 0xffffff, 0.1);
   }
 
-  /** A quick jagged spark of lightning from (x0, y0) to (x1, y1): a coloured bolt with a white core. */
-  zap(x0: number, y0: number, x1: number, y1: number, color: number): void {
+  /**
+   * A quick jagged spark of lightning from (x0, y0) to (x1, y1): a coloured bolt with a white core.
+   * `opts` thickens it, holds it longer, kinks it more or adds a halo.
+   */
+  zap(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    color: number,
+    opts: ZapOptions = {},
+  ): void {
     const length = Math.hypot(x1 - x0, y1 - y0);
     if (length < 1) return;
+    const { width = 3, life = ZAP_SECONDS, glow = false } = opts;
     const nx = -(y1 - y0) / length;
     const ny = (x1 - x0) / length;
-    const jitter = Math.min(ZAP_JITTER, length * 0.15);
+    const jitter = Math.min(opts.jitter ?? ZAP_JITTER, length * 0.15);
+    const segments = opts.kinkEvery
+      ? Math.max(ZAP_SEGMENTS, Math.ceil(length / opts.kinkEvery))
+      : ZAP_SEGMENTS;
+    // All additive, so a dimmed tint draws as a fainter glow: halo, inner glow, bolt, then a thin
+    // white core that keeps it crisp.
+    const layers: [number, number][] = [
+      [width, color],
+      [width * 0.4, 0xffffff],
+    ];
+    if (glow)
+      layers.unshift(
+        [width * 6, dim(color, 0.32)],
+        [width * 2.6, dim(color, 0.6)],
+      );
     let ax = x0;
     let ay = y0;
-    for (let i = 1; i <= ZAP_SEGMENTS; i++) {
-      const f = i / ZAP_SEGMENTS;
-      const off = i < ZAP_SEGMENTS ? rand(-jitter, jitter) : 0;
+    for (let i = 1; i <= segments; i++) {
+      const f = i / segments;
+      const off = i < segments ? rand(-jitter, jitter) : 0;
       const bx = x0 + (x1 - x0) * f + nx * off;
       const by = y0 + (y1 - y0) * f + ny * off;
       const angle = Math.atan2(by - ay, bx - ax);
       const run = Math.hypot(bx - ax, by - ay);
-      for (const [w, tint] of [
-        [3, color],
-        [1.2, 0xffffff],
-      ] as const) {
-        const p = this.spawn("tracer", this.tex.tracer, ZAP_SECONDS);
+      for (const [w, tint] of layers) {
+        const p = this.spawn("tracer", this.tex.tracer, life);
         p.sprite.anchor.set(0, 0.5);
         p.sprite.position.set(ax, ay);
         p.sprite.rotation = angle;
@@ -321,6 +362,110 @@ export class Effects {
       p.sprite.rotation = a;
       p.sprite.scale.set(rand(1.6, 3), rand(0.5, 1.1));
       p.sprite.tint = tint;
+      p.sprite.alpha = 1;
+    }
+  }
+
+  /** A soft additive glow that swells and fades at a point, e.g. where lightning strikes. */
+  bloom(
+    x: number,
+    y: number,
+    radius: number,
+    color: number,
+    life: number,
+  ): void {
+    const p = this.spawn("glow", this.tex.blast.glow, life);
+    p.sprite.blendMode = "add";
+    p.sprite.anchor.set(0.5);
+    p.sprite.position.set(x, y);
+    p.sprite.tint = color;
+    p.size1 = radius / BLAST_TEXTURE_RADIUS;
+    p.size0 = p.size1 * 0.6;
+    p.sprite.scale.set(p.size0);
+    p.sprite.alpha = 1;
+  }
+
+  /** Soft puffs of floor dust drifting off along a direction, e.g. kicked up by a pressure wave. */
+  dust(x: number, y: number, dirX: number, dirY: number, count: number): void {
+    const base = Math.atan2(dirY, dirX);
+    for (let i = 0; i < count; i++) {
+      const a = base + rand(-0.8, 0.8);
+      const speed = rand(40, 160);
+      const r = rand(3, 6);
+      this.drift(
+        this.tex.blast.glow,
+        x + rand(-6, 6),
+        y + rand(-6, 6),
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        r,
+        r * rand(2, 3),
+        DUST_TINT,
+        DUST_ALPHA,
+        rand(0.35, 0.7),
+      );
+    }
+  }
+
+  /**
+   * One round smoke puff: drifts from (x, y) at (vx, vy) px/s with drag, grows from radius r0 to
+   * r1 px and fades out from `alpha` over `life` seconds. Stays where it was puffed.
+   */
+  puff(
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    r0: number,
+    r1: number,
+    tint: number,
+    alpha: number,
+    life: number,
+  ): void {
+    this.drift(this.tex.smoke, x, y, vx, vy, r0, r1, tint, alpha, life);
+  }
+
+  /** A puff in any round texture of radius BLAST_TEXTURE_RADIUS: smoke, or the softer dust glow. */
+  private drift(
+    texture: Texture,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    r0: number,
+    r1: number,
+    tint: number,
+    alpha: number,
+    life: number,
+  ): void {
+    const p = this.spawn("puff", texture, life);
+    p.vx = vx;
+    p.vy = vy;
+    p.sprite.anchor.set(0.5);
+    p.sprite.position.set(x, y);
+    p.sprite.rotation = rand(0, Math.PI * 2);
+    p.size0 = r0 / BLAST_TEXTURE_RADIUS;
+    p.size1 = r1 / BLAST_TEXTURE_RADIUS;
+    p.sprite.scale.set(p.size0);
+    p.sprite.tint = tint;
+    p.sprite.alpha = p.peak = alpha;
+  }
+
+  /** Lumps of torn zombie thrown off in a wide fan along a direction, e.g. off a chainsaw. */
+  gore(x: number, y: number, dirX: number, dirY: number, count: number): void {
+    const base = Math.atan2(dirY, dirX);
+    for (let i = 0; i < count; i++) {
+      const p = this.spawn("spark", this.tex.spark, rand(0.3, 0.55));
+      const a = base + rand(-0.8, 0.8);
+      const speed = rand(160, 420);
+      p.vx = Math.cos(a) * speed;
+      p.vy = Math.sin(a) * speed;
+      p.sprite.anchor.set(0.5);
+      p.sprite.position.set(x, y);
+      p.sprite.rotation = rand(0, Math.PI * 2);
+      const s = rand(1.6, 3);
+      p.sprite.scale.set(s, s * rand(0.7, 1.1));
+      p.sprite.tint = pick(GORE_TINTS);
       p.sprite.alpha = 1;
     }
   }
@@ -514,6 +659,14 @@ export class Effects {
           p.vy *= Math.exp(-dt * 6);
           p.sprite.alpha = Math.min(1, t * 2);
           break;
+        case "puff":
+          p.sprite.x += p.vx * dt;
+          p.sprite.y += p.vy * dt;
+          p.vx *= Math.exp(-dt * 4);
+          p.vy *= Math.exp(-dt * 4);
+          p.sprite.scale.set(p.size1 + (p.size0 - p.size1) * t);
+          p.sprite.alpha = p.peak * t;
+          break;
         case "glow":
           p.sprite.scale.set(p.size1 + (p.size0 - p.size1) * t);
           p.sprite.alpha = t * t;
@@ -566,6 +719,7 @@ export class Effects {
       vy: 0,
       source: null,
       tilt: 0,
+      peak: 1,
       size0: 1,
       size1: 1,
     };
@@ -604,4 +758,12 @@ export class Effects {
     this.live[index] = this.live[this.live.length - 1];
     this.live.pop();
   }
+}
+
+/** A colour scaled toward black, channel by channel. */
+function dim(color: number, factor: number): number {
+  const r = Math.round(((color >> 16) & 0xff) * factor);
+  const g = Math.round(((color >> 8) & 0xff) * factor);
+  const b = Math.round((color & 0xff) * factor);
+  return (r << 16) | (g << 8) | b;
 }

@@ -23,7 +23,7 @@ export class CombatContext {
   tearSoundPlayed = false;
   /** Damage multiplier on every applyHit through this context (the weapon's comes from power mode). */
   damageScale = 1;
-  /** Multiplier on each part's tear-off chance for hits through this context (hypno disc blades raise it). */
+  /** Multiplier on each part's tear-off chance for hits through this context (hypno disc blades and the chainsaw raise it). */
   dismemberScale = 1;
   /** Tracer intensity for shots through this context: 1 = normal, higher = thicker and hotter. */
   shotPower = 1;

@@ -62,7 +62,7 @@ export interface Lure {
 
 /** Owns every zombie: pooling, spawning through gates, crowd separation and death stamping. */
 export class Horde {
-  readonly view = new Container();
+  readonly view = new Container({ label: "horde" });
   readonly alive: Zombie[] = [];
   readonly hash = new SpatialHash<Zombie>(CELL_SIZE);
   /** Bodies still sliding. Drawn under the living so the crowd walks over them. */

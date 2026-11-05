@@ -57,6 +57,20 @@ const PILLS_GAP = 32;
 const TEST_DROP_DISTANCE = 90;
 /** Dev-only X key: jump the countdown to this many seconds left; press again to skip to the chopper's descent. */
 const SKIP_TO_SECONDS = 10;
+/** Weapon swap keys, in config order. */
+const WEAPON_KEYS = [
+  "Digit1",
+  "Digit2",
+  "Digit3",
+  "Digit4",
+  "Digit5",
+  "Digit6",
+  "Digit7",
+  "Digit8",
+  "Digit9",
+  "Digit0",
+  "Minus",
+];
 
 /** Keys typed into the tuning panel's fields must not reach the game. */
 export const isTyping = (e: KeyboardEvent): boolean =>
@@ -266,6 +280,7 @@ export class Game {
     this.app.ticker.remove(this.endRender);
     window.removeEventListener("keydown", this.onKeyDown);
     this.powerups.endAll();
+    this.weapon.silence();
     this.run.destroy();
     this.input.destroy();
     this.floor.destroy();
@@ -305,9 +320,8 @@ export class Game {
     if (e.code === "F4") this.audio.stopMusic();
     const theme = THEME_KEYS[e.code];
     if (theme) this.audio.playMusic(theme);
-    // Digit1..Digit8 swap weapons in config order.
-    const weapon = WEAPON_IDS[Number(e.key) - 1];
-    if (weapon && /^Digit\d$/.test(e.code)) this.equip(weapon);
+    const weapon = WEAPON_IDS[WEAPON_KEYS.indexOf(e.code)];
+    if (weapon) this.equip(weapon);
     if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
   }
 
@@ -333,7 +347,7 @@ export class Game {
     const worldDt = dt * mods.timeScale;
     const playerDt = dt * mods.playerTimeScale;
     this.powerups.ctx.timeScale = mods.timeScale;
-    this.player.speedScale = mods.moveSpeed;
+    this.player.speedScale = mods.moveSpeed * this.weapon.moveScale;
     this.player.magnetRadiusScale = mods.magnetRadius;
     this.player.magnetPullScale = mods.magnetPull;
     this.weapon.fireIntervalScale = mods.fireInterval;
@@ -359,7 +373,7 @@ export class Game {
       profiler.lap("loot");
       this.drops.update(worldDt, p);
       this.takeContactDamage(mods.timeScale / mods.playerTimeScale);
-    }
+    } else this.weapon.silence();
     this.fx.update(worldDt);
     profiler.lap("fx");
     this.casings.update(worldDt);
@@ -397,10 +411,12 @@ export class Game {
       w.spareMagazines === Infinity ? "" : `  +${w.spareMagazines} mags`;
     const ammo =
       (w.reloading
-        ? `RELOADING ${Math.ceil(w.reloadLeft * 10) / 10}s`
-        : `${w.rounds}/${w.def.magazine}`) + spare;
+        ? `${w.def.fuel ? "REFUELLING" : "RELOADING"} ${Math.ceil(w.reloadLeft * 10) / 10}s`
+        : w.def.fuel
+          ? `fuel ${w.rounds.toFixed(1)}/${w.def.magazine}s`
+          : `${w.rounds}/${w.def.magazine}`) + spare;
     this.hud.text =
-      `${w.def.name.toUpperCase()} ${ammo}   [1-8 weapon, R reload]\n` +
+      `${w.def.name.toUpperCase()} ${ammo}   [1-9, 0, - weapon, R reload]\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
       `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
   }

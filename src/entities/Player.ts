@@ -61,6 +61,8 @@ export class Player {
   /** Rolling bands over a spin-up gun's barrels; hidden for other guns. */
   private readonly barrels = new Graphics();
   private barrelPhase = 0;
+  /** How far the held gun shakes at full spin, px. Set by equip. */
+  private buzz = BARREL_BUZZ;
   /** Barrel cluster in sprite-local px from the torso centre, before the kick. Set by equip. */
   private barrelX0 = 0;
   private barrelX1 = 0;
@@ -101,6 +103,7 @@ export class Player {
     this.ejectX = this.handX + (eject.x - grip.x) * texture.width;
     this.ejectY = this.handY + (eject.y - grip.y) * texture.height;
     this.barrels.visible = !!def.spinUp;
+    this.buzz = def.buzz ?? BARREL_BUZZ;
     this.barrelX0 = this.handX + (BARREL_START - grip.x) * texture.width;
     this.barrelX1 = this.muzzleX;
     this.barrelHalf = (texture.height * BARREL_HEIGHT) / 2;
@@ -213,8 +216,9 @@ export class Player {
 
     this.gunKick *= Math.exp(-dt * 18);
     this.gun.x = this.handX - this.gunKick;
-    this.gun.y =
-      this.handY + (Math.random() - 0.5) * 2 * BARREL_BUZZ * this.barrelSpin;
+    const buzz = this.buzz * this.barrelSpin;
+    this.gun.x += (Math.random() - 0.5) * buzz;
+    this.gun.y = this.handY + (Math.random() - 0.5) * 2 * buzz;
     if (this.barrels.visible) this.drawBarrels(dt);
     this.view.position.set(this.x, this.y);
     this.view.rotation = this.aim;

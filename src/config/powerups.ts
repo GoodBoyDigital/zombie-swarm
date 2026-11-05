@@ -186,6 +186,9 @@ export const POWERUPS = {
   magnum: gun("magnum", "Magnum", 2),
   uzi: gun("uzi", "Uzi", 3),
   rocket: gun("rocket", "Rocket launcher", 1.5),
+  tesla: gun("tesla", "Tesla gun", 1.5),
+  chainsaw: gun("chainsaw", "Chainsaw", 1.5),
+  sonic: gun("sonic", "Sonic cannon", 1.5),
   medkit: {
     id: "medkit",
     name: "Medkit",

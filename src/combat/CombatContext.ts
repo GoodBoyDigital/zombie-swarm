@@ -23,6 +23,8 @@ export class CombatContext {
   tearSoundPlayed = false;
   /** Damage multiplier on every applyHit through this context (the weapon's comes from power mode). */
   damageScale = 1;
+  /** Multiplier on every part's dismember chance for hits through this context (a chainsaw tears more). */
+  dismemberScale = 1;
   /** Tracer intensity for shots through this context: 1 = normal, higher = thicker and hotter. */
   shotPower = 1;
 
@@ -95,7 +97,10 @@ export class CombatContext {
     dirY: number,
   ): number {
     const bit = zombie.partOnRay(hitX, hitY, dirX, dirY);
-    if (bit < 0 || Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`])
+    if (
+      bit < 0 ||
+      Math.random() >= DISMEMBER[`${PART_IDS[bit]}Chance`] * this.dismemberScale
+    )
       return -1;
     this.horde.limbs.launch(zombie, bit, dirX, dirY, this.stump);
     zombie.sever(bit);

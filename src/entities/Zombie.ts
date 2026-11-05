@@ -26,6 +26,12 @@ const WANDER_TINT_FACTOR = 0.55;
 const LOSING_TINT_FACTOR = 0.35;
 /** Spacing of the points tested along a shot when looking for which part it struck, world px. */
 const PART_RAY_STEP = 1.5;
+/** Share of its walking speed a stunned zombie keeps, and how far it twitches either way, radians. */
+const STUN_MOVE = 0.1;
+const STUN_TWITCH = 0.3;
+/** Tumbling: spin drag per second, and how hard the body springs back to upright, per second squared. */
+const TUMBLE_DRAG = 4;
+const TUMBLE_SPRING = 60;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -54,6 +60,11 @@ export class Zombie {
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
   private flash = 0;
+  /** Seconds left reeling from a stun: barely walking, twitching on the spot. */
+  private stunLeft = 0;
+  /** Tumble angle off the facing, and its spin, from being blown back. */
+  private tilt = 0;
+  private tiltVel = 0;
   readonly brain = new ZombieBrain();
   /** Sprite set for the current def; the pool is shared across types so it's picked at spawn. */
   private art!: ZombieTextures;
@@ -81,6 +92,9 @@ export class Zombie {
     this.kx = 0;
     this.ky = 0;
     this.flash = 0;
+    this.stunLeft = 0;
+    this.tilt = 0;
+    this.tiltVel = 0;
     const along = rand(-gate.halfWidth, gate.halfWidth);
     const horizontal = gate.side === "top" || gate.side === "bottom";
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
@@ -166,6 +180,16 @@ export class Zombie {
     this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
   }
 
+  /** Reel for a moment: it all but stops walking and twitches. A longer stun replaces a shorter one. */
+  stun(seconds: number): void {
+    this.stunLeft = Math.max(this.stunLeft, seconds);
+  }
+
+  /** Spin the body off its facing, radians/s; it springs back upright as the spin dies. */
+  tumble(spin: number): void {
+    this.tiltVel += spin;
+  }
+
   /** Shove along a unit direction without hurting, scaled by the type's knockbackScale. */
   push(dirX: number, dirY: number, knockback: number): void {
     const k = knockback * this.def.knockbackScale;
@@ -206,12 +230,21 @@ export class Zombie {
       1,
       (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
     );
-    const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
+    const stunned = this.stunLeft > 0 ? STUN_MOVE : 1;
+    this.stunLeft -= dt;
+    const gait = (1 + shuffle * (pulse / PULSE_MEAN - 1)) * stunned;
     this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
     this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);
     this.kx *= decay;
     this.ky *= decay;
+    if (this.tiltVel !== 0 || this.tilt !== 0) {
+      this.tiltVel -=
+        (this.tilt * TUMBLE_SPRING + this.tiltVel * TUMBLE_DRAG) * dt;
+      this.tilt += this.tiltVel * dt;
+      if (Math.abs(this.tilt) < 0.01 && Math.abs(this.tiltVel) < 0.1)
+        this.tilt = this.tiltVel = 0;
+    }
 
     if (this.flash > 0) {
       this.flash -= dt;
@@ -232,8 +265,12 @@ export class Zombie {
   syncSprite(): void {
     const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
+    const twitch = this.stunLeft > 0 ? rand(-STUN_TWITCH, STUN_TWITCH) : 0;
     this.sprite.rotation =
-      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale;
+      this.facing +
+      this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale +
+      this.tilt +
+      twitch;
     const base = (this.def.radius / this.def.art.radius) * this.sizeScale;
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));

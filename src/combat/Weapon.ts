@@ -1,4 +1,4 @@
-import type { Audio, SfxName } from "../audio/Audio";
+import type { Audio, LoopVoice, SfxName } from "../audio/Audio";
 import {
   BACKUP_WEAPON,
   WEAPON_NOISE_RADIUS,
@@ -16,7 +16,8 @@ import type { FloorCanvas } from "../world/FloorCanvas";
 import { CombatContext } from "./CombatContext";
 import { SHOT_HANDLERS } from "./shots";
 
-const SHOT_SFX: Record<WeaponId, SfxName> = {
+/** Played on every trigger pull; null for guns whose sound is an engine loop. */
+const SHOT_SFX: Record<WeaponId, SfxName | null> = {
   pistol: "shotPistol",
   rifle: "shotRifle",
   shotgun: "shotShotgun",
@@ -25,7 +26,24 @@ const SHOT_SFX: Record<WeaponId, SfxName> = {
   magnum: "shotMagnum",
   uzi: "shotUzi",
   rocket: "rocketLaunch",
+  tesla: "shotTesla",
+  chainsaw: null,
+  sonic: "shotSonic",
 };
+
+/** Played when a spin-up gun starts winding up from rest. */
+const SPIN_SFX: Partial<Record<WeaponId, SfxName>> = {
+  minigun: "minigunSpinUp",
+  chainsaw: "chainsawRev",
+};
+
+/** Guns with a running engine: an idle loop while held, crossfading to the run loop as it spins up. */
+const ENGINE_SFX: Partial<Record<WeaponId, { idle: SfxName; run: SfxName }>> = {
+  chainsaw: { idle: "chainsawIdle", run: "chainsawCut" },
+};
+const ENGINE_VOLUME = 0.55;
+/** An engine gun never sits fully still: its spin reads at least this, so it putters and buzzes at idle. */
+const ENGINE_IDLE_SPIN = 0.18;
 
 /** Spin-down takes this many times longer than spin-up. */
 const SPIN_DOWN = 2.5;
@@ -55,6 +73,8 @@ export class Weapon {
   /** Power-up multiplier on reload time. */
   reloadScale = 1;
   private readonly shots: CombatContext;
+  private engine: { id: WeaponId; idle: LoopVoice; run: LoopVoice } | null =
+    null;
 
   constructor(
     private readonly player: Player,
@@ -86,6 +106,18 @@ export class Weapon {
 
   get reloading(): boolean {
     return this.reloadLeft > 0;
+  }
+
+  /** Player move speed multiplier from the gun: a chainsaw bogs him down while it runs. */
+  get moveScale(): number {
+    return this.spinHeld && this.def.saw ? this.def.saw.moveScale : 1;
+  }
+
+  /** Stop any engine loop, e.g. when the player is down or aboard, or the game is torn down. */
+  silence(): void {
+    this.engine?.idle.stop();
+    this.engine?.run.stop();
+    this.engine = null;
   }
 
   /** Swap to a weapon with a full magazine and its pickup's spares, dropping any reload in progress. */
@@ -140,6 +172,7 @@ export class Weapon {
       ? Math.min(Math.max(0, spreadMax - spread), this.bloom + spreadBloom * dt)
       : Math.max(0, this.bloom - spreadBloom * 2 * dt);
     const ready = this.windUp(dt, triggerHeld && !this.reloading);
+    this.runEngine();
     if (this.reloading) {
       this.reloadLeft -= dt;
       if (this.reloadLeft > 0) return;
@@ -149,8 +182,10 @@ export class Weapon {
     if (!ready || !triggerHeld) return;
     // Carry the overshoot so the rate doesn't quantise to frames; fast weapons may fire twice a frame.
     while (this.cooldown <= 0 && this.rounds > 0) {
-      this.cooldown += this.def.fireInterval * this.fireIntervalScale;
-      this.rounds--;
+      const interval = this.def.fireInterval * this.fireIntervalScale;
+      this.cooldown += interval;
+      // Fuel burns by the second; everything else spends a round.
+      this.rounds = Math.max(0, this.rounds - (this.def.fuel ? interval : 1));
       this.fire();
     }
     if (this.rounds === 0) this.reload();
@@ -165,18 +200,32 @@ export class Weapon {
     if (!spinUp) return true;
     const wasHeld = this.spinHeld;
     this.spinHeld = driven && this.rounds > 0;
-    if (this.spinHeld && !wasHeld && this.spin < 1)
-      this.audio.play("minigunSpinUp", {
-        pitch: rand(0.95, 1.05),
-        volume: 0.6,
-      });
+    const spinSfx = SPIN_SFX[this.id];
+    if (spinSfx && this.spinHeld && !wasHeld && this.spin < 1)
+      this.audio.play(spinSfx, { pitch: rand(0.95, 1.05), volume: 0.6 });
     this.spin = this.spinHeld
       ? Math.min(1, this.spin + dt / spinUp)
       : Math.max(0, this.spin - dt / (spinUp * SPIN_DOWN));
     // No banked shots while winding up, or the first frame at speed fires a burst.
     if (this.spin < 1) this.cooldown = 0;
-    this.player.barrelSpin = this.spin;
+    this.player.barrelSpin = ENGINE_SFX[this.id]
+      ? Math.max(ENGINE_IDLE_SPIN, this.spin)
+      : this.spin;
     return this.spin >= 1;
+  }
+
+  /** Keep an engine gun's loops running while it's held, mixed by how hard it's revving. */
+  private runEngine(): void {
+    if (this.engine && this.engine.id !== this.id) this.silence();
+    const sfx = ENGINE_SFX[this.id];
+    if (!sfx) return;
+    this.engine ??= {
+      id: this.id,
+      idle: this.audio.loopVoice(sfx.idle, 0),
+      run: this.audio.loopVoice(sfx.run, 0),
+    };
+    this.engine.idle.volume(ENGINE_VOLUME * (1 - this.spin));
+    this.engine.run.volume(ENGINE_VOLUME * this.spin);
   }
 
   /** The pickup is spent: back to the pistol, which never runs out. */
@@ -191,14 +240,14 @@ export class Weapon {
     const aimX = Math.cos(aim);
     const aimY = Math.sin(aim);
 
-    this.audio.play(SHOT_SFX[this.id], {
-      pitch: rand(0.92, 1.08),
-      volume: 0.7,
-    });
+    const sfx = SHOT_SFX[this.id];
+    if (sfx) this.audio.play(sfx, { pitch: rand(0.92, 1.08), volume: 0.7 });
+    const handler = SHOT_HANDLERS[def.shot];
     // Apply the visible kick before sampling the shared origin for the shot and flash.
     this.player.recoil(aimX, aimY, def.recoil, def.gunKick);
     const m = this.player.muzzle();
-    if (!def.beam) this.shots.fx.muzzleFlash(this.player);
+    const o = handler.fromBody ? this.player : m;
+    if (!def.beam && !handler.ownMuzzle) this.shots.fx.muzzleFlash(this.player);
     if (def.casing) {
       const port = this.player.ejectPort();
       this.casings.eject(port.x, port.y, aim, def.casing);
@@ -209,11 +258,13 @@ export class Weapon {
     this.shots.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
     this.shots.beginVolley();
-    const handler = SHOT_HANDLERS[def.shot];
+    this.shots.dismemberScale = def.dismemberScale ?? 1;
     const spread = this.spread;
     for (let i = 0; i < def.pellets; i++) {
       const a = aim + rand(-spread, spread);
-      handler.fire(this.shots, def, m.x, m.y, Math.cos(a), Math.sin(a));
+      handler.fire(this.shots, def, o.x, o.y, Math.cos(a), Math.sin(a));
     }
+    // Rockets and waves already in flight carry their own rate.
+    this.shots.dismemberScale = 1;
   }
 }

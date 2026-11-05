@@ -3,9 +3,12 @@ import type { WeaponDef } from "../config/weapons";
 import type { CombatContext } from "./CombatContext";
 import { rocket } from "./rocket";
 import { raycastZombies } from "./raycast";
+import { saw } from "./saw";
+import { sonic } from "./sonic";
+import { tesla } from "./tesla";
 
 /** Each shot type owns how its pellets reach their targets. */
-export type ShotType = "hitscan" | "rocket";
+export type ShotType = "hitscan" | "rocket" | "tesla" | "saw" | "sonic";
 
 export interface ShotHandler {
   /** Launch one pellet from the muzzle along a unit direction. Called `def.pellets` times per pull. */
@@ -19,6 +22,10 @@ export interface ShotHandler {
   ): void;
   /** Projectile types move their bodies and detonate here (`explode` on impact); instant types leave it out. */
   update?(ctx: CombatContext, dt: number): void;
+  /** Draws its own muzzle effect, or none: the weapon skips the shared muzzle flash. */
+  ownMuzzle?: boolean;
+  /** Melee: fired from the player's centre instead of the muzzle. */
+  fromBody?: boolean;
 }
 
 const hitscan: ShotHandler = {
@@ -61,4 +68,10 @@ const hitscan: ShotHandler = {
   },
 };
 
-export const SHOT_HANDLERS: Record<ShotType, ShotHandler> = { hitscan, rocket };
+export const SHOT_HANDLERS: Record<ShotType, ShotHandler> = {
+  hitscan,
+  rocket,
+  tesla,
+  saw,
+  sonic,
+};

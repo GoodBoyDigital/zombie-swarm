@@ -77,6 +77,11 @@ export interface ActivePowerup<S = unknown> {
   left: number;
   /** Seconds since pickup. */
   age: number;
+  /**
+   * Share of a wind-up still to go before a timed effect switches on, 1 down to 0; 0 once running
+   * (and for everything without one). The HUD pill fills up while it's above 0. Set by the effect.
+   */
+  windup: number;
   /** Whatever the effect keeps between calls; set it in `start`. */
   state: S;
 }

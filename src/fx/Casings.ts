@@ -21,6 +21,17 @@ const HEIGHT_SCALE = 0.02;
 const MAX_LIVE = 200;
 /** Chance a bullet hitting a wall knocks a chunk loose to land on the floor. */
 const WALL_CHUNK_CHANCE = 0.6;
+/**
+ * Vinyl shreds flutter: light gravity and air drag (per second) on their flight, a lazy sway across
+ * it (px/s, and its rate in radians/s) with a rock of the piece (radians/s), and they settle the
+ * moment they touch down instead of skidding.
+ */
+const SHRED_GRAVITY = 300;
+const SHRED_AIR_DRAG = 2.2;
+const SHRED_SWAY = 45;
+const SHRED_SWAY_RATE_MIN = 3;
+const SHRED_SWAY_RATE_MAX = 5;
+const SHRED_ROCK = 1.6;
 
 interface Casing {
   sprite: Sprite;
@@ -32,12 +43,20 @@ interface Casing {
   vz: number;
   spin: number;
   bounces: number;
+  gravity: number;
+  /** Horizontal drag in the air, per second; 0 for shells and chunks, which fly clean. Fluttering pieces have it. */
+  airDrag: number;
+  /** Side-to-side drift while airborne: px/s (0 for none), its direction, phase and rate. */
+  sway: number;
+  swayAngle: number;
+  swayPhase: number;
+  swayRate: number;
   /** Sprite scale on the floor; a shell's draws it CASINGS[kind].width long. */
   scale: number;
 }
 
 /**
- * Spent shells and chunks of wall. Each ejects from the gun or the wall, tumbles through a couple of bounces, then burns into
+ * Spent shells, chunks of wall and the shreds of a popped decoy. Each ejects from the gun or the wall, tumbles through a couple of bounces, then burns into
  * the floor texture and goes back to the pool. The floor keeps every shell ever fired for free.
  */
 export class Casings {
@@ -93,6 +112,52 @@ export class Casings {
     );
   }
 
+  /**
+   * A blow-up dummy bursting at (x, y): its googly eyes, a few flaps and `count` bits of vinyl in all,
+   * `scale` times their baked size (the eyes `eyeScale`), flung out at up to `speed` and up at up to
+   * `lift` px/s, turning at up to `spin` radians/s, fluttering down to stay on the floor where they land.
+   */
+  shreds(
+    x: number,
+    y: number,
+    count: number,
+    speed: number,
+    lift: number,
+    spin: number,
+    scale: number,
+    eyeScale: number,
+  ): void {
+    const { eyes, flaps, confetti } = this.tex.shreds;
+    for (let i = 0; i < count; i++) {
+      const texture =
+        i < eyes.length
+          ? eyes[i]
+          : i < eyes.length + flaps.length
+            ? flaps[i - eyes.length]
+            : confetti[Math.floor(Math.random() * confetti.length)];
+      const a = rand(0, Math.PI * 2);
+      const v = speed * rand(0.35, 1);
+      const c = this.toss(
+        texture,
+        (i < eyes.length ? eyeScale : scale) * rand(0.85, 1.2),
+        x + Math.cos(a) * 8,
+        y + Math.sin(a) * 8,
+        rand(7, 15),
+        Math.cos(a) * v,
+        Math.sin(a) * v,
+        lift * rand(0.3, 1),
+        rand(0, Math.PI * 2),
+      );
+      c.gravity = SHRED_GRAVITY;
+      c.airDrag = SHRED_AIR_DRAG;
+      c.spin = spin * rand(0.4, 1) * (Math.random() < 0.5 ? -1 : 1);
+      c.sway = SHRED_SWAY * rand(0.5, 1);
+      c.swayAngle = a + Math.PI / 2;
+      c.swayPhase = rand(0, Math.PI * 2);
+      c.swayRate = rand(SHRED_SWAY_RATE_MIN, SHRED_SWAY_RATE_MAX);
+    }
+  }
+
   private toss(
     texture: Texture,
     scale: number,
@@ -103,7 +168,7 @@ export class Casings {
     vy: number,
     vz: number,
     rotation: number,
-  ): void {
+  ): Casing {
     if (this.live.length >= MAX_LIVE) this.settle(0);
     const c = this.pool.pop() ?? this.create();
     c.sprite.texture = texture;
@@ -116,10 +181,14 @@ export class Casings {
     c.vz = vz;
     c.spin = rand(14, 26) * (Math.random() < 0.5 ? -1 : 1);
     c.bounces = 0;
+    c.gravity = GRAVITY;
+    c.airDrag = 0;
+    c.sway = 0;
     c.sprite.rotation = rotation;
     c.sprite.position.set(x, y);
     this.view.addChild(c.sprite);
     this.live.push(c);
+    return c;
   }
 
   update(dt: number): void {
@@ -130,10 +199,27 @@ export class Casings {
       c.sprite.rotation += c.spin * dt;
 
       if (c.z > 0 || c.vz > 0) {
-        c.vz -= GRAVITY * dt;
+        if (c.airDrag > 0) {
+          const air = Math.exp(-dt * c.airDrag);
+          c.vx *= air;
+          c.vy *= air;
+        }
+        if (c.sway > 0) {
+          c.swayPhase += c.swayRate * dt;
+          const drift = Math.sin(c.swayPhase) * c.sway * dt;
+          c.x += Math.cos(c.swayAngle) * drift;
+          c.y += Math.sin(c.swayAngle) * drift;
+          c.sprite.rotation += Math.cos(c.swayPhase) * SHRED_ROCK * dt;
+        }
+        c.vz -= c.gravity * dt;
         c.z += c.vz * dt;
         if (c.z <= 0) {
           c.z = 0;
+          // Floppy vinyl just lies down where it lands.
+          if (c.airDrag > 0) {
+            this.settle(i);
+            continue;
+          }
           c.vz = -c.vz * BOUNCE;
           c.vx *= BOUNCE_FRICTION;
           c.vy *= BOUNCE_FRICTION;
@@ -183,6 +269,12 @@ export class Casings {
       vz: 0,
       spin: 0,
       bounces: 0,
+      gravity: GRAVITY,
+      airDrag: 0,
+      sway: 0,
+      swayAngle: 0,
+      swayPhase: 0,
+      swayRate: 0,
       scale: 1,
     };
   }

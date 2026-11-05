@@ -86,6 +86,23 @@ export const EXPLOSIONS = {
     volume: 0.75,
     pitch: 1.2,
   },
+  /** The blow-up decoy bursting: no damage, just a shove that knocks the pile back. */
+  decoyPop: {
+    radius: 170,
+    damage: 0,
+    knockback: 900,
+    falloff: 0.5,
+    flash: 0,
+    ring: 1,
+    seconds: 0.35,
+    debris: 0,
+    shake: 0.3,
+    scorch: 0,
+    noiseRadius: 0,
+    sound: "decoyPop",
+    volume: 0.9,
+    pitch: 1,
+  },
 } as const satisfies Record<string, ExplosionDef>;
 
 export type ExplosionId = keyof typeof EXPLOSIONS;

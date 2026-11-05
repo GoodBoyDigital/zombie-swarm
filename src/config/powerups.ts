@@ -120,6 +120,39 @@ export type PowerupDef = PowerupBase &
           shove: number;
         })
     | (Timed & { effect: "portal" } & DomeParams)
+    | (Timed & {
+        effect: "decoy";
+        /** Seconds from pickup until it inflates; `seconds` (how long it's up) starts after. */
+        armSeconds: number;
+        /** Seconds after it slams out before the first call goes, while it settles. */
+        springSeconds: number;
+        /**
+         * Every `pulseSeconds` a call front travels out at `pulseSpeed` px/s to `lureRadius` px.
+         * Each zombie it reaches stops hunting the player and hunts the decoy until it dies.
+         */
+        lureRadius: number;
+        pulseSpeed: number;
+        pulseSeconds: number;
+        /** No zombie gets closer than this, world px; the crowd piles up round the edge. The player walks through. */
+        keepOutRadius: number;
+        /** Final seconds of `seconds` in which it swells and wobbles faster, warning it's about to pop. */
+        warnSeconds: number;
+        /** The pop: a push-only blast that knocks the pile back. */
+        explosion: ExplosionId;
+        /**
+         * Bits of vinyl it bursts into, how fast they fly out and up (px/s), how fast they turn
+         * (radians/s; light vinyl, so slow) and their size; they stay on the floor at that size.
+         */
+        shreds: number;
+        shredSpeed: number;
+        shredLift: number;
+        shredSpin: number;
+        shredScale: number;
+        /** The googly eyes' size among the shreds, flying and on the floor. */
+        shredEyeScale: number;
+        /** The pump the dummy inflates from, loaded with the icons by textures.ts. */
+        sprite: string;
+      })
     | (Instant & {
         effect: "airstrike";
         /** Each bomb's blast; the last one is scaled up by `lastBombScale`. */
@@ -283,6 +316,31 @@ export const POWERUPS = {
     flickerSeconds: 1.5,
     ripple: 7,
     icon: "/sprites/icon-powerup-portal.png",
+    weight: 1,
+  },
+  decoy: {
+    id: "decoy",
+    name: "Decoy",
+    category: "support",
+    mode: "timed",
+    seconds: 10,
+    effect: "decoy",
+    armSeconds: 1.5,
+    springSeconds: 0.3,
+    lureRadius: 650,
+    pulseSpeed: 420,
+    pulseSeconds: 2,
+    keepOutRadius: 40,
+    warnSeconds: 1,
+    explosion: "decoyPop",
+    shreds: 40,
+    shredSpeed: 420,
+    shredLift: 185,
+    shredSpin: 6,
+    shredScale: 1.8,
+    shredEyeScale: 0.9,
+    sprite: "/sprites/decoy-puck.png",
+    icon: "/sprites/icon-powerup-decoy.png",
     weight: 1,
   },
   nuke: {

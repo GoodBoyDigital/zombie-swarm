@@ -136,6 +136,19 @@ const POWERUP_RANGES: Ranges = {
   strafeBursts: { min: 0, max: 8, step: 1 },
   strafeRounds: { min: 1, max: 20, step: 1 },
   strafeDamage: { min: 0, max: 20, step: 0.5 },
+  armSeconds: { min: 0, max: 5, step: 0.1 },
+  lureRadius: { min: 0, max: 2000, step: 25 },
+  springSeconds: { min: 0.05, max: 2, step: 0.05 },
+  pulseSpeed: { min: 50, max: 2000, step: 10 },
+  pulseSeconds: { min: 0.2, max: 6, step: 0.1 },
+  keepOutRadius: { min: 10, max: 200, step: 1 },
+  warnSeconds: { min: 0, max: 3, step: 0.1 },
+  shreds: { min: 0, max: 150, step: 1 },
+  shredSpeed: { min: 50, max: 1200, step: 10 },
+  shredLift: { min: 0, max: 600, step: 5 },
+  shredSpin: { min: 0, max: 30, step: 0.5 },
+  shredScale: { min: 0.5, max: 4, step: 0.1 },
+  shredEyeScale: { min: 0.3, max: 4, step: 0.1 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

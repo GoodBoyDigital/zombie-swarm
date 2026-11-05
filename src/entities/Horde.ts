@@ -19,7 +19,7 @@ import { Limbs } from "../fx/Limbs";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
-import { aiDebug } from "./ZombieBrain";
+import { aiDebug, type ZombieTarget } from "./ZombieBrain";
 
 const CELL_SIZE = 48;
 const CORPSE_TINT_FACTOR = 0.8;
@@ -43,8 +43,18 @@ export interface ExclusionZone {
   x: number;
   y: number;
   radius: number;
+  /** The player standing inside can't be bitten (domes). A decoy's keep-out only holds zombies back. */
+  shelter: boolean;
   /** Called for every zombie pushed back out this frame, with the outward unit normal at the edge. */
   onContact: ((z: Zombie, nx: number, ny: number) => void) | null;
+}
+
+/** Something the horde hunts instead of the player while it's set: a decoy. */
+export interface Lure {
+  x: number;
+  y: number;
+  /** Body radius; chasers crowd round it at this distance. */
+  radius: number;
 }
 
 /** Owns every zombie: pooling, spawning through gates, crowd separation and death stamping. */
@@ -63,10 +73,13 @@ export class Horde {
   onKill: ((z: Zombie) => void) | null = null;
   /** Bumped at the start of every trigger pull, blast and bomb, so kills can be grouped by action. */
   volley = 0;
-  /** How many of the living are still wandering, for the debug HUD. */
+  /** How many of the living are still wandering, and how many a live decoy has captured, for the debug HUD. */
   wandering = 0;
+  lured = 0;
   /** False once the player is down: nobody notices him any more. */
   hunting = true;
+  /** While set, every zombie its call has reached (`capture`) hunts this instead of the player, and never gives up. */
+  lure: Lure | null = null;
   /** Live exclusion zones; add and remove them through addZone and removeZone. */
   readonly zones: ExclusionZone[] = [];
   private readonly zonePool: ExclusionZone[] = [];
@@ -77,6 +90,9 @@ export class Horde {
   phase: RunPhase = "countdown";
   private readonly pool: Zombie[] = [];
   private spawnDebt = 0;
+  /** What the player's hunters and the lure's hunters steer by, refilled every frame so the crowd loop never allocates. */
+  private readonly playerTarget = newTarget();
+  private readonly lureTarget = newTarget();
 
   constructor(
     private readonly tex: GameTextures,
@@ -100,11 +116,26 @@ export class Horde {
     this.corpses.update(dt);
     this.limbs.update(dt);
 
-    // Down to the last few: they all know where he is.
-    const everyoneHunts =
-      this.hunting && this.alive.length <= ZOMBIE_AI.fewChaseAll;
+    // Down to the last few, they all know where the player is. Those a decoy's call reached hunt it instead.
+    const pt = this.playerTarget;
+    pt.x = playerX;
+    pt.y = playerY;
+    pt.radius = playerRadius;
+    pt.hunting = this.hunting;
+    pt.everyone = this.hunting && this.alive.length <= ZOMBIE_AI.fewChaseAll;
+    pt.keen = pt.everyone;
+    const lure = this.lure;
+    const lt = this.lureTarget;
+    if (lure) {
+      lt.x = lure.x;
+      lt.y = lure.y;
+      lt.radius = lure.radius;
+      lt.hunting = this.hunting;
+      lt.everyone = pt.everyone;
+      lt.keen = true;
+    }
     for (const z of this.alive)
-      z.update(dt, playerX, playerY, playerRadius, this.hunting, everyoneHunts);
+      z.update(dt, lure !== null && z.lure === lure ? lt : pt);
 
     this.hash.clear();
     for (const z of this.alive) this.hash.insert(z);
@@ -112,10 +143,12 @@ export class Horde {
     this.pushOutOfPlayer(playerX, playerY, playerRadius);
     this.exclude();
     this.wandering = 0;
+    this.lured = 0;
     for (const z of this.alive) {
       this.contain(z);
       z.syncSprite();
       if (z.brain.wandering) this.wandering++;
+      if (lure !== null && z.lure === lure) this.lured++;
     }
     this.drawDebug(dt, playerX, playerY);
   }
@@ -125,8 +158,8 @@ export class Horde {
    * Reads the hash built this frame, so call it after update.
    */
   contact(px: number, py: number, pr: number, margin: number): number {
-    // Nothing bites through a zone's edge, and zombies are never inside one.
-    if (this.inZone(px, py)) return 0;
+    // Nothing bites through a sheltering zone's edge, and zombies are never inside one.
+    if (this.sheltered(px, py)) return 0;
     const reach = pr + margin + MAX_ZOMBIE_RADIUS;
     let total = 0;
     this.hash.queryBox(px - reach, py - reach, px + reach, py + reach, (z) => {
@@ -139,16 +172,18 @@ export class Horde {
     return total;
   }
 
-  addZone(x: number, y: number, radius: number): ExclusionZone {
+  addZone(x: number, y: number, radius: number, shelter = true): ExclusionZone {
     const zone = this.zonePool.pop() ?? {
       x: 0,
       y: 0,
       radius: 0,
+      shelter: true,
       onContact: null,
     };
     zone.x = x;
     zone.y = y;
     zone.radius = radius;
+    zone.shelter = shelter;
     zone.onContact = null;
     this.zones.push(zone);
     return zone;
@@ -162,9 +197,10 @@ export class Horde {
     this.zonePool.push(zone);
   }
 
-  /** True if the point is inside any exclusion zone. */
-  inZone(x: number, y: number): boolean {
+  /** True if the point is inside a zone that shelters the player. */
+  private sheltered(x: number, y: number): boolean {
     for (const zone of this.zones) {
+      if (!zone.shelter) continue;
       const dx = x - zone.x;
       const dy = y - zone.y;
       if (dx * dx + dy * dy < zone.radius * zone.radius) return true;
@@ -176,6 +212,32 @@ export class Horde {
   calm(): void {
     this.hunting = false;
     for (const z of this.alive) z.brain.forget(z);
+  }
+
+  /**
+   * A decoy's call front passing from `inner` to `outer` px out this frame: every zombie it crosses
+   * (padded by its body) that isn't already the lure's turns to hunt it straight away, with a jolt.
+   */
+  capture(lure: Lure, inner: number, outer: number): void {
+    const reach = outer + MAX_ZOMBIE_RADIUS;
+    this.hash.queryBox(
+      lure.x - reach,
+      lure.y - reach,
+      lure.x + reach,
+      lure.y + reach,
+      (z) => {
+        if (z.dead || z.lure === lure) return;
+        const dx = z.x - lure.x;
+        const dy = z.y - lure.y;
+        const lo = Math.max(0, inner - z.def.radius);
+        const hi = outer + z.def.radius;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < lo * lo || d2 >= hi * hi) return;
+        z.lure = lure;
+        z.brain.engage();
+        z.startle();
+      },
+    );
   }
 
   /** A sound at (x, y) alerts every zombie within `radius`; they start chasing after their reaction delay. */
@@ -424,6 +486,15 @@ export class Horde {
 
 const clamp = (v: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, v));
+
+const newTarget = (): ZombieTarget => ({
+  x: 0,
+  y: 0,
+  radius: 0,
+  hunting: true,
+  everyone: false,
+  keen: false,
+});
 
 function shadeTint(color: number, factor: number): number {
   const r = Math.round(((color >> 16) & 0xff) * factor);

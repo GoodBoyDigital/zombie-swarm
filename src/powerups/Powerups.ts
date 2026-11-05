@@ -37,6 +37,7 @@ export class Powerups {
       origin: { x, y },
       left: def.mode === "timed" ? def.seconds : 0,
       age: 0,
+      windup: 0,
       state: undefined,
     };
     const effect = effectOf(def);

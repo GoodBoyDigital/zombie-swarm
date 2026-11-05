@@ -14,7 +14,8 @@ import {
   type ZombieTextures,
 } from "../fx/textures";
 import type { Gate } from "../world/Arena";
-import { aiDebug, ZombieBrain } from "./ZombieBrain";
+import type { Lure } from "./Horde";
+import { aiDebug, ZombieBrain, type ZombieTarget } from "./ZombieBrain";
 
 const HIT_FLASH_SECONDS = 0.07;
 const TWO_PI = Math.PI * 2;
@@ -26,6 +27,10 @@ const WANDER_TINT_FACTOR = 0.55;
 const LOSING_TINT_FACTOR = 0.35;
 /** Spacing of the points tested along a shot when looking for which part it struck, world px. */
 const PART_RAY_STEP = 1.5;
+/** A decoy's call landing: seconds the zombie jolts for, its size pop and its head-snap, radians. */
+const STARTLE_SECONDS = 0.3;
+const STARTLE_POP = 0.18;
+const STARTLE_TWIST = 0.35;
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -54,7 +59,10 @@ export class Zombie {
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
   private flash = 0;
+  private startleLeft = 0;
   readonly brain = new ZombieBrain();
+  /** The decoy whose call reached this zombie. While it's the horde's lure, this zombie hunts it instead of the player. */
+  lure: Lure | null = null;
   /** Sprite set for the current def; the pool is shared across types so it's picked at spawn. */
   private art!: ZombieTextures;
   /** Bit per PART_IDS entry that has been shot off. */
@@ -81,6 +89,8 @@ export class Zombie {
     this.kx = 0;
     this.ky = 0;
     this.flash = 0;
+    this.startleLeft = 0;
+    this.lure = null;
     const along = rand(-gate.halfWidth, gate.halfWidth);
     const horizontal = gate.side === "top" || gate.side === "bottom";
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
@@ -173,25 +183,16 @@ export class Zombie {
     this.ky += dirY * k;
   }
 
-  update(
-    dt: number,
-    playerX: number,
-    playerY: number,
-    playerRadius: number,
-    hunting: boolean,
-    everyoneHunts: boolean,
-  ): void {
+  /** A small jolt: a size pop and a head-snap that settle in a moment. */
+  startle(): void {
+    this.startleLeft = STARTLE_SECONDS;
+  }
+
+  update(dt: number, target: ZombieTarget): void {
     this.wobblePhase += this.wobbleRate * dt;
+    this.startleLeft = Math.max(0, this.startleLeft - dt);
     const move =
-      this.brain.steer(
-        dt,
-        this,
-        playerX,
-        playerY,
-        playerRadius,
-        hunting,
-        everyoneHunts,
-      ) *
+      this.brain.steer(dt, this, target) *
       (1 + ZOMBIE_AI.speedWobble * Math.sin(this.wobblePhase));
     // Lurching gait: push forward on each step, nearly stall between. The pulse averages to 1 over a step.
     const ai = this.def.ai;
@@ -232,9 +233,15 @@ export class Zombie {
   syncSprite(): void {
     const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
+    const k = this.startleLeft / STARTLE_SECONDS;
     this.sprite.rotation =
-      this.facing + this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale;
-    const base = (this.def.radius / this.def.art.radius) * this.sizeScale;
+      this.facing +
+      this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale +
+      STARTLE_TWIST * k * Math.sin(k * Math.PI * 3);
+    const base =
+      (this.def.radius / this.def.art.radius) *
+      this.sizeScale *
+      (1 + STARTLE_POP * k * k);
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));
   }

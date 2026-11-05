@@ -29,6 +29,8 @@ const PART_RAY_STEP = 1.5;
 /** Share of its walking speed a stunned zombie keeps, and how far it twitches either way, radians. */
 const STUN_MOVE = 0.1;
 const STUN_TWITCH = 0.3;
+/** Electrocuted: an electric-blue tint flickering between two shades instead of the white hit flash. */
+const SHOCK_TINTS = [0x5aa8ff, 0xa8dcff];
 /** Tumbling: spin drag per second, and how hard the body springs back to upright, per second squared. */
 const TUMBLE_DRAG = 4;
 const TUMBLE_SPRING = 60;
@@ -62,6 +64,8 @@ export class Zombie {
   private flash = 0;
   /** Seconds left reeling from a stun: barely walking, twitching on the spot. */
   private stunLeft = 0;
+  /** Seconds left lit up electric blue. */
+  private shockLeft = 0;
   /** Tumble angle off the facing, and its spin, from being blown back. */
   private tilt = 0;
   private tiltVel = 0;
@@ -93,6 +97,7 @@ export class Zombie {
     this.ky = 0;
     this.flash = 0;
     this.stunLeft = 0;
+    this.shockLeft = 0;
     this.tilt = 0;
     this.tiltVel = 0;
     const along = rand(-gate.halfWidth, gate.halfWidth);
@@ -185,6 +190,17 @@ export class Zombie {
     this.stunLeft = Math.max(this.stunLeft, seconds);
   }
 
+  /**
+   * Electrocuted: stunned, and lit electric blue instead of flashing white, so lightning drawn over
+   * the body still reads. Call after the hit.
+   */
+  shock(seconds: number): void {
+    this.stun(seconds);
+    this.shockLeft = Math.max(this.shockLeft, seconds);
+    this.flash = 0;
+    this.sprite.texture = this.look.body;
+  }
+
   /** Spin the body off its facing, radians/s; it springs back upright as the spin dies. */
   tumble(spin: number): void {
     this.tiltVel += spin;
@@ -251,7 +267,12 @@ export class Zombie {
       this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
     }
     const flashing = this.flash > 0;
-    const tint = flashing ? 0xffffff : this.debugTint();
+    this.shockLeft -= dt;
+    const tint = flashing
+      ? 0xffffff
+      : this.shockLeft > 0
+        ? SHOCK_TINTS[Math.random() < 0.5 ? 0 : 1]
+        : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
   }
 

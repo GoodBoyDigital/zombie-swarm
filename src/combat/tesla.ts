@@ -13,6 +13,9 @@ const SPARKS_PER_HIT = 4;
 const BOLT_SECONDS = 0.14;
 const BOLT_KINK = 14;
 const BOLT_JITTER = 12;
+/** Additive glow radius at each strike (full strength) and at the prongs, px. */
+const HIT_BLOOM = 32;
+const MUZZLE_BLOOM = 18;
 /** Muzzle crackle: little arcs off the prongs, px long. */
 const CRACKLE_ARCS = 3;
 const CRACKLE_REACH = 11;
@@ -63,6 +66,7 @@ export const tesla: ShotHandler = {
         life: 0.06,
       });
     }
+    ctx.fx.bloom(ox, oy, MUZZLE_BLOOM, BOLT, 0.08);
     ctx.fx.sparkle(ox, oy, SPARK, 3);
 
     const wall = wallHit(ox, oy, dirX, dirY);
@@ -109,17 +113,23 @@ export const tesla: ShotHandler = {
       // Thick and bright off the gun, thinning down the chain with the damage.
       const strength = damage / def.damage;
       ctx.fx.zap(fromX, fromY, x, y, BOLT, {
-        width: 2.4 + 3 * strength,
+        width: 2 + 2.5 * strength,
         life: BOLT_SECONDS,
         kinkEvery: BOLT_KINK,
         jitter: BOLT_JITTER,
         glow: true,
-        ink: true,
       });
+      ctx.fx.bloom(
+        x,
+        y,
+        HIT_BLOOM * (0.5 + 0.5 * strength),
+        BOLT,
+        BOLT_SECONDS * 1.5,
+      );
       ctx.fx.sparkle(x, y, SPARK, SPARKS_PER_HIT);
-      z.stun(t.stun);
       const r = z.def.radius;
       ctx.applyHit(z, x - ux * r, y - uy * r, ux, uy, damage, def.knockback);
+      z.shock(t.stun);
       fromX = x;
       fromY = y;
       damage *= t.falloff;

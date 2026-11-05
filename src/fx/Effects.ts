@@ -58,16 +58,12 @@ export interface ZapOptions {
   life?: number;
   /** Most sideways wander per kink, px. */
   jitter?: number;
-  /** Lay a wide faint halo under the bolt. */
+  /** Lay a wide faint halo and a softer inner glow under the bolt. */
   glow?: boolean;
-  /** Solid bolt over a dark ink rim instead of a pure additive glow. */
-  ink?: boolean;
   /** Kink at least this often along the bolt, px, so long bolts stay jagged. Omitted = a fixed few kinks. */
   kinkEvery?: number;
 }
 
-/** The outline colour every sprite is inked in. */
-const INK = 0x151a15;
 /** Floor dust kicked up by a pressure wave: colour, peak alpha, size in px. */
 const DUST_TINT = 0x9a9180;
 const DUST_ALPHA = 0.3;
@@ -171,19 +167,17 @@ export class Effects {
     const segments = opts.kinkEvery
       ? Math.max(ZAP_SEGMENTS, Math.ceil(length / opts.kinkEvery))
       : ZAP_SEGMENTS;
-    // Additive glows, so a dimmed tint draws as a faint halo. Inked bolts are solid over a dark rim
-    // in the flat vector style, so they still read over white hit flashes.
-    const layers: [number, number, boolean][] = opts.ink
-      ? [
-          [width + 2.5, INK, false],
-          [width, color, false],
-          [width * 0.45, 0xffffff, false],
-        ]
-      : [
-          [width, color, true],
-          [width * 0.45, 0xffffff, true],
-        ];
-    if (glow) layers.unshift([width * 4, dim(color, 0.45), true]);
+    // All additive, so a dimmed tint draws as a fainter glow: halo, inner glow, bolt, then a thin
+    // white core that keeps it crisp.
+    const layers: [number, number][] = [
+      [width, color],
+      [width * 0.4, 0xffffff],
+    ];
+    if (glow)
+      layers.unshift(
+        [width * 6, dim(color, 0.32)],
+        [width * 2.6, dim(color, 0.6)],
+      );
     let ax = x0;
     let ay = y0;
     for (let i = 1; i <= segments; i++) {
@@ -193,9 +187,8 @@ export class Effects {
       const by = y0 + (y1 - y0) * f + ny * off;
       const angle = Math.atan2(by - ay, bx - ax);
       const run = Math.hypot(bx - ax, by - ay);
-      for (const [w, tint, add] of layers) {
+      for (const [w, tint] of layers) {
         const p = this.spawn("tracer", this.tex.tracer, life);
-        if (!add) p.sprite.blendMode = "normal";
         p.sprite.anchor.set(0, 0.5);
         p.sprite.position.set(ax, ay);
         p.sprite.rotation = angle;
@@ -364,6 +357,25 @@ export class Effects {
       p.sprite.tint = tint;
       p.sprite.alpha = 1;
     }
+  }
+
+  /** A soft additive glow that swells and fades at a point, e.g. where lightning strikes. */
+  bloom(
+    x: number,
+    y: number,
+    radius: number,
+    color: number,
+    life: number,
+  ): void {
+    const p = this.spawn("glow", this.tex.blast.glow, life);
+    p.sprite.blendMode = "add";
+    p.sprite.anchor.set(0.5);
+    p.sprite.position.set(x, y);
+    p.sprite.tint = color;
+    p.size1 = radius / BLAST_TEXTURE_RADIUS;
+    p.size0 = p.size1 * 0.6;
+    p.sprite.scale.set(p.size0);
+    p.sprite.alpha = 1;
   }
 
   /** Soft puffs of floor dust drifting off along a direction, e.g. kicked up by a pressure wave. */

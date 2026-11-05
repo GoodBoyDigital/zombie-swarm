@@ -120,6 +120,22 @@ export type PowerupDef = PowerupBase &
           shove: number;
         })
     | (Timed & { effect: "portal" } & DomeParams)
+    | (Timed & {
+        effect: "decoy";
+        /** Seconds from pickup until it switches on; `seconds` (how long it calls) starts after. */
+        armSeconds: number;
+        /** Every `pulseSeconds` it calls out, waking every wanderer inside `lureRadius`, world px. */
+        lureRadius: number;
+        pulseSeconds: number;
+        /** Chasers crowd round it at this body radius, world px. */
+        bodyRadius: number;
+        /** Final seconds in which the hologram glitches to warn it is about to die. */
+        flickerSeconds: number;
+        /** Hologram, lure ring and call rings. */
+        holoColor: number;
+        /** Projector puck on the floor, loaded with the icons by textures.ts. */
+        sprite: string;
+      })
     | (Instant & {
         effect: "airstrike";
         /** Each bomb's blast; the last one is scaled up by `lastBombScale`. */
@@ -283,6 +299,23 @@ export const POWERUPS = {
     flickerSeconds: 1.5,
     ripple: 7,
     icon: "/sprites/icon-powerup-portal.png",
+    weight: 1,
+  },
+  decoy: {
+    id: "decoy",
+    name: "Decoy",
+    category: "support",
+    mode: "timed",
+    seconds: 10,
+    effect: "decoy",
+    armSeconds: 1.5,
+    lureRadius: 650,
+    pulseSeconds: 0.8,
+    bodyRadius: 12,
+    flickerSeconds: 1.5,
+    holoColor: 0x5ff2ff,
+    sprite: "/sprites/decoy-puck.png",
+    icon: "/sprites/icon-powerup-decoy.png",
     weight: 1,
   },
   nuke: {

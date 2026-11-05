@@ -19,7 +19,7 @@ import { Limbs } from "../fx/Limbs";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
 import { Zombie } from "./Zombie";
-import { aiDebug } from "./ZombieBrain";
+import { aiDebug, type ZombieTarget } from "./ZombieBrain";
 
 const CELL_SIZE = 48;
 const CORPSE_TINT_FACTOR = 0.8;
@@ -47,6 +47,14 @@ export interface ExclusionZone {
   onContact: ((z: Zombie, nx: number, ny: number) => void) | null;
 }
 
+/** Something the horde hunts instead of the player while it's set: a decoy. */
+export interface Lure {
+  x: number;
+  y: number;
+  /** Body radius; chasers crowd round it at this distance. */
+  radius: number;
+}
+
 /** Owns every zombie: pooling, spawning through gates, crowd separation and death stamping. */
 export class Horde {
   readonly view = new Container();
@@ -56,7 +64,7 @@ export class Horde {
   readonly corpses: Corpses;
   /** Pieces shot off zombies, tumbling to the floor. Game draws them over the living and the effects so they fly clear of the crowd and the spray. */
   readonly limbs: Limbs;
-  /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
+  /** AI debug overlay (key V): the hunted target's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
   /** Called on every kill with the body's position and knockback velocity, before it is released. */
@@ -67,6 +75,8 @@ export class Horde {
   wandering = 0;
   /** False once the player is down: nobody notices him any more. */
   hunting = true;
+  /** While set, every zombie hunts this instead of the player, and chasers never give up. */
+  lure: Lure | null = null;
   /** Live exclusion zones; add and remove them through addZone and removeZone. */
   readonly zones: ExclusionZone[] = [];
   private readonly zonePool: ExclusionZone[] = [];
@@ -77,6 +87,15 @@ export class Horde {
   phase: RunPhase = "countdown";
   private readonly pool: Zombie[] = [];
   private spawnDebt = 0;
+  /** Refilled every frame from the lure or the player; one object so the crowd loop never allocates. */
+  private readonly target: ZombieTarget = {
+    x: 0,
+    y: 0,
+    radius: 0,
+    hunting: true,
+    everyone: false,
+    keen: false,
+  };
 
   constructor(
     private readonly tex: GameTextures,
@@ -100,11 +119,16 @@ export class Horde {
     this.corpses.update(dt);
     this.limbs.update(dt);
 
-    // Down to the last few: they all know where he is.
-    const everyoneHunts =
-      this.hunting && this.alive.length <= ZOMBIE_AI.fewChaseAll;
-    for (const z of this.alive)
-      z.update(dt, playerX, playerY, playerRadius, this.hunting, everyoneHunts);
+    // A live decoy stands in for the player. Down to the last few, they all know where the target is.
+    const lure = this.lure;
+    const t = this.target;
+    t.x = lure ? lure.x : playerX;
+    t.y = lure ? lure.y : playerY;
+    t.radius = lure ? lure.radius : playerRadius;
+    t.hunting = this.hunting;
+    t.everyone = this.hunting && this.alive.length <= ZOMBIE_AI.fewChaseAll;
+    t.keen = t.everyone || lure !== null;
+    for (const z of this.alive) z.update(dt, t);
 
     this.hash.clear();
     for (const z of this.alive) this.hash.insert(z);
@@ -117,7 +141,7 @@ export class Horde {
       z.syncSprite();
       if (z.brain.wandering) this.wandering++;
     }
-    this.drawDebug(dt, playerX, playerY);
+    this.drawDebug(dt, t.x, t.y);
   }
 
   /**
@@ -193,17 +217,18 @@ export class Horde {
     this.lastNoise.age = 0;
   }
 
-  private drawDebug(dt: number, playerX: number, playerY: number): void {
+  /** Aggro and lose radii are drawn round whatever is hunted: the player, or a decoy. */
+  private drawDebug(dt: number, targetX: number, targetY: number): void {
     this.lastNoise.age += dt;
     this.debugView.visible = aiDebug.enabled;
     if (!aiDebug.enabled) return;
     const g = this.debugView.clear();
-    g.circle(playerX, playerY, ZOMBIE_AI.aggroRadius).stroke({
+    g.circle(targetX, targetY, ZOMBIE_AI.aggroRadius).stroke({
       width: 2,
       color: 0x60a0ff,
       alpha: 0.6,
     });
-    g.circle(playerX, playerY, ZOMBIE_AI.loseRadius).stroke({
+    g.circle(targetX, targetY, ZOMBIE_AI.loseRadius).stroke({
       width: 2,
       color: 0x60a0ff,
       alpha: 0.25,

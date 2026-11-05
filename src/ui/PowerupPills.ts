@@ -13,6 +13,10 @@ const BACK = 0x2a1f1a;
 const INK = 0x14100d;
 /** Last seconds the pill blinks before the effect runs out. */
 const BLINK_SECONDS = 3;
+/** Bar colour while a wind-up fills it, and its blink rate at the start and the end of the wind-up, Hz. */
+const WINDUP_COLOR = 0xffd23a;
+const WINDUP_BLINK_FROM = 3;
+const WINDUP_BLINK_TO = 12;
 
 interface Pill {
   view: Container;
@@ -21,7 +25,10 @@ interface Pill {
   icon: Sprite;
 }
 
-/** One flat-vector pill per running timed power-up: its icon on a coloured disc and a bar that drains. */
+/**
+ * One flat-vector pill per running timed power-up: its icon on a coloured disc and a bar that drains.
+ * While the effect winds up (a decoy arming) the bar fills in amber instead, blinking faster.
+ */
 export class PowerupPills {
   readonly view = new Container({ label: "powerupPills" });
   private readonly pills: Pill[] = [];
@@ -35,14 +42,17 @@ export class PowerupPills {
       const pill = this.pills[shown] ?? this.create();
       pill.view.visible = true;
       pill.view.x = shown * (WIDTH + DISC + GAP);
-      this.draw(pill, a, a.left / a.def.seconds);
+      this.draw(pill, a);
       shown++;
     }
     for (let i = shown; i < this.pills.length; i++)
       this.pills[i].view.visible = false;
   }
 
-  private draw(pill: Pill, a: ActivePowerup, fraction: number): void {
+  private draw(pill: Pill, a: ActivePowerup): void {
+    if (a.def.mode !== "timed") return;
+    const winding = a.windup > 0;
+    const fraction = winding ? 1 - a.windup : a.left / a.def.seconds;
     const color = POWERUP_CATEGORIES[a.def.category].color;
     const inner = HEIGHT - OUTLINE * 2;
     const x0 = DISC;
@@ -53,7 +63,9 @@ export class PowerupPills {
       .fill(BACK)
       .stroke({ width: OUTLINE, color: INK, alignment: 1 });
     if (barW > 0) {
-      g.roundRect(x0, -inner / 2, barW, inner, inner / 2).fill(color);
+      g.roundRect(x0, -inner / 2, barW, inner, inner / 2).fill(
+        winding ? WINDUP_COLOR : color,
+      );
       g.roundRect(
         x0 + 2,
         -inner / 2 + 2,
@@ -72,7 +84,15 @@ export class PowerupPills {
       .stroke({ width: OUTLINE, color: INK, alignment: 1 });
     const t = (pill.icon.texture = this.tex.powerupIcons[a.def.id]);
     pill.icon.scale.set((DISC * 1.5) / Math.max(t.width, t.height));
-    pill.view.alpha = a.left < BLINK_SECONDS && (a.left * 6) % 2 < 1 ? 0.45 : 1;
+    const rate =
+      WINDUP_BLINK_FROM + (WINDUP_BLINK_TO - WINDUP_BLINK_FROM) * fraction;
+    pill.view.alpha = winding
+      ? (a.age * rate) % 1 < 0.5
+        ? 0.55
+        : 1
+      : a.left < BLINK_SECONDS && (a.left * 6) % 2 < 1
+        ? 0.45
+        : 1;
   }
 
   private create(): Pill {

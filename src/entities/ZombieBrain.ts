@@ -5,6 +5,23 @@ import type { Zombie } from "./Zombie";
 
 export type ZombieMode = "wander" | "chase";
 
+/**
+ * What the horde hunts this frame: the player, or a decoy standing in for him. Horde fills one in
+ * per frame and every brain steers by it, so aggro, noise and chasing all follow it.
+ */
+export interface ZombieTarget {
+  x: number;
+  y: number;
+  /** Body radius; chasers stop when they touch it. */
+  radius: number;
+  /** False once the player is down: nobody notices anything any more. */
+  hunting: boolean;
+  /** Noticed from anywhere (only a few zombies left). */
+  everyone: boolean;
+  /** Chasers never lose interest (only a few left, or a decoy is calling). */
+  keen: boolean;
+}
+
 /** Debug overlay switch (key V): state tints, the player's aggro and lose radii, and gunshot noise rings. */
 export const aiDebug = { enabled: false };
 
@@ -96,18 +113,9 @@ export class ZombieBrain {
 
   /**
    * Turns the zombie toward where it wants to go and returns its move speed for this frame, px/s.
-   * With `hunting` false the player is never noticed, so a fallen player is left alone. With
-   * `everyoneHunts` (only a few zombies left) he is noticed from anywhere and never lost.
+   * See ZombieTarget for what the target's flags do.
    */
-  steer(
-    dt: number,
-    z: Zombie,
-    playerX: number,
-    playerY: number,
-    playerRadius: number,
-    hunting: boolean,
-    everyoneHunts: boolean,
-  ): number {
+  steer(dt: number, z: Zombie, target: ZombieTarget): number {
     const ai = ZOMBIE_AI;
     if (this.reactIn >= 0) {
       this.reactIn -= dt;
@@ -116,14 +124,14 @@ export class ZombieBrain {
         this.sinceContact = 0;
       }
     }
-    const px = playerX - z.x;
-    const py = playerY - z.y;
-    const playerDist2 = px * px + py * py;
+    const px = target.x - z.x;
+    const py = target.y - z.y;
+    const targetDist2 = px * px + py * py;
     const aggro = this.def.ai.aggroRadius ?? ai.aggroRadius;
     if (
-      hunting &&
+      target.hunting &&
       this.mode === "wander" &&
-      (everyoneHunts || playerDist2 < aggro * aggro)
+      (target.everyone || targetDist2 < aggro * aggro)
     )
       this.alert();
 
@@ -142,7 +150,7 @@ export class ZombieBrain {
 
     if (this.mode === "chase") {
       const lose = this.def.ai.loseRadius ?? ai.loseRadius;
-      if (everyoneHunts || playerDist2 < lose * lose) this.sinceContact = 0;
+      if (target.keen || targetDist2 < lose * lose) this.sinceContact = 0;
       else this.sinceContact += dt;
       if (this.sinceContact > this.loseAfter) {
         this.mode = "wander";
@@ -156,13 +164,13 @@ export class ZombieBrain {
           ai.chaseTurnRate,
           Math.min(
             this.def.ai.maxTurnRate ?? ai.maxTurnRate,
-            faceCap(playerDist2),
+            faceCap(targetDist2),
           ),
           dt,
         );
-        // Slow to a stop when touching the player instead of overlapping them.
-        const stopAt = z.def.radius + playerRadius;
-        return playerDist2 > stopAt * stopAt ? z.speed : 0;
+        // Slow to a stop when touching the target instead of overlapping it.
+        const stopAt = z.def.radius + target.radius;
+        return targetDist2 > stopAt * stopAt ? z.speed : 0;
       }
     }
 
@@ -232,7 +240,7 @@ export class ZombieBrain {
 }
 
 /**
- * Turn cap for a chaser at this squared distance from the player: full `maxTurnRate` inside
+ * Turn cap for a chaser at this squared distance from its target: full `maxTurnRate` inside
  * `faceRadius` so it can face you, easing down to the lumbering `farMaxTurnRate` across `faceBlend`.
  */
 function faceCap(dist2: number): number {

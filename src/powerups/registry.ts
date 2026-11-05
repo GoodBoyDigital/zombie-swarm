@@ -1,5 +1,6 @@
 import type { EffectDef, EffectId } from "../config/powerups";
 import { airstrike } from "./effects/airstrike";
+import { decoy } from "./effects/decoy";
 import { equip } from "./effects/equip";
 import { heal } from "./effects/heal";
 import { magnet } from "./effects/magnet";
@@ -24,4 +25,5 @@ export const POWERUP_EFFECTS: { [K in EffectId]: PowerupEffect<EffectDef<K>> } =
     shield,
     portal,
     airstrike,
+    decoy,
   };

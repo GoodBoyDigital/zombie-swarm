@@ -135,8 +135,13 @@ export type PowerupDef = PowerupBase &
         pulseSeconds: number;
         /** No zombie gets closer than this, world px; the crowd piles up round the edge. The player walks through. */
         keepOutRadius: number;
-        /** Final seconds of `seconds` in which the air goes out: the zombies lose it and it sags flat. */
-        deflateSeconds: number;
+        /** Final seconds of `seconds` in which it swells and wobbles faster, warning it's about to pop. */
+        warnSeconds: number;
+        /** The pop: a push-only blast that knocks the pile back. */
+        explosion: ExplosionId;
+        /** Bits of vinyl it bursts into, and how fast they fly, px/s; they stay on the floor. */
+        shreds: number;
+        shredSpeed: number;
         /** The pump the dummy inflates from, loaded with the icons by textures.ts. */
         sprite: string;
       })
@@ -318,7 +323,10 @@ export const POWERUPS = {
     pulseSpeed: 420,
     pulseSeconds: 2,
     keepOutRadius: 40,
-    deflateSeconds: 1.6,
+    warnSeconds: 1,
+    explosion: "decoyPop",
+    shreds: 40,
+    shredSpeed: 420,
     sprite: "/sprites/decoy-puck.png",
     icon: "/sprites/icon-powerup-decoy.png",
     weight: 1,

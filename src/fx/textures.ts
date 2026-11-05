@@ -77,6 +77,8 @@ export interface GameTextures {
   casings: Record<CasingId, Texture>;
   /** Little broken bits of wall that bullets knock onto the floor. */
   wallChunks: Texture[];
+  /** A burst blow-up dummy: googly eyes first, then bandana and skin flaps, then blue vinyl confetti. */
+  shreds: { eyes: Texture[]; flaps: Texture[]; confetti: Texture[] };
   /** Repeating floor and wall tiles; levels pick their floor from these by FloorTile. */
   tiles: { concrete: Texture; blotchy: Texture; wall: Texture };
   /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
@@ -129,6 +131,11 @@ export const BLAST_TEXTURE_RADIUS = 128;
 const INK = 0x151a15;
 /** Broken concrete, matching the pale rim of the bullet chips in the walls. */
 const WALL_CHUNK = 0x6e675e;
+/** The blow-up decoy dummy's vinyl, for its shreds. */
+const VINYL_BLUE = 0x2b7bea;
+const VINYL_BLUE_LIGHT = 0x5aa2ff;
+const VINYL_RED = 0xe0322b;
+const VINYL_SKIN = 0xf3c39e;
 
 /**
  * Character, weapon and pickup art comes from the AssetPack atlas; repeating tiles load separately.
@@ -322,6 +329,50 @@ export async function createTextures(
     );
   });
 
+  // Shreds of a popped blow-up dummy, in its vinyl colours with the ink outline.
+  const shred = (color: number, rx: number, ry: number) => {
+    const points: number[] = [];
+    const n = 5 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const d = rand(0.55, 1);
+      points.push(Math.cos(a) * rx * d, Math.sin(a) * ry * d);
+    }
+    return make(
+      new Graphics()
+        .poly(points)
+        .fill(color)
+        .stroke({ color: INK, width: 1, alignment: 0 })
+        .ellipse(-rx * 0.2, -ry * 0.3, rx * 0.35, ry * 0.18)
+        .fill({ color: 0xffffff, alpha: 0.45 }),
+    );
+  };
+  const shreds = {
+    eyes: Array.from({ length: 2 }, () =>
+      make(
+        new Graphics()
+          .circle(0, 0, 4.5)
+          .fill(0xffffff)
+          .stroke({ color: INK, width: 1, alignment: 0 })
+          .circle(rand(-1.1, 1.1), rand(-1.1, 1.1), 2.1)
+          .fill(INK),
+      ),
+    ),
+    flaps: [
+      shred(VINYL_RED, 9, 3.5),
+      shred(VINYL_RED, 7, 3),
+      shred(VINYL_SKIN, 7, 5.5),
+      shred(VINYL_BLUE, 10, 6),
+    ],
+    confetti: Array.from({ length: 8 }, (_, i) =>
+      shred(
+        i % 3 === 2 ? VINYL_BLUE_LIGHT : VINYL_BLUE,
+        rand(3.2, 5.5),
+        rand(2.2, 4),
+      ),
+    ),
+  };
+
   // Smooth blood blobs: a darker rim around a lighter body (both multiply with the stamp tint),
   // plus a few round droplets thrown further out.
   const splats = Array.from({ length: 4 }, () => {
@@ -447,6 +498,7 @@ export async function createTextures(
     splats,
     casings,
     wallChunks,
+    shreds,
     tiles: {
       concrete: sprite("tileConcrete"),
       blotchy: sprite("tileBlotchy"),

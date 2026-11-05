@@ -21,6 +21,9 @@ const HEIGHT_SCALE = 0.02;
 const MAX_LIVE = 200;
 /** Chance a bullet hitting a wall knocks a chunk loose to land on the floor. */
 const WALL_CHUNK_CHANCE = 0.6;
+/** Vinyl shreds flutter: light gravity and air drag on their flight, per second. */
+const SHRED_GRAVITY = 300;
+const SHRED_AIR_DRAG = 2.2;
 
 interface Casing {
   sprite: Sprite;
@@ -32,12 +35,15 @@ interface Casing {
   vz: number;
   spin: number;
   bounces: number;
+  gravity: number;
+  /** Horizontal drag in the air, per second; 0 for shells and chunks, which fly clean. */
+  airDrag: number;
   /** Sprite scale on the floor; a shell's draws it CASINGS[kind].width long. */
   scale: number;
 }
 
 /**
- * Spent shells and chunks of wall. Each ejects from the gun or the wall, tumbles through a couple of bounces, then burns into
+ * Spent shells, chunks of wall and the shreds of a popped decoy. Each ejects from the gun or the wall, tumbles through a couple of bounces, then burns into
  * the floor texture and goes back to the pool. The floor keeps every shell ever fired for free.
  */
 export class Casings {
@@ -93,6 +99,37 @@ export class Casings {
     );
   }
 
+  /**
+   * A blow-up dummy bursting at (x, y): its googly eyes, a few flaps and `count` bits of vinyl in all,
+   * flung out and fluttering down to stay on the floor where they land.
+   */
+  shreds(x: number, y: number, count: number, speed: number): void {
+    const { eyes, flaps, confetti } = this.tex.shreds;
+    for (let i = 0; i < count; i++) {
+      const texture =
+        i < eyes.length
+          ? eyes[i]
+          : i < eyes.length + flaps.length
+            ? flaps[i - eyes.length]
+            : confetti[Math.floor(Math.random() * confetti.length)];
+      const a = rand(0, Math.PI * 2);
+      const v = speed * rand(0.35, 1);
+      this.toss(
+        texture,
+        rand(0.9, 1.3),
+        x + Math.cos(a) * 8,
+        y + Math.sin(a) * 8,
+        rand(14, 30),
+        Math.cos(a) * v,
+        Math.sin(a) * v,
+        rand(80, 260),
+        rand(0, Math.PI * 2),
+        SHRED_GRAVITY,
+        SHRED_AIR_DRAG,
+      );
+    }
+  }
+
   private toss(
     texture: Texture,
     scale: number,
@@ -103,6 +140,8 @@ export class Casings {
     vy: number,
     vz: number,
     rotation: number,
+    gravity = GRAVITY,
+    airDrag = 0,
   ): void {
     if (this.live.length >= MAX_LIVE) this.settle(0);
     const c = this.pool.pop() ?? this.create();
@@ -116,6 +155,8 @@ export class Casings {
     c.vz = vz;
     c.spin = rand(14, 26) * (Math.random() < 0.5 ? -1 : 1);
     c.bounces = 0;
+    c.gravity = gravity;
+    c.airDrag = airDrag;
     c.sprite.rotation = rotation;
     c.sprite.position.set(x, y);
     this.view.addChild(c.sprite);
@@ -130,7 +171,12 @@ export class Casings {
       c.sprite.rotation += c.spin * dt;
 
       if (c.z > 0 || c.vz > 0) {
-        c.vz -= GRAVITY * dt;
+        if (c.airDrag > 0) {
+          const air = Math.exp(-dt * c.airDrag);
+          c.vx *= air;
+          c.vy *= air;
+        }
+        c.vz -= c.gravity * dt;
         c.z += c.vz * dt;
         if (c.z <= 0) {
           c.z = 0;
@@ -183,6 +229,8 @@ export class Casings {
       vz: 0,
       spin: 0,
       bounces: 0,
+      gravity: GRAVITY,
+      airDrag: 0,
       scale: 1,
     };
   }

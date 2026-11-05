@@ -28,7 +28,7 @@ const SFX = {
   decoyInflate: "/audio/sfx/decoy-inflate.mp3",
   decoyHum: "/audio/sfx/decoy-hum.mp3",
   decoySqueak: "/audio/sfx/decoy-squeak.mp3",
-  decoyDeflate: "/audio/sfx/decoy-deflate.mp3",
+  decoyPop: "/audio/sfx/decoy-pop.mp3",
   explosion: "/audio/sfx/explosion.mp3",
   airstrikeWarning: "/audio/sfx/airstrike-warning.mp3",
   airstrikeRoar: "/audio/sfx/airstrike-roar.mp3",

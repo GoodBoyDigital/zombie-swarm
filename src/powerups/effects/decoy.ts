@@ -1,5 +1,7 @@
 import { Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { LoopVoice } from "../../audio/Audio";
+import { explode } from "../../combat/explosion";
+import { EXPLOSIONS } from "../../config/explosions";
 import type { EffectDef } from "../../config/powerups";
 import { rand } from "../../core/random";
 import type { ExclusionZone, Lure } from "../../entities/Horde";
@@ -7,7 +9,7 @@ import type { PowerupContext, PowerupEffect } from "../PowerupContext";
 
 type Def = EffectDef<"decoy">;
 
-/** The blow-up dummy, and the same dummy with the air let out (folded on the pump while arming, left on the floor after). */
+/** The blow-up dummy, and the same dummy with the air let out, folded on the pump while arming. */
 const DUMMY = "/sprites/decoy-dummy.png";
 const FLAT = "/sprites/decoy-dummy-flat.png";
 const ARM_LIGHT = 0xffb23a;
@@ -44,13 +46,17 @@ const JIGGLE_BUMP_MAX = 0.5;
 /** Squeaks when bumped: seconds between them at the least, and the chance one plays when it can. */
 const SQUEAK_GAP = 0.7;
 const SQUEAK_CHANCE = 0.35;
-/** Deflating: how far it shrinks, how hard it crumples, its droop, and how far the keep-out closes in with it. */
-const SAG_SHRINK = 0.4;
-const CRUMPLE = 0.18;
-const DROOP = 0.35;
-const SAG_KEEP_OUT = 0.45;
-/** The deflated dummy stamped on the floor. */
-const FLAT_TINT = 0xd8d8d8;
+/** About to pop: how much it swells over `warnSeconds` and how much faster it sways by the end. */
+const WARN_SWELL = 0.15;
+const WARN_RATE = 3;
+/** The beat of tension right before the pop: seconds, extra swell, and the tremble on top. */
+const SWELL_SECONDS = 0.2;
+const SWELL_POP = 0.35;
+const SWELL_TREMBLE = 0.06;
+/** Glints thrown out by the pop, in white and the dummy's blue. */
+const POP_GLINT = 0x5aa2ff;
+/** The spent pump left on the floor. */
+const DEAD_TINT = 0x6a6f6a;
 /** Keep-out edge: the pulsing ring and the glow inside it, drawn over the pile. */
 const GLOW_SHARE = 0.7;
 const RING_COLOR = 0xffe14a;
@@ -71,11 +77,9 @@ interface DecoyState {
   /** Set on the horde while it's up; zombies hunt it once a call front has reached them. */
   lure: Lure;
   on: boolean;
-  /** Air going out: the horde has lost it and it's sagging flat; the keep-out closes in as it goes. */
-  deflating: boolean;
   /** Seconds since it last inflated. */
   onFor: number;
-  /** Keeps zombies off it from inflating until it's flat. */
+  /** Keeps zombies off it while it's up. */
   zone: ExclusionZone | null;
   /** Floor layer: pump, its light and the folded dummy while arming. */
   floor: Container;
@@ -91,6 +95,10 @@ interface DecoyState {
   /** Squash-stretch spring, value and velocity. */
   jiggle: number;
   jiggleV: number;
+  /** Sway clock, seconds; runs faster as it gets ready to pop. */
+  sway: number;
+  /** The squeak of tension before the pop has played. */
+  squeaked: boolean;
   /** Zombies pressed on the keep-out edge this frame, counted by the zone. */
   bumps: number;
   squeakIn: number;
@@ -104,11 +112,10 @@ interface DecoyState {
  * Decoy: a pump lands where the orb was with a folded blow-up dummy of the player on it. It charges
  * for a moment (spinning up, blinking, beeping, hissing), then the dummy inflates with a fwoomp and
  * sends out a call: a wavefront travelling out to `lureRadius`. Each zombie the front reaches drops
- * the player and hunts the dummy until it deflates. It calls again every `pulseSeconds`, catching
+ * the player and hunts the dummy until it pops. It calls again every `pulseSeconds`, catching
  * anyone new, and wobbles about like a tube man, jiggling on every call and every shove. Nothing
- * gets within `keepOutRadius` of it. For its last `deflateSeconds` the air goes out: the zombies
- * lose it, it sags flat, and the empty dummy stays on the floor. A repeat pickup tops it up,
- * re-inflating it if it had started to go.
+ * gets within `keepOutRadius` of it. In its last `warnSeconds` it swells and sways faster; then it
+ * bursts, knocking the pile back and littering the floor with shreds. A repeat pickup tops it up.
  */
 export const decoy: PowerupEffect<Def, DecoyState> = {
   start(ctx, def, active) {
@@ -152,7 +159,6 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       armLeft: def.armSeconds,
       lure: { x, y, radius: def.keepOutRadius },
       on: false,
-      deflating: false,
       onFor: 0,
       zone: null,
       floor,
@@ -165,6 +171,8 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       facing,
       jiggle: 0,
       jiggleV: 0,
+      sway: 0,
+      squeaked: false,
       bumps: 0,
       squeakIn: 0,
       fronts: [],
@@ -185,64 +193,57 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
         def.armSeconds > 0 ? Math.max(0, st.armLeft) / def.armSeconds : 0;
       if (st.armLeft <= 0) inflate(ctx, def, st);
     }
-    // A repeat pickup while the air is going out blows it back up.
-    const going = st.on && active.left <= def.deflateSeconds;
-    if (going && !st.deflating) deflate(ctx, st);
-    else if (!going && st.deflating) inflate(ctx, def, st);
     if (st.on) st.onFor += dt;
 
     drawPump(def, dt, active.age, st);
     st.halo.clear();
     if (!st.on) drawCharge(def, st);
-    else if (st.deflating) sag(def, active.left, st);
     else {
       call(ctx, def, dt, active.age, st);
-      wobble(ctx, def, dt, st);
+      wobble(ctx, def, dt, active.left, st);
     }
   },
 
-  end(ctx, _def, active) {
+  // Time's up, or cut short (death, boarding, restart): it pops on the spot.
+  end(ctx, def, active) {
     const st = active.state;
-    // Cut short (death, boarding, restart): let the air out on the spot.
-    if (!st.deflating) deflate(ctx, st);
+    if (ctx.horde.lure === st.lure) ctx.horde.lure = null;
     if (st.zone) ctx.horde.removeZone(st.zone);
     st.hum?.stop();
-    ctx.floor.stampTexture(Assets.get<Texture>(FLAT), st.x, st.y, {
-      rotation: st.facing,
-      tint: FLAT_TINT,
+    if (st.on) pop(ctx, def, st);
+    else ctx.fx.sparkle(st.x, st.y, ARM_LIGHT, 8);
+    ctx.floor.stampTexture(st.puck.texture, st.x, st.y, {
+      rotation: st.puck.rotation,
+      tint: DEAD_TINT,
     });
     st.floor.destroy({ children: true });
     st.top.destroy({ children: true });
   },
 };
 
+/** Bang: a push-only blast knocks the pile back, and shreds of vinyl fly out to litter the floor. */
+function pop(ctx: PowerupContext, def: Def, st: DecoyState): void {
+  explode(ctx, st.x, st.y, EXPLOSIONS[def.explosion]);
+  ctx.casings.shreds(st.x, st.y, def.shreds, def.shredSpeed);
+  ctx.fx.sparkle(st.x, st.y, 0xffffff, 12);
+  ctx.fx.sparkle(st.x, st.y, POP_GLINT, 10);
+}
+
 /** Up it goes: the dummy pops up off the pump, the keep-out opens, and the first call goes once it's full. */
 function inflate(ctx: PowerupContext, def: Def, st: DecoyState): void {
   st.on = true;
-  st.deflating = false;
   st.onFor = 0;
   st.dummy.visible = true;
-  st.dummy.alpha = 1;
   st.folded.visible = false;
   ctx.horde.lure = st.lure;
   // The player walks through it freely, and isn't sheltered inside it.
-  st.zone ??= ctx.horde.addZone(st.x, st.y, 0, false);
+  st.zone = ctx.horde.addZone(st.x, st.y, 0, false);
   st.zone.onContact = () => st.bumps++;
   ctx.audio.play("decoyInflate", { volume: 0.9 });
-  st.hum ??= ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
+  st.hum = ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
   ctx.fx.sparkle(st.x, st.y, 0xffffff, 14);
   st.pulseIn = def.springSeconds;
   st.fronts.length = 0;
-}
-
-/** The air goes out: the horde loses it. The keep-out stays until it's flat (see `sag`). */
-function deflate(ctx: PowerupContext, st: DecoyState): void {
-  st.deflating = true;
-  if (ctx.horde.lure === st.lure) ctx.horde.lure = null;
-  st.fronts.length = 0;
-  st.hum?.stop();
-  st.hum = null;
-  ctx.audio.play("decoyDeflate", { volume: 0.9 });
 }
 
 /** Spin (winding up while arming), the landing pop, the arming light and the folded dummy shuddering as pressure builds. */
@@ -350,12 +351,14 @@ function drawFront(g: Graphics, def: Def, r: number): void {
 
 /**
  * Inflating, then up: pops from flat to full with a damped squash-and-stretch, then leans and
- * breathes like a tube man, with the jiggle spring (kicked by calls and bumps) on top.
+ * breathes like a tube man, with the jiggle spring (kicked by calls and bumps) on top. In its last
+ * `warnSeconds` it swells and sways faster, then strains for a beat with a squeak before it pops.
  */
 function wobble(
   ctx: PowerupContext,
   def: Def,
   dt: number,
+  left: number,
   st: DecoyState,
 ): void {
   // Bumps from the crowd on the edge: a nudge per zombie, capped, and the odd squeak.
@@ -373,46 +376,32 @@ function wobble(
     (-JIGGLE_STIFFNESS * st.jiggle - JIGGLE_DAMPING * st.jiggleV) * dt;
   st.jiggle += st.jiggleV * dt;
 
-  const t = st.onFor;
+  const warn =
+    def.warnSeconds > 0 ? Math.max(0, 1 - left / def.warnSeconds) : 0;
+  const strain = Math.max(0, 1 - left / SWELL_SECONDS);
+  if (strain > 0 && !st.squeaked) {
+    st.squeaked = true;
+    ctx.audio.play("decoySqueak", { volume: 0.6, pitch: 1.7 });
+  } else if (strain === 0) st.squeaked = false;
+  st.sway += dt * (1 + WARN_RATE * warn);
+  const t = st.sway;
   const spring = springAt(def, st);
   // From flat to full: overshoots past full and wobbles in, stretching one way then the other.
   const grow =
-    spring < 1 ? INFLATE_FROM + (1 - INFLATE_FROM) * easeOutBack(spring) : 1;
+    (spring < 1 ? INFLATE_FROM + (1 - INFLATE_FROM) * easeOutBack(spring) : 1) *
+    (1 + WARN_SWELL * warn + SWELL_POP * strain);
   const stretch =
     spring < 1
       ? INFLATE_STRETCH * Math.sin(spring * Math.PI * 3) * (1 - spring)
       : 0;
   const breathe = BREATHE * Math.sin(t * BREATHE_HZ * Math.PI * 2);
-  const squash = stretch + breathe + st.jiggle;
+  const tremble = SWELL_TREMBLE * strain * Math.sin(st.onFor * 90);
+  const squash = stretch + breathe + st.jiggle + tremble;
   st.dummy.scale.set(grow * (1 + squash), grow * (1 - squash));
   st.dummy.rotation =
     st.facing +
     LEAN * Math.sin(t * LEAN_HZ * Math.PI * 2) * Math.min(1, spring * 2) +
     st.jiggle * 0.6;
-}
-
-/**
- * Air going out over `deflateSeconds`: the flat dummy spreads out underneath while the inflated one
- * shrinks, crumples and droops on top and fades away, and the keep-out closes in after it.
- */
-function sag(def: Def, left: number, st: DecoyState): void {
-  const t =
-    def.deflateSeconds > 0 ? 1 - Math.max(0, left) / def.deflateSeconds : 1;
-  const shrink = 1 - SAG_SHRINK * t * t;
-  const crumple = CRUMPLE * Math.sin(t * Math.PI * 9) * (1 - t);
-  st.dummy.scale.set(shrink * (1 + crumple), shrink * (1 - crumple));
-  st.dummy.rotation = st.facing + DROOP * Math.sin(t * Math.PI * 4) * t;
-  st.dummy.alpha = t < 0.6 ? 1 : Math.max(0, (1 - t) / 0.4);
-  st.folded.visible = true;
-  st.folded.rotation = st.facing;
-  st.folded.scale.set(FOLDED_SCALE + (1 - FOLDED_SCALE) * Math.min(1, t * 1.5));
-  const edge = def.keepOutRadius * (1 - SAG_KEEP_OUT * t);
-  if (st.zone) st.zone.radius = edge;
-  st.halo.circle(0, 0, edge).stroke({
-    width: 2.5,
-    color: RING_COLOR,
-    alpha: 0.6 * (1 - t),
-  });
 }
 
 /** Share of arming done, 0 to 1. */

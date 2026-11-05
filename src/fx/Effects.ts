@@ -403,8 +403,8 @@ export class Effects {
   }
 
   /**
-   * The look of an icy blast: a white-blue flash, a crystal starburst that pops and collapses like
-   * the fireball, a frost ring running out to `radius` and ice crystals flung out across it.
+   * The look of an icy blast: a white-blue flash, a frost ring running out to `radius` and ice
+   * crystals flung out across it.
    */
   frostBlast(
     x: number,
@@ -426,15 +426,6 @@ export class Effects {
     glow.sprite.tint = FROST_GLOW;
     glow.size0 = size * 2.8;
     glow.size1 = size * 1.6;
-    const burst = this.blastPart(
-      "boom",
-      this.tex.ice.burst,
-      seconds * 0.55,
-      x,
-      y,
-    );
-    burst.size0 = size * 0.3;
-    burst.size1 = size * 0.8;
     const ring = this.blastPart("ring", this.tex.blast.ring, seconds, x, y);
     ring.sprite.tint = FROST_RING;
     ring.size0 = (radius * 0.1) / R;

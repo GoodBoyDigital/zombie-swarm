@@ -86,16 +86,15 @@ export interface GameTextures {
   /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch variants. */
   blast: { boom: Texture; ring: Texture; glow: Texture; scorches: Texture[] };
   /**
-   * Freezing (src/fx/Ice.ts): faceted ice blocks over frozen zombies and their cracked twins (same
-   * index), chunks a shatter tosses out, a white sliver for flying shards, the blast's crystal
-   * burst (at BLAST_TEXTURE_RADIUS) and white frost marks for the floor that the stamp tints.
+   * Freezing (src/fx/Ice.ts): ice cubes over frozen zombies and their cracked twins (same index),
+   * chunks a shatter tosses out, a white sliver for flying shards and crystals, and white frost
+   * marks for the floor (at BLAST_TEXTURE_RADIUS) that the stamp tints.
    */
   ice: {
     blocks: Texture[];
     cracked: Texture[];
     chunks: Texture[];
     shard: Texture;
-    burst: Texture;
     frost: Texture[];
   };
 }
@@ -675,29 +674,7 @@ function iceTextures(
     .poly([-5, 0, -1, -1.6, 5, 0, -1, 1.6])
     .fill(0xffffff);
 
-  // The blast's core: a crystal starburst, long and short spikes, ink, blue, ice-white, white heart.
   const R = BLAST_TEXTURE_RADIUS;
-  const burst = new Graphics();
-  const spikes = 8;
-  const reach = Array.from({ length: spikes * 2 }, (_, i) =>
-    i % 2 === 0 ? rand(0.9, 1) : rand(0.5, 0.62),
-  );
-  const star = (scale: number, valley: number, color: number) => {
-    const points: number[] = [];
-    for (let i = 0; i < spikes * 2; i++) {
-      const a = (i / (spikes * 2)) * Math.PI * 2;
-      const b = ((i + 0.5) / (spikes * 2)) * Math.PI * 2;
-      const d = R * scale * reach[i];
-      points.push(Math.cos(a) * d, Math.sin(a) * d);
-      points.push(Math.cos(b) * R * valley, Math.sin(b) * R * valley);
-    }
-    burst.poly(points).fill(color);
-  };
-  star(1, 0.3, INK);
-  star(0.9, 0.26, ICE_MID);
-  star(0.7, 0.2, ICE_LIGHT);
-  burst.circle(0, 0, R * 0.2).fill(0xffffff);
-
   // Frost on the floor, white with alpha for the stamp to tint: a pale crust in the middle and
   // crystal rays branching like frost ferns, with ice grit thrown past their tips.
   const frost = Array.from({ length: 3 }, () => {
@@ -764,7 +741,6 @@ function iceTextures(
     cracked,
     chunks,
     shard: make(shard),
-    burst: make(burst),
     frost,
   };
 }

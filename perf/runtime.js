@@ -30,9 +30,17 @@ export async function installStress({ cap = 600, seed = 14731 } = {}) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  const originalSpawn = { ...SPAWN };
+  const originalSpawn = { ...SPAWN, curve: SPAWN.curve.map((p) => ({ ...p })) };
   const originalDrops = { ...DROP_RULES };
-  Object.assign(SPAWN, { maxAlive: cap, rateStart: 600, rateEnd: 600 });
+  Object.assign(SPAWN, {
+    maxAlive: cap,
+    curve: [
+      { at: 0, rate: 600 },
+      { at: 1, rate: 600 },
+    ],
+    inboundRate: 600,
+    landedRate: 600,
+  });
   Object.assign(DROP_RULES, {
     weaponChanceArmed: 0,
     weaponChanceOnBackup: 0,

@@ -339,6 +339,7 @@ export class Game {
     if (playing) p.update(playerDt, this.input, this.camera, this.arena);
     this.run.update(dt, worldDt, p);
     this.horde.progress = this.run.progress;
+    this.horde.phase = this.run.phase;
     profiler.lap("player");
     this.horde.update(worldDt, p.x, p.y, p.radius);
     profiler.lap("horde");

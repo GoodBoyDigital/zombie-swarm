@@ -28,7 +28,7 @@ export type FloorTile = "concrete" | "blotchy";
 export const LEVELS: LevelDef[] = [
   {
     name: "Level 1",
-    seconds: 720,
+    seconds: 300,
     floor: { tile: "concrete", tint: 0xb4b4ae },
     zombieHealth: 1,
     spawnRate: 1,
@@ -37,7 +37,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: "Level 2",
-    seconds: 720,
+    seconds: 300,
     floor: { tile: "blotchy", tint: 0xc4b497 },
     zombieHealth: 1.35,
     spawnRate: 1.2,
@@ -46,7 +46,7 @@ export const LEVELS: LevelDef[] = [
   },
   {
     name: "Level 3",
-    seconds: 780,
+    seconds: 300,
     floor: { tile: "concrete", tint: 0x8f9ea3 },
     zombieHealth: 1.75,
     spawnRate: 1.4,

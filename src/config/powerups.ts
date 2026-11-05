@@ -350,7 +350,7 @@ export const POWERUPS = {
     category: "destructive",
     mode: "instant",
     effect: "hypnoDisc",
-    seconds: 1,
+    seconds: 2,
     bladesPerSecond: 150,
     spinRate: 1,
     arms: 2,

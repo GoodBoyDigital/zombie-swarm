@@ -149,6 +149,9 @@ interface Spin {
   t: number;
   /** Emitter angle at pickup, so successive discs don't spiral the same way round. */
   phase: number;
+  /** Where the player stood at pickup: the disc, swirl and emitter stay put here while he moves on. */
+  x: number;
+  y: number;
   /** Volleys of `arms` blades launched so far. */
   emitted: number;
   blades: Blade[];
@@ -165,7 +168,7 @@ interface Spin {
 const pool: Blade[] = [];
 
 /**
- * A saw disc spins over the player for `seconds`, flinging razor blades out along spiral arms.
+ * A saw disc deploys where the player stands and spins there for `seconds`, flinging razor blades out along spiral arms.
  * Each blade flies straight, cutting through up to `bladePierce` zombies (each once, through
  * applyHit with a raised tear-off chance), and sticks in a wall if it reaches one.
  */
@@ -182,6 +185,8 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
     active.state = {
       t: 0,
       phase: rand(0, TAU),
+      x: ctx.player.x,
+      y: ctx.player.y,
       emitted: 0,
       blades: [],
       lastShing: -1,
@@ -199,7 +204,6 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
     const st = active.state;
     const wdt = dt * ctx.timeScale;
     const t = (st.t += wdt);
-    const p = ctx.player;
     const spinning = t < def.seconds;
     const turn = st.phase + def.spinRate * TAU * t;
 
@@ -244,18 +248,18 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
       ctx.hitSoundPlayed = ctx.deathSoundPlayed = ctx.tearSoundPlayed = false;
     }
 
-    // Disc pops in over the player, spins with the emitter so blades leave its teeth, then shrinks away.
+    // Disc pops in at the deploy point, spins with the emitter so blades leave its teeth, then shrinks away.
     const pop =
       t < POP_IN
         ? easeOutBack(t / POP_IN)
         : Math.min(1, Math.max(0, 1 - (t - def.seconds) / POP_OUT));
     st.disc.visible = pop > 0;
-    st.disc.position.set(p.x, p.y);
+    st.disc.position.set(st.x, st.y);
     st.disc.rotation = turn;
     st.disc.scale.set(def.discRadius * pop);
     // The swirl turns the other way and breathes, fading as the disc goes.
     const fade = spinning ? 1 : Math.max(0, 1 - (t - def.seconds) / SWIRL_OUT);
-    st.swirl.position.set(p.x, p.y);
+    st.swirl.position.set(st.x, st.y);
     st.swirl.rotation = -turn * 0.6;
     st.swirl.scale.set(
       def.swirlRadius *
@@ -302,7 +306,7 @@ function launch(
   b.streak.rotation = angle;
   b.star.rotation = rand(0, TAU);
   const r = def.discRadius * 0.8;
-  b.view.position.set(ctx.player.x + b.dx * r, ctx.player.y + b.dy * r);
+  b.view.position.set(st.x + b.dx * r, st.y + b.dy * r);
   st.root.addChild(b.view);
   st.blades.push(b);
   // Catch up to where it would be by now, hitting what it passed on the way.

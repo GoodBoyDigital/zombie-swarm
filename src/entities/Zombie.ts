@@ -1,4 +1,5 @@
 import { Sprite } from "pixi.js";
+import { ICE } from "../config/ice";
 import {
   KNOCKBACK_DRAG,
   PART_IDS,
@@ -66,6 +67,11 @@ export class Zombie {
   entered = false;
   /** Killed this frame. Ignored by raycasts and crowding until the horde releases it. */
   dead = false;
+  /**
+   * Seconds left frozen solid in a block of ice (src/fx/Ice.ts). Frozen, it doesn't move, turn,
+   * bite or get pushed, the crowd flows round it, and any hit shatters it (CombatContext.applyHit).
+   */
+  frozenFor = 0;
 
   constructor(private readonly tex: GameTextures) {}
 
@@ -81,6 +87,7 @@ export class Zombie {
     this.kx = 0;
     this.ky = 0;
     this.flash = 0;
+    this.frozenFor = 0;
     const along = rand(-gate.halfWidth, gate.halfWidth);
     const horizontal = gate.side === "top" || gate.side === "bottom";
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
@@ -105,6 +112,29 @@ export class Zombie {
     this.sprite.texture = this.look.body;
     this.sprite.anchor.set(def.art.anchor.x, def.art.anchor.y);
     this.sprite.visible = true;
+  }
+
+  get frozen(): boolean {
+    return this.frozenFor > 0;
+  }
+
+  /** Freeze solid for at least `seconds`: it stops dead, mid-stride, in a cold tint. */
+  freeze(seconds: number): void {
+    this.frozenFor = Math.max(this.frozenFor, seconds);
+    this.kx = 0;
+    this.ky = 0;
+    this.flash = 0;
+    this.sprite.texture = this.look.body;
+    this.sprite.tint = ICE.frozenTint;
+  }
+
+  /** Frozen and hit: killed outright whatever its health, thrown along the hit for the shatter's pieces. */
+  shatter(dirX: number, dirY: number, knockback: number): void {
+    this.health = 0;
+    this.dead = true;
+    const k = knockback * this.def.knockbackScale;
+    this.kx = dirX * k;
+    this.ky = dirY * k;
   }
 
   /** Returns true if this hit killed the zombie. */
@@ -168,6 +198,7 @@ export class Zombie {
 
   /** Shove along a unit direction without hurting, scaled by the type's knockbackScale. */
   push(dirX: number, dirY: number, knockback: number): void {
+    if (this.frozenFor > 0) return;
     const k = knockback * this.def.knockbackScale;
     this.kx += dirX * k;
     this.ky += dirY * k;
@@ -181,6 +212,11 @@ export class Zombie {
     hunting: boolean,
     everyoneHunts: boolean,
   ): void {
+    if (this.frozenFor > 0) {
+      this.frozenFor = Math.max(0, this.frozenFor - dt);
+      if (this.frozenFor === 0) this.sprite.tint = this.debugTint();
+      return;
+    }
     this.wobblePhase += this.wobbleRate * dt;
     const move =
       this.brain.steer(

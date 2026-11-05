@@ -60,6 +60,11 @@ const WALL_DUST = 0xb8b0a2;
 
 /** Fireball, chunks and embers thrown out by a blast. */
 const DEBRIS_TINTS = [0xffd23a, 0xff7a1a, 0xff7a1a, 0x151a15];
+/** Ice crystals and shards: white, ice-white and pale blue. */
+const ICE_TINTS = [0xffffff, 0xdff6ff, 0xa8e2ff];
+/** Frost blast flash and shockwave tints. */
+const FROST_GLOW = 0x9fdcff;
+const FROST_RING = 0xd8f4ff;
 
 /** Short-lived visuals: muzzle flash, hitscan tracer, blood sparks, explosions. Sprites are pooled. */
 export class Effects {
@@ -395,6 +400,89 @@ export class Effects {
       p.sprite.tint = pick(DEBRIS_TINTS);
       p.sprite.alpha = 1;
     }
+  }
+
+  /**
+   * The look of an icy blast: a white-blue flash, a crystal starburst that pops and collapses like
+   * the fireball, a frost ring running out to `radius` and ice crystals flung out across it.
+   */
+  frostBlast(
+    x: number,
+    y: number,
+    radius: number,
+    seconds: number,
+    crystals: number,
+  ): void {
+    const R = BLAST_TEXTURE_RADIUS;
+    const size = (radius * 0.5) / R;
+    const glow = this.blastPart(
+      "glow",
+      this.tex.blast.glow,
+      seconds * 0.5,
+      x,
+      y,
+    );
+    glow.sprite.blendMode = "add";
+    glow.sprite.tint = FROST_GLOW;
+    glow.size0 = size * 2.8;
+    glow.size1 = size * 1.6;
+    const burst = this.blastPart(
+      "boom",
+      this.tex.ice.burst,
+      seconds * 0.55,
+      x,
+      y,
+    );
+    burst.size0 = size * 0.3;
+    burst.size1 = size * 0.8;
+    const ring = this.blastPart("ring", this.tex.blast.ring, seconds, x, y);
+    ring.sprite.tint = FROST_RING;
+    ring.size0 = (radius * 0.1) / R;
+    ring.size1 = radius / R;
+    // Sparks coast to about speed / 6 under their drag, so the fastest reach the edge.
+    for (let i = 0; i < crystals; i++)
+      this.shard(x, y, rand(0, Math.PI * 2), rand(1.5, 6) * radius, 1.2, true);
+  }
+
+  /** Ice breaking: shards flung all round, half of them carried along (dirX, dirY), and a few glints. */
+  iceShards(
+    x: number,
+    y: number,
+    dirX: number,
+    dirY: number,
+    count: number,
+  ): void {
+    const along = Math.atan2(dirY, dirX);
+    for (let i = 0; i < count; i++) {
+      const a = i % 2 === 0 ? rand(0, Math.PI * 2) : along + rand(-0.8, 0.8);
+      this.shard(x, y, a, rand(150, 480), 1.1, false);
+    }
+    this.sparkle(x, y, 0xe6f8ff, Math.ceil(count / 4));
+  }
+
+  private shard(
+    x: number,
+    y: number,
+    angle: number,
+    speed: number,
+    size: number,
+    overBlasts: boolean,
+  ): void {
+    const p = this.spawn(
+      "spark",
+      this.tex.ice.shard,
+      rand(0.3, 0.75),
+      overBlasts ? this.blastView : this.view,
+    );
+    p.vx = Math.cos(angle) * speed;
+    p.vy = Math.sin(angle) * speed;
+    p.sprite.anchor.set(0.5);
+    p.sprite.position.set(x, y);
+    p.sprite.rotation = angle;
+    const s = rand(0.7, 1.4) * size;
+    p.sprite.scale.set(s * rand(1, 1.6), s);
+    p.sprite.tint = pick(ICE_TINTS);
+    p.sprite.alpha = 1;
   }
 
   update(dt: number): void {

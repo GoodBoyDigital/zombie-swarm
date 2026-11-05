@@ -91,6 +91,12 @@ export class ColorMask implements SpareMask {
           z.sprite,
           this.pooled(this.cutouts, this.cutoutPool, used++, "erase"),
         );
+        const ice = horde.ice.blockOf(z);
+        if (ice?.visible)
+          copy(
+            ice,
+            this.pooled(this.cutouts, this.cutoutPool, used++, "erase"),
+          );
       },
     );
     if (hideFrom(this.cutoutPool, used) > 0) draw(this.cutouts);

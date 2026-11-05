@@ -1,5 +1,6 @@
-import { Container, Sprite } from "pixi.js";
+import { Container, Sprite, type Texture } from "pixi.js";
 import { DISMEMBER } from "../config/dismember";
+import { ICE } from "../config/ice";
 import { PART_IDS } from "../config/zombies";
 import { pick, rand } from "../core/random";
 import type { Zombie } from "../entities/Zombie";
@@ -30,6 +31,8 @@ interface Limb {
   scale: number;
   tint: number;
   landed: boolean;
+  /** Leaves a blood splat where it first lands; frozen pieces and ice don't. */
+  bleeds: boolean;
 }
 
 /**
@@ -51,6 +54,7 @@ export class Limbs {
   /**
    * Throw part `bit` off zombie `z` from where it sits on the body, along the shot plus some of the
    * zombie's knockback. Writes the piece's start position to `out` for the blood spurt; `z` is not changed.
+   * A `frozen` piece (off a shattered zombie) is tinted icy and doesn't bleed where it lands.
    */
   launch(
     z: Zombie,
@@ -58,11 +62,11 @@ export class Limbs {
     dirX: number,
     dirY: number,
     out: { x: number; y: number },
+    frozen = false,
   ): void {
     const part = this.tex.zombies[z.def.art.key].parts[bit];
     if (!part) return;
-    if (this.live.length >= DISMEMBER.maxLive) this.settle(0);
-    const l = this.pool.pop() ?? this.create();
+    const l = this.next();
     const s = z.sprite;
     const cos = Math.cos(s.rotation);
     const sin = Math.sin(s.rotation);
@@ -85,17 +89,54 @@ export class Limbs {
       (Math.random() < 0.5 ? -1 : 1);
     l.scale =
       ((s.scale.x + s.scale.y) / 2) * DISMEMBER.pieceScale * (head ? 0.7 : 1);
-    l.tint = z.tint;
+    l.tint = frozen ? ICE.limbTint : z.tint;
     l.landed = false;
+    l.bleeds = !frozen;
     l.sprite.texture = pick(part.textures);
     l.sprite.rotation = s.rotation + part.rotation;
-    l.sprite.tint = z.tint;
+    l.sprite.tint = l.tint;
     l.sprite.position.set(l.x, l.y);
     l.sprite.scale.set(l.scale);
-    this.view.addChild(l.sprite);
-    this.live.push(l);
     out.x = l.x;
     out.y = l.y;
+  }
+
+  /** Throw a loose piece (a chunk of ice) from (x, y) at `angle`; it hops, skids and settles like a limb. */
+  toss(
+    texture: Texture,
+    x: number,
+    y: number,
+    angle: number,
+    speed: number,
+    scale: number,
+  ): void {
+    const d = DISMEMBER;
+    const l = this.next();
+    l.x = x;
+    l.y = y;
+    l.z = START_HEIGHT;
+    l.vx = Math.cos(angle) * speed;
+    l.vy = Math.sin(angle) * speed;
+    l.vz = rand(d.hopMin, d.hopMax) * 0.7;
+    l.spin = rand(d.spinMin, d.spinMax) * (Math.random() < 0.5 ? -1 : 1);
+    l.scale = scale;
+    l.tint = 0xffffff;
+    l.landed = false;
+    l.bleeds = false;
+    l.sprite.texture = texture;
+    l.sprite.rotation = rand(0, Math.PI * 2);
+    l.sprite.tint = l.tint;
+    l.sprite.position.set(x, y);
+    l.sprite.scale.set(scale);
+  }
+
+  /** A live piece to fill in, making room by settling the oldest if too many are flying. */
+  private next(): Limb {
+    if (this.live.length >= DISMEMBER.maxLive) this.settle(0);
+    const l = this.pool.pop() ?? this.create();
+    this.view.addChild(l.sprite);
+    this.live.push(l);
+    return l;
   }
 
   update(dt: number): void {
@@ -116,7 +157,7 @@ export class Limbs {
           l.vy *= d.bounceFriction;
           l.spin *= d.bounceFriction;
           if (l.vz < MIN_HOP) l.vz = 0;
-          if (!l.landed) this.splat(l);
+          if (!l.landed && l.bleeds) this.splat(l);
           l.landed = true;
         }
       } else {
@@ -175,6 +216,7 @@ export class Limbs {
       scale: 1,
       tint: 0xffffff,
       landed: false,
+      bleeds: true,
     };
   }
 }

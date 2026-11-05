@@ -336,9 +336,14 @@ export class Chopper {
     }
     for (const z of crushed) {
       // Flattened where it stood: a star of streaks and a spray out from under the skids.
+      // A frozen one shatters instead (the horde's kill), no blood.
       z.kx = 0;
       z.ky = 0;
       z.drop();
+      if (z.frozen) {
+        horde.kill(z, "count");
+        continue;
+      }
       for (let i = 0; i < SQUISH_SPLATS; i++) {
         const a = (i / SQUISH_SPLATS) * TWO_PI + rand(-0.4, 0.4);
         horde.splat(z.x, z.y, Math.cos(a), Math.sin(a));
@@ -418,7 +423,8 @@ export class Chopper {
     z.kx = fx0 * RUN.sliceFling;
     z.ky = fy0 * RUN.sliceFling;
     let head = false;
-    const parts = z.def.art.parts;
+    // A frozen zombie shatters in the horde's kill, its pieces flung along the blade; no gore here.
+    const parts = z.frozen ? undefined : z.def.art.parts;
     for (let bit = 0; bit < PART_IDS.length; bit++) {
       if (!parts?.[PART_IDS[bit]] || z.missing & (1 << bit)) continue;
       if (Math.random() >= RUN.slicePartChance) continue;
@@ -427,8 +433,10 @@ export class Chopper {
       head ||= PART_IDS[bit] === "head";
       fx.bloodBurst(this.stump.x, this.stump.y, fx0, fy0, 10, BLOOD_SPRAY);
     }
-    fx.bloodBurst(z.x, z.y, fx0, fy0, RUN.sliceSpray, BLOOD_SPRAY);
-    for (let i = 0; i < 3; i++) horde.splat(z.x, z.y, fx0, fy0);
+    if (!z.frozen) {
+      fx.bloodBurst(z.x, z.y, fx0, fy0, RUN.sliceSpray, BLOOD_SPRAY);
+      for (let i = 0; i < 3; i++) horde.splat(z.x, z.y, fx0, fy0);
+    }
     z.drop();
     horde.kill(z, "none");
     if (this.chopSound > 0) return;

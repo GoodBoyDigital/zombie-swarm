@@ -85,6 +85,19 @@ export interface GameTextures {
   powerupIcons: Record<string, Texture>;
   /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch variants. */
   blast: { boom: Texture; ring: Texture; glow: Texture; scorches: Texture[] };
+  /**
+   * Freezing (src/fx/Ice.ts): faceted ice blocks over frozen zombies and their cracked twins (same
+   * index), chunks a shatter tosses out, a white sliver for flying shards, the blast's crystal
+   * burst (at BLAST_TEXTURE_RADIUS) and white frost marks for the floor that the stamp tints.
+   */
+  ice: {
+    blocks: Texture[];
+    cracked: Texture[];
+    chunks: Texture[];
+    shard: Texture;
+    burst: Texture;
+    frost: Texture[];
+  };
 }
 
 const SPRITES = {
@@ -129,6 +142,13 @@ export const BLAST_TEXTURE_RADIUS = 128;
 const INK = 0x151a15;
 /** Broken concrete, matching the pale rim of the bullet chips in the walls. */
 const WALL_CHUNK = 0x6e675e;
+/** Ice, lit from the top left: facets turned away, facets facing the light, and the burst's mid blue. */
+const ICE_DARK = 0x6fb6e4;
+const ICE_LIGHT = 0xf0fbff;
+const ICE_MID = 0x9fdcff;
+/** Ice block art size in world px; Ice.ts stretches each block over its zombie's sprite. */
+const ICE_BLOCK_WIDTH = 48;
+const ICE_BLOCK_HEIGHT = 40;
 
 /**
  * Character, weapon and pickup art comes from the AssetPack atlas; repeating tiles load separately.
@@ -417,8 +437,11 @@ export async function createTextures(
     return make(g, 1);
   });
 
+  const ice = iceTextures(make);
+
   return {
     zombies,
+    ice,
     loot: Object.fromEntries(
       Object.entries(LOOT_SPRITES).map(([id, key]) => [id, loaded[key]]),
     ) as GameTextures["loot"],
@@ -452,6 +475,242 @@ export async function createTextures(
       blotchy: sprite("tileBlotchy"),
       wall: sprite("tileWall"),
     },
+  };
+}
+
+/**
+ * Ice art, drawn as flat vector shapes in the sprites' style: translucent faceted fills lit from
+ * the top left, an ink outline and a white highlight along the lit edges.
+ */
+function iceTextures(
+  make: (g: Graphics, resolution?: number) => Texture,
+): GameTextures["ice"] {
+  const light = { x: -Math.SQRT1_2, y: -Math.SQRT1_2 };
+  // A boxy hull: points round a superellipse, each pushed in or out a little.
+  const hull = (w: number, h: number, n: number, wobble: number) => {
+    const points: number[] = [];
+    const turn = rand(0, 1);
+    for (let i = 0; i < n; i++) {
+      const a = ((i + turn * 0.6) / n) * Math.PI * 2;
+      const c = Math.cos(a);
+      const si = Math.sin(a);
+      const r = 1 / (Math.abs(c) ** 3 + Math.abs(si) ** 3) ** (1 / 3);
+      const d = r * rand(1 - wobble, 1 + wobble * 0.3);
+      points.push(c * d * w, si * d * h);
+    }
+    return points;
+  };
+  // Triangle fan from an off-centre peak, each facet shaded by which way it faces.
+  const facets = (g: Graphics, pts: number[], peakX: number, peakY: number) => {
+    const n = pts.length / 2;
+    for (let i = 0; i < n; i++) {
+      const ax = pts[i * 2];
+      const ay = pts[i * 2 + 1];
+      const bx = pts[((i + 1) % n) * 2];
+      const by = pts[((i + 1) % n) * 2 + 1];
+      const mx = (ax + bx) / 2 - peakX;
+      const my = (ay + by) / 2 - peakY;
+      const len = Math.hypot(mx, my) || 1;
+      const lit = ((mx * light.x + my * light.y) / len + 1) / 2;
+      g.poly([peakX, peakY, ax, ay, bx, by]).fill({
+        color: lit > 0.6 ? ICE_LIGHT : lit > 0.35 ? ICE_MID : ICE_DARK,
+        alpha: 0.32 + lit * 0.22,
+      });
+    }
+  };
+  // White along the edges facing the light, pulled in a touch so it sits inside the ink.
+  const highlight = (
+    g: Graphics,
+    pts: number[],
+    inset: number,
+    width: number,
+  ) => {
+    const n = pts.length / 2;
+    for (let i = 0; i < n; i++) {
+      const ax = pts[i * 2] * inset;
+      const ay = pts[i * 2 + 1] * inset;
+      const bx = pts[((i + 1) % n) * 2] * inset;
+      const by = pts[((i + 1) % n) * 2 + 1] * inset;
+      const mx = (ax + bx) / 2;
+      const my = (ay + by) / 2;
+      const len = Math.hypot(mx, my) || 1;
+      if ((mx * light.x + my * light.y) / len < 0.25) continue;
+      g.moveTo(ax, ay)
+        .lineTo(bx, by)
+        .stroke({ width, color: 0xffffff, alpha: 0.95, cap: "round" });
+    }
+  };
+  const W = ICE_BLOCK_WIDTH / 2;
+  const H = ICE_BLOCK_HEIGHT / 2;
+  const blocks: Texture[] = [];
+  const cracked: Texture[] = [];
+  for (let v = 0; v < 3; v++) {
+    const pts = hull(W - 1.5, H - 1.5, 7 + v, 0.12);
+    const peakX = rand(-W * 0.35, -W * 0.1);
+    const peakY = rand(-H * 0.35, -H * 0.1);
+    // Glints and cracks are rolled once per variant so the cracked twin matches its block.
+    const glintX = rand(-W * 0.55, -W * 0.3);
+    const glintY = rand(-H * 0.5, -H * 0.25);
+    const cracks: number[][] = [];
+    const ox = rand(-W * 0.2, W * 0.25);
+    const oy = rand(-H * 0.2, H * 0.25);
+    const arms = 5 + Math.floor(rand(0, 2));
+    for (let i = 0; i < arms; i++) {
+      const a = (i / arms) * Math.PI * 2 + rand(-0.4, 0.4);
+      const line = [ox, oy];
+      const steps = 3;
+      for (let k = 1; k <= steps; k++) {
+        const d = (k / steps) * rand(0.7, 1) * Math.min(W, H) * 1.1;
+        const wob = rand(-0.35, 0.35);
+        line.push(ox + Math.cos(a + wob) * d, oy + Math.sin(a + wob) * d);
+      }
+      cracks.push(line);
+    }
+    const draw = (broken: boolean) => {
+      const g = new Graphics();
+      g.poly(pts).fill({ color: ICE_MID, alpha: 0.3 });
+      facets(g, pts, peakX, peakY);
+      if (broken)
+        for (const line of cracks) {
+          g.poly(line, false).stroke({
+            width: 2.2,
+            color: 0xffffff,
+            alpha: 0.85,
+            join: "round",
+          });
+          g.poly(line, false).stroke({
+            width: 0.9,
+            color: INK,
+            alpha: 0.75,
+            join: "round",
+          });
+        }
+      highlight(g, pts, 0.86, 1.6);
+      g.poly([
+        glintX,
+        glintY - 3,
+        glintX + 1.2,
+        glintY,
+        glintX,
+        glintY + 3,
+        glintX - 1.2,
+        glintY,
+      ]).fill(0xffffff);
+      g.circle(glintX + 4, glintY + 3.5, 0.9).fill(0xffffff);
+      g.poly(pts).stroke({ width: 1.7, color: INK, alpha: 0.9, join: "round" });
+      return make(g);
+    };
+    blocks.push(draw(false));
+    cracked.push(draw(true));
+  }
+
+  // Broken-off lumps of block: a few px of faceted ice in an ink outline.
+  const chunks = Array.from({ length: 4 }, () => {
+    const pts = hull(rand(3, 5), rand(2.4, 4), 4 + Math.floor(rand(0, 3)), 0.3);
+    const g = new Graphics();
+    g.poly(pts).fill({ color: ICE_MID, alpha: 0.55 });
+    facets(g, pts, rand(-1.5, 0), rand(-1.5, 0));
+    highlight(g, pts, 0.75, 1);
+    g.poly(pts).stroke({ width: 1, color: INK, alpha: 0.9, join: "round" });
+    return make(g);
+  });
+
+  // A white sliver; Effects tints and stretches it into flying shards and crystals.
+  const shard = new Graphics()
+    .poly([-5, 0, -1, -1.6, 5, 0, -1, 1.6])
+    .fill(0xffffff);
+
+  // The blast's core: a crystal starburst, long and short spikes, ink, blue, ice-white, white heart.
+  const R = BLAST_TEXTURE_RADIUS;
+  const burst = new Graphics();
+  const spikes = 8;
+  const reach = Array.from({ length: spikes * 2 }, (_, i) =>
+    i % 2 === 0 ? rand(0.9, 1) : rand(0.5, 0.62),
+  );
+  const star = (scale: number, valley: number, color: number) => {
+    const points: number[] = [];
+    for (let i = 0; i < spikes * 2; i++) {
+      const a = (i / (spikes * 2)) * Math.PI * 2;
+      const b = ((i + 0.5) / (spikes * 2)) * Math.PI * 2;
+      const d = R * scale * reach[i];
+      points.push(Math.cos(a) * d, Math.sin(a) * d);
+      points.push(Math.cos(b) * R * valley, Math.sin(b) * R * valley);
+    }
+    burst.poly(points).fill(color);
+  };
+  star(1, 0.3, INK);
+  star(0.9, 0.26, ICE_MID);
+  star(0.7, 0.2, ICE_LIGHT);
+  burst.circle(0, 0, R * 0.2).fill(0xffffff);
+
+  // Frost on the floor, white with alpha for the stamp to tint: a pale crust in the middle and
+  // crystal rays branching like frost ferns, with ice grit thrown past their tips.
+  const frost = Array.from({ length: 3 }, () => {
+    const g = new Graphics();
+    const rays = 12 + Math.floor(rand(0, 6));
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2 + rand(-0.15, 0.15);
+      const tip = rand(0.55, 1) * R;
+      const half = rand(0.025, 0.05);
+      const base = R * 0.18;
+      const alpha = rand(0.55, 0.85);
+      g.poly([
+        Math.cos(a - half * 3) * base,
+        Math.sin(a - half * 3) * base,
+        Math.cos(a) * tip,
+        Math.sin(a) * tip,
+        Math.cos(a + half * 3) * base,
+        Math.sin(a + half * 3) * base,
+      ]).fill({ color: 0xffffff, alpha });
+      // Side branches either side of the ray, shorter toward the tip.
+      const branches = Math.floor(tip / (R * 0.2));
+      for (let k = 1; k <= branches; k++) {
+        const at = base + ((tip - base) * k) / (branches + 1);
+        const len = (tip - at) * rand(0.25, 0.4);
+        const px = Math.cos(a) * at;
+        const py = Math.sin(a) * at;
+        for (const side of [-1, 1]) {
+          const b = a + side * rand(0.6, 0.8);
+          g.moveTo(px, py)
+            .lineTo(px + Math.cos(b) * len, py + Math.sin(b) * len)
+            .stroke({ width: rand(1.5, 2.5), color: 0xffffff, alpha });
+        }
+      }
+    }
+    for (let i = 0; i < 18; i++) {
+      const a = rand(0, Math.PI * 2);
+      const d = rand(0.35, 1.05) * R;
+      const s = rand(1.5, 4);
+      g.poly([
+        Math.cos(a) * d - s,
+        Math.sin(a) * d,
+        Math.cos(a) * d,
+        Math.sin(a) * d - s,
+        Math.cos(a) * d + s,
+        Math.sin(a) * d,
+        Math.cos(a) * d,
+        Math.sin(a) * d + s,
+      ]).fill({ color: 0xffffff, alpha: rand(0.5, 0.9) });
+    }
+    const lobes: [number, number, number][] = [[0, 0, R * 0.3]];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + rand(-0.4, 0.4);
+      const d = rand(0.15, 0.28) * R;
+      lobes.push([Math.cos(a) * d, Math.sin(a) * d, rand(0.1, 0.18) * R]);
+    }
+    for (const [x, y, r] of lobes)
+      g.circle(x, y, r).fill({ color: 0xffffff, alpha: 0.4 });
+    g.circle(0, 0, R * 0.14).fill({ color: 0xffffff, alpha: 0.6 });
+    return make(g, 1);
+  });
+
+  return {
+    blocks,
+    cracked,
+    chunks,
+    shard: make(shard),
+    burst: make(burst),
+    frost,
   };
 }
 

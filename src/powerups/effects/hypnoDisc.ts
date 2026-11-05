@@ -1,0 +1,399 @@
+import { Container, Graphics, GraphicsContext } from "pixi.js";
+import { raycastZombies } from "../../combat/raycast";
+import type { EffectDef } from "../../config/powerups";
+import { rand } from "../../core/random";
+import type { Zombie } from "../../entities/Zombie";
+import { wallHit } from "../../world/walls";
+import type { PowerupContext, PowerupEffect } from "../PowerupContext";
+
+type Def = EffectDef<"hypnoDisc">;
+
+const INK = 0x151a15;
+const STEEL = 0x9aa3a8;
+const STEEL_LIGHT = 0xe4eaec;
+const RED = 0xd63a35;
+const CREAM = 0xf6eccb;
+const TAU = Math.PI * 2;
+/** Blade body radius in world px; also how far its sweep reaches past a zombie's circle. */
+const BLADE_RADIUS = 8;
+/** Blade spin in flight, radians per second. */
+const BLADE_SPIN = 28;
+/** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
+const STUCK_SECONDS = 0.6;
+const STUCK_FADE = 0.25;
+/** The disc pops in and shrinks away over these, in world seconds. */
+const POP_IN = 0.12;
+const POP_OUT = 0.15;
+/** The floor swirl grows in over SWIRL_IN and fades over SWIRL_OUT once the disc stops. */
+const SWIRL_IN = 0.2;
+const SWIRL_OUT = 0.3;
+/** Seconds between "shing" launch sounds, and between slice sounds while blades are landing hits. */
+const SHING_GAP = 0.07;
+const SLICE_GAP = 0.06;
+
+/**
+ * Shared vector art, built once; every blade and disc draws from the same geometry. Blades are
+ * hooked four-point throwing stars in steel with a highlight edge and a dark hub.
+ */
+const BLADE = (() => {
+  const points: number[] = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * TAU;
+    for (const [da, r] of [
+      [0, BLADE_RADIUS + 0.5],
+      [0.5, 3.4],
+      [1.15, 2.4],
+    ])
+      points.push(Math.cos(a + da) * r, Math.sin(a + da) * r);
+  }
+  const g = new GraphicsContext()
+    .poly(points)
+    .fill(STEEL)
+    .stroke({ width: 1.4, color: INK, join: "round" });
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * TAU;
+    g.moveTo(Math.cos(a + 0.9) * 2.6, Math.sin(a + 0.9) * 2.6)
+      .lineTo(Math.cos(a + 0.12) * 6, Math.sin(a + 0.12) * 6)
+      .stroke({ width: 1.1, color: STEEL_LIGHT, cap: "round" });
+  }
+  return g.circle(0, 0, 1.6).fill(0x2a2f2a).stroke({ width: 0.8, color: INK });
+})();
+
+/** Faint speed streak trailing each blade along its flight line, so the spiral arms read as lines. */
+const STREAK = new GraphicsContext()
+  .poly([0, -BLADE_RADIUS * 0.7, -BLADE_RADIUS * 2.6, 0, 0, BLADE_RADIUS * 0.7])
+  .fill({ color: STEEL_LIGHT, alpha: 0.3 });
+
+/** Unit-radius saw disc, like the icon: hooked steel teeth round a red and cream spiral, a dark hub. */
+const DISC = (() => {
+  const TEETH = 16;
+  const teeth: number[] = [];
+  for (let i = 0; i < TEETH; i++) {
+    const a = (i / TEETH) * TAU;
+    const step = TAU / TEETH;
+    teeth.push(Math.cos(a) * 1, Math.sin(a) * 1);
+    teeth.push(
+      Math.cos(a + step * 0.75) * 0.8,
+      Math.sin(a + step * 0.75) * 0.8,
+    );
+  }
+  const g = new GraphicsContext()
+    .poly(teeth)
+    .fill(STEEL)
+    .stroke({ width: 0.09, color: INK, join: "round" })
+    .arc(0, 0, 0.82, Math.PI * 1.05, Math.PI * 1.55)
+    .stroke({ width: 0.06, color: STEEL_LIGHT, cap: "round" })
+    .circle(0, 0, 0.72)
+    .fill(CREAM);
+  spiralArms(g, 0.72, 3, RED, 1);
+  return g
+    .circle(0, 0, 0.72)
+    .stroke({ width: 0.07, color: INK })
+    .circle(0, 0, 0.17)
+    .fill(0x4a5048)
+    .stroke({ width: 0.06, color: INK })
+    .circle(0, 0, 0.08)
+    .fill(0x2c302c);
+})();
+
+/** Hypnotic swirl on the floor under the disc, unit radius, drawn additively. */
+const SWIRL = spiralArms(new GraphicsContext(), 1, 4, 0xff4436, 0.55)
+  .circle(0, 0, 1)
+  .stroke({ width: 0.03, color: 0xff4436, alpha: 0.7 });
+
+/** `arms` spiral bands from the centre out to `radius`, each half the gap between arms wide. */
+function spiralArms(
+  g: GraphicsContext,
+  radius: number,
+  arms: number,
+  color: number,
+  alpha: number,
+): GraphicsContext {
+  const STEPS = 24;
+  const TWIST = TAU * 1.1;
+  const width = Math.PI / arms;
+  for (let k = 0; k < arms; k++) {
+    const a0 = (k / arms) * TAU;
+    const edge: number[] = [];
+    const back: number[] = [];
+    for (let s = 0; s <= STEPS; s++) {
+      const f = s / STEPS;
+      const r = f * radius;
+      const a = a0 + f * TWIST;
+      edge.push(Math.cos(a) * r, Math.sin(a) * r);
+      back.unshift(Math.cos(a + width) * r, Math.sin(a + width) * r);
+    }
+    g.poly([...edge, ...back]).fill({ color, alpha });
+  }
+  return g;
+}
+
+interface Blade {
+  view: Container;
+  /** Spins in flight; the streak behind it holds the flight direction. */
+  star: Graphics;
+  streak: Graphics;
+  dx: number;
+  dy: number;
+  /** World px of flight left. */
+  left: number;
+  pierce: number;
+  /** Zombies this blade already cut, so it hits each once. */
+  hit: Zombie[];
+  /** Seconds left stuck in a wall, or 0 while flying. */
+  stuck: number;
+}
+
+interface Spin {
+  /** World seconds since pickup: the disc spins, emits and its blades fly on the world clock. */
+  t: number;
+  /** Emitter angle at pickup, so successive discs don't spiral the same way round. */
+  phase: number;
+  /** Volleys of `arms` blades launched so far. */
+  emitted: number;
+  blades: Blade[];
+  lastShing: number;
+  lastSlice: number;
+  /** A blade landed a hit since the last slice sound. */
+  sliced: boolean;
+  disc: Graphics;
+  swirl: Graphics;
+  root: Container;
+}
+
+/** Spent blades, kept for the next disc. */
+const pool: Blade[] = [];
+
+/**
+ * A saw disc spins over the player for `seconds`, flinging razor blades out along spiral arms.
+ * Each blade flies straight, cutting through up to `bladePierce` zombies (each once, through
+ * applyHit with a raised tear-off chance), and sticks in a wall if it reaches one.
+ */
+export const hypnoDisc: PowerupEffect<Def, Spin> = {
+  start(ctx, def, active) {
+    const root = new Container({ label: "hypnoDisc" });
+    const swirl = new Graphics({ context: SWIRL, label: "hypnoSwirl" });
+    swirl.blendMode = "add";
+    ctx.ground.addChild(swirl);
+    const disc = new Graphics({ context: DISC, label: "hypnoDiscSaw" });
+    ctx.world.addChild(root, disc);
+    // One volley for the whole spin: its kills share one set of drop caps, like a blast's.
+    ctx.beginVolley();
+    active.state = {
+      t: 0,
+      phase: rand(0, TAU),
+      emitted: 0,
+      blades: [],
+      lastShing: -1,
+      lastSlice: -1,
+      sliced: false,
+      disc,
+      swirl,
+      root,
+    };
+    active.left = 1;
+    hypnoDisc.update?.(ctx, def, 0, active);
+  },
+
+  update(ctx, def, dt, active) {
+    const st = active.state;
+    const wdt = dt * ctx.timeScale;
+    const t = (st.t += wdt);
+    const p = ctx.player;
+    const spinning = t < def.seconds;
+    const turn = st.phase + def.spinRate * TAU * t;
+
+    ctx.dismemberScale = def.dismemberScale;
+    // Launch every volley due by now, each from the angle the emitter had at its own moment and
+    // already as far out as it would be, so the spiral stays smooth on a long frame.
+    const arms = Math.max(1, Math.round(def.arms));
+    const rate = def.bladesPerSecond / arms;
+    const due =
+      Math.floor(Math.min(t, def.seconds) * rate) + (spinning ? 1 : 0);
+    for (; st.emitted < due; st.emitted++) {
+      const at = st.emitted / rate;
+      const base = st.phase + def.spinRate * TAU * at;
+      for (let k = 0; k < arms; k++)
+        launch(
+          ctx,
+          def,
+          st,
+          base + (k / arms) * TAU,
+          (t - at) * def.bladeSpeed,
+        );
+      if (at - st.lastShing >= SHING_GAP) {
+        st.lastShing = at;
+        ctx.audio.play("hypnoShing", { pitch: rand(0.9, 1.25), volume: 0.35 });
+      }
+    }
+
+    for (let i = st.blades.length - 1; i >= 0; i--) {
+      const b = st.blades[i];
+      if (b.stuck > 0 ? stick(b, wdt) : fly(ctx, def, st, b, wdt)) continue;
+      b.view.removeFromParent();
+      st.blades.splice(i, 1);
+      pool.push(b);
+    }
+    ctx.dismemberScale = 1;
+
+    // Throttled slices; the zombie hit, death and tear sounds may play again with them.
+    if (st.sliced && t - st.lastSlice >= SLICE_GAP) {
+      st.lastSlice = t;
+      st.sliced = false;
+      ctx.audio.play("hypnoSlice", { pitch: rand(0.85, 1.2), volume: 0.7 });
+      ctx.hitSoundPlayed = ctx.deathSoundPlayed = ctx.tearSoundPlayed = false;
+    }
+
+    // Disc pops in over the player, spins with the emitter so blades leave its teeth, then shrinks away.
+    const pop =
+      t < POP_IN
+        ? easeOutBack(t / POP_IN)
+        : Math.min(1, Math.max(0, 1 - (t - def.seconds) / POP_OUT));
+    st.disc.visible = pop > 0;
+    st.disc.position.set(p.x, p.y);
+    st.disc.rotation = turn;
+    st.disc.scale.set(def.discRadius * pop);
+    // The swirl turns the other way and breathes, fading as the disc goes.
+    const fade = spinning ? 1 : Math.max(0, 1 - (t - def.seconds) / SWIRL_OUT);
+    st.swirl.position.set(p.x, p.y);
+    st.swirl.rotation = -turn * 0.6;
+    st.swirl.scale.set(
+      def.swirlRadius *
+        Math.min(1, t / SWIRL_IN) *
+        (1 + 0.08 * Math.sin(t * 30)),
+    );
+    st.swirl.alpha = 0.55 * fade;
+
+    const done = !spinning && pop <= 0 && fade <= 0 && st.blades.length === 0;
+    active.left = done ? 0 : 1;
+  },
+
+  end(ctx, _def, active) {
+    const st = active.state;
+    for (const b of st.blades) {
+      b.view.removeFromParent();
+      pool.push(b);
+    }
+    st.blades.length = 0;
+    ctx.dismemberScale = 1;
+    st.root.destroy();
+    st.disc.destroy();
+    st.swirl.destroy();
+  },
+};
+
+/** One blade off the disc rim along `angle`, `out` px further along for the time since its launch. */
+function launch(
+  ctx: PowerupContext,
+  def: Def,
+  st: Spin,
+  angle: number,
+  out: number,
+): void {
+  const b = pool.pop() ?? newBlade();
+  b.dx = Math.cos(angle);
+  b.dy = Math.sin(angle);
+  b.left = def.bladeRange;
+  b.pierce = def.bladePierce;
+  b.hit.length = 0;
+  b.stuck = 0;
+  b.view.alpha = 1;
+  b.streak.visible = true;
+  b.streak.rotation = angle;
+  b.star.rotation = rand(0, TAU);
+  const r = def.discRadius * 0.8;
+  b.view.position.set(ctx.player.x + b.dx * r, ctx.player.y + b.dy * r);
+  st.root.addChild(b.view);
+  st.blades.push(b);
+  // Catch up to where it would be by now, hitting what it passed on the way.
+  if (out > 0) fly(ctx, def, st, b, out / def.bladeSpeed);
+}
+
+function newBlade(): Blade {
+  const view = new Container({ label: "hypnoBlade" });
+  const streak = view.addChild(new Graphics({ context: STREAK }));
+  const star = view.addChild(new Graphics({ context: BLADE }));
+  return {
+    view,
+    star,
+    streak,
+    dx: 0,
+    dy: 0,
+    left: 0,
+    pierce: 0,
+    hit: [],
+    stuck: 0,
+  };
+}
+
+/** Move a blade one step, cutting what it sweeps through. False once it's spent or out of range. */
+function fly(
+  ctx: PowerupContext,
+  def: Def,
+  st: Spin,
+  b: Blade,
+  dt: number,
+): boolean {
+  const { x, y } = b.view;
+  const wall = wallHit(x, y, b.dx, b.dy);
+  const step = Math.min(def.bladeSpeed * dt, b.left);
+  const reach = wall
+    ? Math.min(step, Math.max(0, wall.t - BLADE_RADIUS * 0.5))
+    : step;
+  let travel = reach;
+  for (const hit of raycastZombies(
+    ctx.horde.hash,
+    x,
+    y,
+    b.dx,
+    b.dy,
+    reach,
+    Infinity,
+    BLADE_RADIUS,
+  )) {
+    if (b.hit.includes(hit.zombie)) continue;
+    b.hit.push(hit.zombie);
+    ctx.applyHit(
+      hit.zombie,
+      hit.x,
+      hit.y,
+      b.dx,
+      b.dy,
+      def.bladeDamage,
+      def.bladeKnockback,
+    );
+    st.sliced = true;
+    if (--b.pierce > 0) continue;
+    travel = hit.t;
+    break;
+  }
+  b.view.position.set(x + b.dx * travel, y + b.dy * travel);
+  b.star.rotation += BLADE_SPIN * dt;
+  b.left -= travel;
+  if (b.pierce <= 0) {
+    ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);
+    return false;
+  }
+  if (wall && travel >= reach && reach < step) {
+    // Thunk: it bites into the wall face, chips it and stays put for a moment.
+    b.stuck = STUCK_SECONDS;
+    b.streak.visible = false;
+    ctx.fx.sparkle(wall.x, wall.y, 0xffe08a, 4);
+    ctx.floor.chipWall(wall.x, wall.y, wall.nx, wall.ny);
+    return true;
+  }
+  return b.left > 0;
+}
+
+/** A blade stuck in a wall waits, then fades. False once it's gone. */
+function stick(b: Blade, dt: number): boolean {
+  b.stuck -= dt;
+  b.view.alpha = Math.min(1, b.stuck / STUCK_FADE);
+  return b.stuck > 0;
+}
+
+function easeOutBack(f: number): number {
+  const c = 1.7;
+  const u = f - 1;
+  return 1 + (c + 1) * u * u * u + c * u * u;
+}

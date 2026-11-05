@@ -117,7 +117,7 @@ const POWERUP_RANGES: Ranges = {
   openSeconds: { min: 0.05, max: 2, step: 0.05 },
   flickerSeconds: { min: 0, max: 5, step: 0.1 },
   ripple: { min: 0, max: 30, step: 0.5 },
-  seconds: { min: 1, max: 60, step: 0.5 },
+  seconds: { min: 0.25, max: 60, step: 0.05 },
   moveSpeed: { min: 0.2, max: 4, step: 0.05 },
   fireInterval: { min: 0.1, max: 2, step: 0.05 },
   damage: { min: 0.5, max: 6, step: 0.25 },
@@ -136,6 +136,17 @@ const POWERUP_RANGES: Ranges = {
   strafeBursts: { min: 0, max: 8, step: 1 },
   strafeRounds: { min: 1, max: 20, step: 1 },
   strafeDamage: { min: 0, max: 20, step: 0.5 },
+  bladesPerSecond: { min: 6, max: 400, step: 2 },
+  spinRate: { min: 0, max: 6, step: 0.05 },
+  arms: { min: 1, max: 8, step: 1 },
+  bladeSpeed: { min: 100, max: 1500, step: 10 },
+  bladeRange: { min: 50, max: 1000, step: 10 },
+  bladeDamage: { min: 0, max: 30, step: 0.5 },
+  bladePierce: { min: 1, max: 20, step: 1 },
+  bladeKnockback: { min: 0, max: 1200, step: 10 },
+  dismemberScale: { min: 0, max: 4, step: 0.1 },
+  discRadius: { min: 6, max: 60, step: 1 },
+  swirlRadius: { min: 0, max: 200, step: 2 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

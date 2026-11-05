@@ -148,6 +148,29 @@ export type PowerupDef = PowerupBase &
         strafeRounds: number;
         strafeDamage: number;
       })
+    | (Instant & {
+        effect: "hypnoDisc";
+        /** Seconds the disc spins over the player spitting blades. */
+        seconds: number;
+        /** Blades launched per second across all arms. */
+        bladesPerSecond: number;
+        /** Emitter turns per second; with the blades' speed this sets how tight the spiral is. */
+        spinRate: number;
+        /** Spiral arms, evenly spaced round the disc. */
+        arms: number;
+        /** World px per second, and how far a blade flies before it's gone. */
+        bladeSpeed: number;
+        bladeRange: number;
+        bladeDamage: number;
+        /** Zombies one blade cuts through before it's spent; each is hit once. */
+        bladePierce: number;
+        bladeKnockback: number;
+        /** Multiplier on the part tear-off chances in DISMEMBER for blade hits. */
+        dismemberScale: number;
+        /** Disc radius over the player and of the hypnotic swirl on the ground, world px. */
+        discRadius: number;
+        swirlRadius: number;
+      })
   );
 
 /** An electric dome zombies can't enter (shield, safety portal). */
@@ -320,6 +343,28 @@ export const POWERUPS = {
     icon: "/sprites/icon-powerup-airstrike.png",
     weight: 1,
     sound: "airstrikeWarning",
+  },
+  hypnoDisc: {
+    id: "hypnoDisc",
+    name: "Hypno Disc",
+    category: "destructive",
+    mode: "instant",
+    effect: "hypnoDisc",
+    seconds: 1,
+    bladesPerSecond: 150,
+    spinRate: 1,
+    arms: 2,
+    bladeSpeed: 420,
+    bladeRange: 420,
+    bladeDamage: 4,
+    bladePierce: 4,
+    bladeKnockback: 260,
+    dismemberScale: 2,
+    discRadius: 22,
+    swirlRadius: 70,
+    icon: "/sprites/icon-powerup-hypno.png",
+    weight: 1,
+    sound: "hypnoSpinUp",
   },
 } as const satisfies Record<string, PowerupDef>;
 

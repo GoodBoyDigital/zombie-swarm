@@ -39,9 +39,19 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 
 ## Controls
 
+Keyboard and mouse, touch, or a gamepad: whichever was used last is in charge, and the game switches as
+soon as another is touched. It all goes through `src/core/Input.ts`; stick sizes, deadzones, the aim
+marker and the (off by default) aim assist are in `src/config/controls.ts`.
+
 - Arrow keys or WASD: move
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
+- Touch: twin floating sticks. A thumb on the left half of the screen gets the move stick where it lands,
+  one on the right half the aim stick, which fires for as long as it is pushed. Lift and the stick is gone.
+- Gamepad: left stick moves, right stick aims and fires (right trigger fires too), X reloads; on the
+  results card A or Start is the main button and X retries.
+- With a stick there is no cursor, so a small marker out along the barrel shows where the gun points.
+- `?dpr=2` in the URL renders at that resolution instead of the screen's own, to compare frame rates on a phone.
 - R: reload, or retry the level from the results card; N: next level after extracting
 - Hold out until the countdown hits zero, then get to the chopper's landing pad (follow the H arrow) and
   stand on it to board. Extracting unlocks the next level; dying retries the same one. Coins bank either way.

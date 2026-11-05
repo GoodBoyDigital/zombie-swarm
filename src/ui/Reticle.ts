@@ -1,6 +1,8 @@
-import { Container, Graphics } from "pixi.js";
+import { Container, Graphics, Point } from "pixi.js";
 import type { Weapon } from "../combat/Weapon";
+import { CONTROLS } from "../config/controls";
 import type { Input } from "../core/Input";
+import type { Player } from "../entities/Player";
 
 /** Crosshair width on screen in px. The reload ring scales with it. */
 export const RETICLE_SIZE = 72;
@@ -20,34 +22,58 @@ const RING_DONE = 0xffffff;
 /** The ring snaps bright and shrinks back when a reload lands. */
 const FLASH_SECONDS = 0.18;
 const FLASH_SCALE = 1.35;
+/** With a stick the crosshair shrinks to a marker out in front of the gun, joined to it by a line. */
+const STICK_SCALE = 0.45;
+const LINE_WIDTH = 2.5;
+/** The aim line starts this far past the muzzle and stops this short of the marker's centre, px. */
+const LINE_GAP = 6;
 
 /**
  * Crosshair under the pointer in screen space, so camera shake never moves it. While the weapon
- * reloads a ring fills clockwise around it with the seconds left underneath.
+ * reloads a ring fills clockwise around it with the seconds left underneath. A stick has no pointer,
+ * so in touch and gamepad modes it becomes a small marker a fixed way down the barrel's line, with
+ * a line from the muzzle to show where the gun points.
  */
 export class Reticle {
   readonly view = new Container();
+  private readonly line = new Graphics();
+  /** The crosshair and its reload ring, shrunk together in stick modes. */
+  private readonly head = new Container();
   private readonly ring = new Graphics();
   private readonly reloadUi = new Container();
   private wasReloading = false;
   private flash = 0;
+  private mouseInside = true;
+  private readonly muzzle = new Point();
+  private readonly mark = new Point();
 
   constructor(private readonly input: Input) {
     const cross = drawCrosshair();
     this.reloadUi.addChild(this.ring);
     this.reloadUi.visible = false;
-    this.view.addChild(this.reloadUi, cross);
+    this.head.addChild(this.reloadUi, cross);
+    this.view.addChild(this.line, this.head);
     this.view.eventMode = "none";
 
-    const hide = () => (this.view.visible = false);
-    const show = () => (this.view.visible = true);
+    const hide = () => (this.mouseInside = false);
+    const show = () => (this.mouseInside = true);
     document.addEventListener("mouseleave", hide);
     document.addEventListener("mouseenter", show);
     window.addEventListener("blur", hide);
   }
 
-  update(dt: number, weapon: Weapon): void {
-    this.view.position.set(this.input.pointer.x, this.input.pointer.y);
+  update(dt: number, weapon: Weapon, player: Player): void {
+    const aim = this.input.aim;
+    const stick = aim.kind === "direction";
+    this.line.visible = stick;
+    this.head.scale.set(stick ? STICK_SCALE : 1);
+    if (stick) {
+      this.view.visible = player.view.visible;
+      this.aimLine(player);
+    } else {
+      this.view.visible = this.mouseInside;
+      this.view.position.set(aim.x, aim.y);
+    }
     const reloading = weapon.reloading;
     if (this.wasReloading && !reloading) this.flash = FLASH_SECONDS;
     this.wasReloading = reloading;
@@ -65,6 +91,26 @@ export class Reticle {
       : 1;
     this.reloadUi.scale.set(1 + (FLASH_SCALE - 1) * t);
     this.drawRing(progress, flashing ? RING_DONE : RING_FILL);
+  }
+
+  /** Put the marker out along the barrel and draw the line to it from the muzzle. */
+  private aimLine(player: Player): void {
+    const from = player.barrelToScreen(LINE_GAP, this.muzzle);
+    const to = player.barrelToScreen(CONTROLS.aimDistance, this.mark);
+    this.view.position.copyFrom(to);
+    const dx = from.x - to.x;
+    const dy = from.y - to.y;
+    const length = Math.hypot(dx, dy);
+    const g = this.line.clear();
+    if (CONTROLS.aimLine <= 0 || length <= LINE_GAP) return;
+    // From just short of the marker back toward the muzzle, in the view's own space (the marker is its origin).
+    const near = LINE_GAP / length;
+    const far = near + (1 - near) * Math.min(1, CONTROLS.aimLine);
+    g.moveTo(dx * near, dy * near).lineTo(dx * far, dy * far);
+    g.stroke({ width: LINE_WIDTH + 3, color: CROSS_OUTLINE, cap: "round" });
+    g.moveTo(dx * near, dy * near).lineTo(dx * far, dy * far);
+    g.stroke({ width: LINE_WIDTH, color: CROSS_COLOR, cap: "round" });
+    g.alpha = CONTROLS.aimLineAlpha;
   }
 
   /** Full dark ring underneath, the filled share on top, starting at 12 o'clock and going clockwise. */

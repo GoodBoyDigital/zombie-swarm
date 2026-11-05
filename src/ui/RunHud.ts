@@ -3,6 +3,7 @@ import { RUN } from "../config/run";
 import type { Camera } from "../fx/Camera";
 import type { Run } from "../run/Run";
 import { UI_FONT } from "./font";
+import { SAFE_AREA } from "./safeArea";
 
 const INK = 0x151a15;
 const CREAM = 0xfff6e0;
@@ -70,10 +71,11 @@ export class RunHud {
     this.time += dt;
     const { width } = this.app.screen;
     const cx = width / 2;
-    this.label.position.set(cx, TOP);
-    this.timer.position.set(cx, TOP + 16);
+    const top = TOP + SAFE_AREA.top;
+    this.label.position.set(cx, top);
+    this.timer.position.set(cx, top + 16);
     // Below the debug readout's third line, which runs under the timer on narrower windows.
-    this.status.position.set(cx, TOP + 98);
+    this.status.position.set(cx, top + 98);
     const level = run.level.name.toUpperCase();
 
     if (run.phase === "countdown") {

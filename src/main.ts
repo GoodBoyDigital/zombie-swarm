@@ -10,15 +10,23 @@ import { loadSave } from "./meta/save";
 
 (async () => {
   applyBuildLabel();
+  // `?dpr=2` renders at that resolution instead of the screen's own (3 on most phones), to see on a
+  // device what the extra pixels cost.
+  const dpr = Number(new URLSearchParams(location.search).get("dpr"));
   const app = new Application();
   await app.init({
     background: "#141210",
     resizeTo: window,
     antialias: true,
-    resolution: window.devicePixelRatio,
+    resolution: dpr || window.devicePixelRatio,
     autoDensity: true,
   });
   document.getElementById("pixi-container")!.appendChild(app.canvas);
+  // Phones: no double-tap zoom or text loupe over the game, and no pinch zoom of the page (Safari).
+  app.canvas.addEventListener("touchstart", (e) => e.preventDefault(), {
+    passive: false,
+  });
+  document.addEventListener("gesturestart", (e) => e.preventDefault());
   const tex = await createTextures(app.renderer);
   const audio = new Audio();
   void audio.load().then(() => {

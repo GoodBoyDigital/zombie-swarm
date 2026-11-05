@@ -9,7 +9,7 @@ import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
 import type { FloorCanvas } from "../world/FloorCanvas";
 
-const BLOOD_SPRAY = 0x6fe04a;
+export const BLOOD_SPRAY = 0x6fe04a;
 
 /**
  * Everything that hurts zombies goes through one of these: shot handlers, explosions, power-ups.

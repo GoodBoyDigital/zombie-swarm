@@ -55,7 +55,7 @@ const HEALTH_BAR_WIDTH = 200;
 const PILLS_GAP = 32;
 /** Where the P key drops a test orb, ahead of the player along his aim. */
 const TEST_DROP_DISTANCE = 90;
-/** Dev-only X key: jump the countdown to this many seconds left, to try the chopper. */
+/** Dev-only X key: jump the countdown to this many seconds left; press again to skip to the chopper's descent. */
 const SKIP_TO_SECONDS = 10;
 
 /** Keys typed into the tuning panel's fields must not reach the game. */
@@ -161,7 +161,13 @@ export class Game {
         this.grade,
       ),
     );
-    this.run = new Run(level, tex, this.horde, audio, {
+    const chopperWorld = {
+      horde: this.horde,
+      fx: this.fx,
+      camera: this.camera,
+      audio,
+    };
+    this.run = new Run(level, tex, chopperWorld, {
       ground: this.powerupGround,
       world: this.powerupWorld,
       sky: this.powerupSky,
@@ -284,7 +290,7 @@ export class Game {
     }
     if (e.code === "KeyN" && this.results.offersNext) this.onRestart(level + 1);
     if (e.code === "KeyX" && import.meta.env.DEV)
-      this.run.skipTo(SKIP_TO_SECONDS);
+      this.run.devSkip(SKIP_TO_SECONDS);
     if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
     if (e.code === "KeyP")
       this.dropOrb(POWERUP_DEFS[this.testDrop++ % POWERUP_DEFS.length]);

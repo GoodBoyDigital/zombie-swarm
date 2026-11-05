@@ -1,9 +1,15 @@
 import { Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { ARENA } from "../config/arena";
+import type { Audio } from "../audio/Audio";
+import { BLOOD_SPRAY } from "../combat/CombatContext";
 import { RUN } from "../config/run";
-import { KNOCKBACK_DRAG } from "../config/zombies";
+import { KNOCKBACK_DRAG, MAX_ZOMBIE_RADIUS } from "../config/zombies";
 import { rand } from "../core/random";
-import type { Horde } from "../entities/Horde";
+import type { ExclusionZone, Horde } from "../entities/Horde";
+import type { Zombie } from "../entities/Zombie";
+import { aiDebug } from "../entities/ZombieBrain";
+import type { Camera } from "../fx/Camera";
+import type { Effects } from "../fx/Effects";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "../fx/textures";
 
 const INK = 0x151a15;
@@ -31,6 +37,26 @@ const DUST_LIFE = { min: 0.5, max: 1 };
 const DUST_SPEED = { min: 160, max: 300 };
 /** Landing zone ring pulses out this often. */
 const PULSE_SECONDS = 1.1;
+/** Touchdown: blood streaks thrown out from each squished zombie, and camera shake with and without victims. */
+const SQUISH_SPLATS = 5;
+const SQUISH_SPRAY = 10;
+const SQUISH_TRAUMA = 0.4;
+const LAND_TRAUMA = 0.15;
+const TWO_PI = Math.PI * 2;
+
+/** What the chopper pushes, squishes and shakes. */
+export interface ChopperWorld {
+  horde: Horde;
+  fx: Effects;
+  camera: Camera;
+  audio: Audio;
+}
+
+interface Circle {
+  x: number;
+  y: number;
+  r: number;
+}
 
 type Phase = "approach" | "descend" | "landed" | "depart";
 
@@ -70,10 +96,14 @@ export class Chopper {
   private readonly dust: Dust[] = [];
   private readonly dustPool: Sprite[] = [];
   private dustDebt = 0;
+  /** The body's footprint as horde keep-out zones, from touchdown until lift-off. */
+  private readonly keepOut: ExclusionZone[] = [];
+  /** Footprint outline while the AI debug overlay (V) is on. */
+  private readonly debug = new Graphics();
 
   constructor(
     private readonly tex: GameTextures,
-    private readonly horde: Horde,
+    private readonly world: ChopperWorld,
     readonly zone: { x: number; y: number },
     layers: {
       ground: Container;
@@ -124,7 +154,7 @@ export class Chopper {
       this.shadow,
     );
     layers.world.addChild(this.dustLayer);
-    layers.sky.addChild(this.body);
+    layers.sky.addChild(this.body, this.debug);
     this.sync();
   }
 
@@ -132,7 +162,17 @@ export class Chopper {
     return this.phase === "landed";
   }
 
+  /** Dev shortcut: skip the flight in, straight to the descent onto the pad. */
+  skipApproach(): void {
+    if (this.phase !== "approach") return;
+    this.x = this.zone.x;
+    this.y = this.zone.y;
+    this.phase = "descend";
+    this.t = 0;
+  }
+
   depart(): void {
+    this.releaseKeepOut();
     this.phase = "depart";
     this.t = 0;
     this.from.x = this.x;
@@ -161,6 +201,7 @@ export class Chopper {
       if (u >= 1) {
         this.phase = "landed";
         this.altitude = 0;
+        this.touchdown();
       }
     } else if (this.phase === "depart") {
       // Lift straight up first, then tip the nose forward and accelerate away.
@@ -171,14 +212,17 @@ export class Chopper {
       this.y = this.from.y + Math.sin(this.heading) * run;
     }
     this.rotor.rotation += RUN.rotorSpin * dt;
-    const wash = Math.max(0, 1 - this.altitude / WASH_ALTITUDE);
-    if (wash > 0) this.blow(dt, wash);
+    const wash =
+      this.phase === "descend" ? this.descentWash(dt) : this.blow(dt);
+    this.kickDust(dt, wash);
     this.updateDust(dt);
+    this.drawDebug();
     this.updatePad(dt);
     this.sync();
   }
 
   destroy(): void {
+    this.releaseKeepOut();
     for (const view of [
       this.pad,
       this.pulse,
@@ -186,6 +230,7 @@ export class Chopper {
       this.shadow,
       this.dustLayer,
       this.body,
+      this.debug,
     ])
       view.destroy({ children: true });
     for (const s of this.dustPool) s.destroy();
@@ -203,11 +248,141 @@ export class Chopper {
     this.shadow.rotation = this.heading;
   }
 
-  /** Rotor wash: shove zombies out from under the chopper and throw dust across the floor. */
-  private blow(dt: number, wash: number): void {
+  /** The body's footprint circles on the ground, in world px, for the current position and heading. */
+  private footprint(): Circle[] {
+    const cos = Math.cos(this.heading);
+    const sin = Math.sin(this.heading);
+    return RUN.footprint.map((c) => ({
+      x: this.x + cos * c.along * RUN.scale,
+      y: this.y + sin * c.along * RUN.scale,
+      r: c.radius * RUN.scale,
+    }));
+  }
+
+  /**
+   * Descending: shove zombies straight out from the body's tail-to-nose line, harder the lower it
+   * gets, so the ground under the whole body is clear by touchdown. Returns the wash strength, 0 to 1.
+   */
+  private descentWash(dt: number): number {
+    const strength = (1 - this.altitude / RUN.cruiseAltitude) ** 2;
+    const reach = RUN.descentReach;
+    const cos = Math.cos(this.heading);
+    const sin = Math.sin(this.heading);
+    const along = RUN.footprint.map((c) => c.along * RUN.scale);
+    const tail = Math.min(...along);
+    const nose = Math.max(...along);
+    const xs = [this.x + cos * tail, this.x + cos * nose];
+    const ys = [this.y + sin * tail, this.y + sin * nose];
+    this.world.horde.hash.queryBox(
+      Math.min(...xs) - reach,
+      Math.min(...ys) - reach,
+      Math.max(...xs) + reach,
+      Math.max(...ys) + reach,
+      (z) => {
+        if (z.dead) return;
+        // Nearest point on the body's line, then straight out from it.
+        const t = (z.x - this.x) * cos + (z.y - this.y) * sin;
+        const at = Math.min(nose, Math.max(tail, t));
+        let dx = z.x - (this.x + cos * at);
+        let dy = z.y - (this.y + sin * at);
+        const d = Math.hypot(dx, dy);
+        if (d >= reach) return;
+        if (d > 0.001) {
+          dx /= d;
+          dy /= d;
+        } else {
+          dx = -sin;
+          dy = cos;
+        }
+        const push = RUN.descentPush * strength * (1 - d / reach);
+        z.push(dx, dy, push * KNOCKBACK_DRAG * dt);
+      },
+    );
+    return strength;
+  }
+
+  /**
+   * Touchdown: anything still under the body is crushed (gore stamped into the floor, counted as a
+   * kill), then the footprint becomes solid so the horde piles up around it until lift-off.
+   */
+  private touchdown(): void {
+    const { horde, fx, camera, audio } = this.world;
+    const circles = this.footprint();
+    const crushed = new Set<Zombie>();
+    for (const c of circles) {
+      const reach = c.r + MAX_ZOMBIE_RADIUS;
+      horde.hash.queryBox(
+        c.x - reach,
+        c.y - reach,
+        c.x + reach,
+        c.y + reach,
+        (z) => {
+          if (z.dead) return;
+          const r = c.r + z.def.radius * RUN.squishOverlap;
+          if ((z.x - c.x) ** 2 + (z.y - c.y) ** 2 < r * r) crushed.add(z);
+        },
+      );
+    }
+    for (const z of crushed) {
+      // Flattened where it stood: a star of streaks and a spray out from under the skids.
+      z.kx = 0;
+      z.ky = 0;
+      z.drop();
+      for (let i = 0; i < SQUISH_SPLATS; i++) {
+        const a = (i / SQUISH_SPLATS) * TWO_PI + rand(-0.4, 0.4);
+        horde.splat(z.x, z.y, Math.cos(a), Math.sin(a));
+      }
+      const a = rand(0, TWO_PI);
+      fx.bloodBurst(
+        z.x,
+        z.y,
+        Math.cos(a),
+        Math.sin(a),
+        SQUISH_SPRAY,
+        BLOOD_SPRAY,
+      );
+      fx.bloodBurst(
+        z.x,
+        z.y,
+        -Math.cos(a),
+        -Math.sin(a),
+        SQUISH_SPRAY,
+        BLOOD_SPRAY,
+      );
+      horde.kill(z);
+    }
+    for (const c of circles) this.keepOut.push(horde.addZone(c.x, c.y, c.r));
+    audio.play("explosion", {
+      pitch: 0.4,
+      volume: crushed.size > 0 ? 0.6 : 0.35,
+    });
+    if (crushed.size > 0)
+      audio.play("zombieTear", { pitch: rand(0.7, 0.85), volume: 0.9 });
+    camera.addTrauma(crushed.size > 0 ? SQUISH_TRAUMA : LAND_TRAUMA);
+  }
+
+  private releaseKeepOut(): void {
+    for (const zone of this.keepOut) this.world.horde.removeZone(zone);
+    this.keepOut.length = 0;
+  }
+
+  private drawDebug(): void {
+    this.debug.clear();
+    if (!aiDebug.enabled) return;
+    for (const c of this.footprint())
+      this.debug.circle(c.x, c.y, c.r).stroke({ color: 0xff3df2, width: 2 });
+  }
+
+  /**
+   * Near the ground, the rotor wash nudges zombies out from under the rotor. Returns the wash
+   * strength, 0 to 1, which fades in below WASH_ALTITUDE.
+   */
+  private blow(dt: number): number {
+    const wash = Math.max(0, 1 - this.altitude / WASH_ALTITUDE);
+    if (wash <= 0) return 0;
     const r = RUN.washRadius;
     const { x, y } = this;
-    this.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
+    this.world.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
       if (z.dead) return;
       const dx = z.x - x;
       const dy = z.y - y;
@@ -217,6 +392,11 @@ export class Chopper {
       const push = RUN.washPush * (1 - d / r) * wash;
       z.push(dx / d, dy / d, push * KNOCKBACK_DRAG * dt);
     });
+    return wash;
+  }
+
+  /** Dust thrown across the floor in proportion to the wash. */
+  private kickDust(dt: number, wash: number): void {
     this.dustDebt += RUN.washDust * wash * dt;
     while (this.dustDebt >= 1) {
       this.dustDebt -= 1;

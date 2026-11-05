@@ -52,7 +52,7 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 - P: drop the next power-up orb in front of you, cycling through `POWERUPS`, to try any of them.
 - Backtick: tuning panel. Edits apply instantly; "Copy ... as source" puts the table on the clipboard in the
   shape of its `src/config/*.ts` file, ready to paste over the original.
-- X (dev server only): jump the countdown to 10 seconds left, to try the chopper.
+- X (dev server only): jump the countdown to 10 seconds left; press again to skip the chopper's flight in, straight to its descent onto the pad.
 - V: AI debug overlay (wanderers tinted blue, aggro radius and gunshot noise rings, wander/chase counts in the HUD)
 
 ## How it's built

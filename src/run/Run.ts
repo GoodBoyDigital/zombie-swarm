@@ -1,10 +1,9 @@
 import type { Container } from "pixi.js";
-import type { Audio, LoopVoice } from "../audio/Audio";
+import type { LoopVoice } from "../audio/Audio";
 import { ARENA } from "../config/arena";
 import { LEVELS, RUN, type LevelDef } from "../config/run";
-import type { Horde } from "../entities/Horde";
 import type { GameTextures } from "../fx/textures";
-import { Chopper } from "./Chopper";
+import { Chopper, type ChopperWorld } from "./Chopper";
 
 /**
  * countdown: holding out. inbound: the chopper is flying in and setting down. landed: get to the pad.
@@ -34,12 +33,13 @@ export class Run {
   private board = 0;
   private departLeft = 0;
   private rotor: LoopVoice | null = null;
+  /** Dev: send the chopper straight into its descent as soon as it's called. */
+  private skipFlight = false;
 
   constructor(
     readonly levelIndex: number,
     private readonly tex: GameTextures,
-    private readonly horde: Horde,
-    private readonly audio: Audio,
+    private readonly world: ChopperWorld,
     private readonly layers: {
       ground: Container;
       world: Container;
@@ -64,16 +64,24 @@ export class Run {
     return this.phase === "boarded" || this.phase === "over";
   }
 
-  /** Dev shortcut: jump the countdown to `seconds` left. */
-  skipTo(seconds: number): void {
-    if (this.phase === "countdown")
-      this.elapsed = Math.max(this.elapsed, this.level.seconds - seconds);
+  /**
+   * Dev shortcut: the first press jumps the countdown to `seconds` left; the next calls the chopper
+   * and skips its flight in, straight to the descent onto the pad.
+   */
+  devSkip(seconds: number): void {
+    if (this.phase === "countdown" && this.remaining > seconds + 0.5) {
+      this.elapsed = this.level.seconds - seconds;
+      return;
+    }
+    if (this.phase === "countdown") this.elapsed = this.level.seconds;
+    this.skipFlight = true;
+    this.chopper?.skipApproach();
   }
 
   update(dt: number, worldDt: number, player: Target): void {
     if (player.alive && !this.aboard) this.elapsed += dt;
     if (this.phase === "countdown" && this.remaining <= RUN.rotorLeadSeconds)
-      this.rotor ??= this.audio.loopVoice("chopperLoop", 0);
+      this.rotor ??= this.world.audio.loopVoice("chopperLoop", 0);
     if (this.phase === "countdown" && this.remaining <= 0) this.call(player);
     this.chopper?.update(worldDt);
     if (this.phase === "inbound" && this.chopper?.landed) this.phase = "landed";
@@ -103,7 +111,8 @@ export class Run {
     });
     let r = Math.random() * spots.reduce((sum, s) => sum + s.weight, 0);
     const zone = spots.find((s) => (r -= s.weight) < 0) ?? spots[0];
-    this.chopper = new Chopper(this.tex, this.horde, zone, this.layers);
+    this.chopper = new Chopper(this.tex, this.world, zone, this.layers);
+    if (this.skipFlight) this.chopper.skipApproach();
     this.phase = "inbound";
   }
 
@@ -121,7 +130,7 @@ export class Run {
     this.departLeft = RUN.departSeconds;
     chopper.boardProgress = 0;
     chopper.depart();
-    this.audio.play("extracted", { volume: 0.9 });
+    this.world.audio.play("extracted", { volume: 0.9 });
     this.onBoard?.();
   }
 

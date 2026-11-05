@@ -75,6 +75,26 @@ export const RUN = {
   scale: 1.6,
   cruiseAltitude: 120,
   rotorSpin: 26,
+  /**
+   * The body's ground footprint as circles along its tail-to-nose line, in sprite px from the rotor
+   * hub (+ toward the nose), scaled by `scale`. Zombies inside it are squished at touchdown, and it is
+   * a keep-out zone for the horde until lift-off. Press V to see it.
+   */
+  footprint: [
+    { along: 28, radius: 29 },
+    { along: -3, radius: 29 },
+    { along: -47, radius: 14 },
+    { along: -72, radius: 14 },
+    { along: -94, radius: 17 },
+  ],
+  /**
+   * Descent wash: zombies within `descentReach` px of the body's line are shoved straight out from it,
+   * at up to `descentPush` px/s, ramping up as the chopper drops (strongest just before touchdown).
+   */
+  descentPush: 420,
+  descentReach: 120,
+  /** At touchdown a zombie is squished if its centre is inside a footprint circle grown by this share of its own radius. */
+  squishOverlap: 0.5,
   /** Rotor wash while low: zombies inside `washRadius` drift outward at up to `washPush` px/s, fading to 0 at the edge. */
   washRadius: 170,
   washPush: 160,

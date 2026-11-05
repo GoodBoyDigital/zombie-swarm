@@ -26,9 +26,16 @@ const WANDER_TINT_FACTOR = 0.55;
 const LOSING_TINT_FACTOR = 0.35;
 /** Spacing of the points tested along a shot when looking for which part it struck, world px. */
 const PART_RAY_STEP = 1.5;
-/** Share of its walking speed a stunned zombie keeps, and how far it twitches either way, radians. */
+/** Share of its walking speed a stunned or staggered zombie keeps. */
 const STUN_MOVE = 0.1;
+/**
+ * A stunned zombie's shudder: it eases toward a new random lean, up to this far either way in
+ * radians, every TWITCH_PERIOD world seconds, so it shakes the same at any frame rate.
+ */
 const STUN_TWITCH = 0.3;
+const TWITCH_PERIOD = 0.05;
+/** How fast the lean chases its target, per second. */
+const TWITCH_EASE = 40;
 /** Electrocuted: an electric-blue tint flickering between two shades instead of the white hit flash. */
 const SHOCK_TINTS = [0x5aa8ff, 0xa8dcff];
 /** Tumbling: spin drag per second, and how hard the body springs back to upright, per second squared. */
@@ -62,8 +69,14 @@ export class Zombie {
   private wanderTint = 0xffffff;
   private losingTint = 0xffffff;
   private flash = 0;
-  /** Seconds left reeling from a stun: barely walking, twitching on the spot. */
+  /** Seconds left reeling from a stun: barely walking, shuddering on the spot. */
   private stunLeft = 0;
+  /** Seconds left staggering: barely walking, but no shudder. */
+  private staggerLeft = 0;
+  /** The shudder's lean now and the one it's easing toward, radians, and world seconds to the next. */
+  private twitch = 0;
+  private twitchTarget = 0;
+  private twitchLeft = 0;
   /** Seconds left lit up electric blue. */
   private shockLeft = 0;
   /** Tumble angle off the facing, and its spin, from being blown back. */
@@ -97,6 +110,10 @@ export class Zombie {
     this.ky = 0;
     this.flash = 0;
     this.stunLeft = 0;
+    this.staggerLeft = 0;
+    this.twitch = 0;
+    this.twitchTarget = 0;
+    this.twitchLeft = 0;
     this.shockLeft = 0;
     this.tilt = 0;
     this.tiltVel = 0;
@@ -185,9 +202,14 @@ export class Zombie {
     this.sprite.texture = this.flash > 0 ? this.look.flash : this.look.body;
   }
 
-  /** Reel for a moment: it all but stops walking and twitches. A longer stun replaces a shorter one. */
+  /** Reel for a moment: it all but stops walking and shudders. A longer stun replaces a shorter one. */
   stun(seconds: number): void {
     this.stunLeft = Math.max(this.stunLeft, seconds);
+  }
+
+  /** Knocked off its feet for a moment: it all but stops walking, without the stun's shudder. */
+  stagger(seconds: number): void {
+    this.staggerLeft = Math.max(this.staggerLeft, seconds);
   }
 
   /**
@@ -246,9 +268,11 @@ export class Zombie {
       1,
       (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
     );
-    const stunned = this.stunLeft > 0 ? STUN_MOVE : 1;
+    const reeling = this.stunLeft > 0 || this.staggerLeft > 0 ? STUN_MOVE : 1;
     this.stunLeft -= dt;
-    const gait = (1 + shuffle * (pulse / PULSE_MEAN - 1)) * stunned;
+    this.staggerLeft -= dt;
+    this.shudder(dt);
+    const gait = (1 + shuffle * (pulse / PULSE_MEAN - 1)) * reeling;
     this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
     this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
     const decay = Math.exp(-dt * KNOCKBACK_DRAG);
@@ -276,6 +300,19 @@ export class Zombie {
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
   }
 
+  /** Ease the stun's lean toward a fresh random target a few times per stun, back to upright after. */
+  private shudder(dt: number): void {
+    if (this.stunLeft > 0) {
+      this.twitchLeft -= dt;
+      if (this.twitchLeft <= 0) {
+        this.twitchLeft = TWITCH_PERIOD;
+        this.twitchTarget = rand(-STUN_TWITCH, STUN_TWITCH);
+      }
+    } else this.twitchTarget = 0;
+    this.twitch +=
+      (this.twitchTarget - this.twitch) * (1 - Math.exp(-dt * TWITCH_EASE));
+  }
+
   private debugTint(): number {
     if (!aiDebug.enabled) return this.tint;
     if (this.brain.wandering) return this.wanderTint;
@@ -286,12 +323,11 @@ export class Zombie {
   syncSprite(): void {
     const ai = this.def.ai;
     this.sprite.position.set(this.x, this.y);
-    const twitch = this.stunLeft > 0 ? rand(-STUN_TWITCH, STUN_TWITCH) : 0;
     this.sprite.rotation =
       this.facing +
       this.stepSin * (ai.sway ?? ZOMBIE_AI.sway) * this.swayScale +
       this.tilt +
-      twitch;
+      this.twitch;
     const base = (this.def.radius / this.def.art.radius) * this.sizeScale;
     const squash = this.stepSin * (ai.squash ?? ZOMBIE_AI.squash);
     this.sprite.scale.set(base * (1 + squash), base * (1 - squash));

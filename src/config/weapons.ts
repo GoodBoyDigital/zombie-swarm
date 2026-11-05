@@ -151,7 +151,7 @@ export interface SonicParams {
   speed: number;
   /** Share of damage and knockback lost by the end of its range: 0 = none, 1 = all. */
   falloff: number;
-  /** Seconds a shoved zombie reels before it walks again. */
+  /** Seconds a shoved zombie staggers (barely walking, no shudder) before it walks again. */
   stun: number;
   /** Spin given to a shoved zombie as it tumbles back, radians/s. */
   tumble: number;

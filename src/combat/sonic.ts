@@ -91,7 +91,7 @@ class Waves {
       const ux = dx / d;
       const uy = dy / d;
       const f = Math.max(0, 1 - (s.falloff * d) / w.def.range);
-      z.stun(s.stun * f);
+      z.stagger(s.stun * f);
       z.tumble(s.tumble * f * (Math.random() < 0.5 ? -1 : 1));
       ctx.fx.dust(z.x, z.y, ux, uy, DUST_PER_ZOMBIE);
       ctx.applyHit(

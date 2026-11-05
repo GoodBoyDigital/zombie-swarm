@@ -1,11 +1,4 @@
-import {
-  Assets,
-  Container,
-  Graphics,
-  Rectangle,
-  Sprite,
-  Texture,
-} from "pixi.js";
+import { Assets, Container, Graphics, Sprite, type Texture } from "pixi.js";
 import type { LoopVoice } from "../../audio/Audio";
 import type { EffectDef } from "../../config/powerups";
 import { rand } from "../../core/random";
@@ -14,103 +7,108 @@ import type { PowerupContext, PowerupEffect } from "../PowerupContext";
 
 type Def = EffectDef<"decoy">;
 
+/** The blow-up dummy, and the same dummy with the air let out (folded on the pump while arming, left on the floor after). */
+const DUMMY = "/sprites/decoy-dummy.png";
+const FLAT = "/sprites/decoy-dummy-flat.png";
 const ARM_LIGHT = 0xffb23a;
-/** Puck spin, turns per second: idle once on, and the peak of the spin-up while arming. */
+/** Pump spin, turns per second: idle once up, and the peak of the spin-up while arming. */
 const SPIN_IDLE = 0.25;
 const SPIN_ARMING = 3;
 /** Arming light blink rate at the start and the end of arming, Hz. */
 const BLINK_FROM = 3;
 const BLINK_TO = 16;
-/** The puck lands with a little pop: starting scale and seconds to settle. */
+/** The pump lands with a little pop: starting scale and seconds to settle. */
 const DROP_SCALE = 1.6;
 const DROP_SECONDS = 0.18;
-/** Rings drawn in toward the puck while it charges, px out where they start. */
+/** Rings drawn in toward the pump while it charges, px out where they start and end. */
 const CHARGE_RINGS = 3;
 const CHARGE_RADIUS = 46;
-/** The puck's radius, px, where the charge rings close in to. */
-const PUCK_RADIUS = 12;
-/** Hologram scanlines: rows across the sprite and the share of each row left dark. */
-const SCAN_ROWS = 10;
-const SCAN_GAP = 0.18;
-const HOLO_ALPHA = 0.85;
-/** The hologram is the player's white silhouette in scanlines, tinted, with his art glowing faintly through. */
-const SILHOUETTE = "/sprites/player-flash.png";
-const DETAIL = "/sprites/player.png";
-const SILHOUETTE_ALPHA = 0.95;
-const DETAIL_ALPHA = 0.6;
-/** Ink outline: the silhouette again, dark and this much bigger, behind the scanlines. */
-const OUTLINE_SCALE = 1.14;
-const OUTLINE_ALPHA = 0.85;
-const INK = 0x151a15;
-/** Gentle breathing pulse on the hologram's size, Hz and share. */
-const BOB_HZ = 1.6;
-const BOB = 0.05;
-/** A touch bigger than the player, so it reads over the pile. */
-const HOLO_SCALE = 1.3;
-/** Seconds between glitches (a row jumping sideways), and how far it jumps, px. */
-const GLITCH_MIN = 0.15;
-const GLITCH_MAX = 0.6;
-const GLITCH_SHIFT = 3;
-/** The hologram turns to face the nearest zombie within this, world px, rechecked this often. */
-const FACE_RADIUS = 260;
-const FACE_INTERVAL = 0.25;
-const FACE_RATE = 5;
-/** Pulsing ring along the keep-out edge, and the glow inside it, drawn over the pile. */
+const PUMP_RADIUS = 12;
+/** The folded dummy on the pump: its size, and how hard it shudders by the end of arming. */
+const FOLDED_SCALE = 0.55;
+const FOLDED_SHAKE = 0.12;
+/** Inflating: the flat size it starts from, and the squash-and-stretch overshoot as it pops full. */
+const INFLATE_FROM = 0.25;
+const INFLATE_STRETCH = 0.35;
+/** Tube-man sway while up: lean (radians) and its rate, squash-stretch breathing and its rate. */
+const LEAN = 0.14;
+const LEAN_HZ = 0.55;
+const BREATHE = 0.04;
+const BREATHE_HZ = 1.3;
+/** Jiggle spring: stiffness, damping, kick from each call going out, and from bumps (per zombie, capped per frame). */
+const JIGGLE_STIFFNESS = 220;
+const JIGGLE_DAMPING = 9;
+const JIGGLE_CALL = 2.2;
+const JIGGLE_BUMP = 0.12;
+const JIGGLE_BUMP_MAX = 0.5;
+/** Squeaks when bumped: seconds between them at the least, and the chance one plays when it can. */
+const SQUEAK_GAP = 0.7;
+const SQUEAK_CHANCE = 0.35;
+/** Deflating: how far it shrinks, how hard it crumples, its droop, and how far the keep-out closes in with it. */
+const SAG_SHRINK = 0.4;
+const CRUMPLE = 0.18;
+const DROOP = 0.35;
+const SAG_KEEP_OUT = 0.45;
+/** The deflated dummy stamped on the floor. */
+const FLAT_TINT = 0xd8d8d8;
+/** Keep-out edge: the pulsing ring and the glow inside it, drawn over the pile. */
 const GLOW_SHARE = 0.7;
-/** Spring-up: peak overshoot of the hologram's size, how high it hops (px), and the puck's squash. */
-const SPRING_OVERSHOOT = 1.6;
-const SPRING_HOP = 14;
-const SPRING_SQUASH = 0.25;
-/** Flash disc thrown out by the spring-up, px across at its widest. */
+const RING_COLOR = 0xffe14a;
+/** Flash disc thrown out as it inflates, px across at its widest. */
 const BURST_RADIUS = 70;
-/** Call fronts: trailing bands behind the bright edge, their spacing px, and the edge's colour. */
+/** Call fronts: trailing bands behind the bright edge, their spacing px, and the colours. */
 const FRONT_BANDS = 4;
 const FRONT_BAND_GAP = 14;
+const FRONT_COLOR = 0x5ff2ff;
 const FRONT_EDGE = 0xe8ffff;
-const HUM_VOLUME = 0.35;
-/** The dead puck left on the floor. */
-const DEAD_TINT = 0x6a6f6a;
+const HUM_VOLUME = 0.25;
 
 interface DecoyState {
   x: number;
   y: number;
-  /** Seconds of arming left; it springs up at 0. */
+  /** Seconds of arming left; it inflates at 0. */
   armLeft: number;
-  /** Set on the horde once it springs up; zombies hunt it once a call front has reached them. */
+  /** Set on the horde while it's up; zombies hunt it once a call front has reached them. */
   lure: Lure;
   on: boolean;
-  /** Seconds since it sprang up. */
+  /** Air going out: the horde has lost it and it's sagging flat; the keep-out closes in as it goes. */
+  deflating: boolean;
+  /** Seconds since it last inflated. */
   onFor: number;
-  /** Keeps zombies off the puck from the spring-up on. */
+  /** Keeps zombies off it from inflating until it's flat. */
   zone: ExclusionZone | null;
-  /** Floor layer: puck and its light. */
+  /** Floor layer: pump, its light and the folded dummy while arming. */
   floor: Container;
   puck: Sprite;
   light: Graphics;
-  /** World layer over the horde, so the swarm piling in never hides it: charge rings, call fronts, keep-out edge and the hologram. */
+  folded: Sprite;
+  /** World layer over the horde, so the swarm piling in never hides it: rings, fronts and the dummy. */
   top: Container;
   halo: Graphics;
-  holo: Container;
-  rows: Sprite[];
-  /** Each row's resting x, so a glitched row can jump back. */
-  rowX: number[];
+  dummy: Sprite;
+  /** Which way it faces: the player's aim when it went down. */
+  facing: number;
+  /** Squash-stretch spring, value and velocity. */
+  jiggle: number;
+  jiggleV: number;
+  /** Zombies pressed on the keep-out edge this frame, counted by the zone. */
+  bumps: number;
+  squeakIn: number;
   /** Radii of the call fronts still travelling out, world px. */
   fronts: number[];
   pulseIn: number;
-  glitchIn: number;
-  glitchRow: number;
-  faceIn: number;
-  faceTo: number;
   hum: LoopVoice | null;
 }
 
 /**
- * Decoy: a projector puck lands where the orb was. It charges for a moment (spinning up, blinking,
- * beeping), then springs up a hologram of the player and sends out a call: a wavefront travelling
- * out to `lureRadius`. Each zombie the front reaches drops the player and hunts the decoy, and
- * keeps at it until the decoy dies. It calls again every `pulseSeconds`, catching anyone new. Nothing
- * gets within `keepOutRadius` of it; the crowd piles up round that edge. A repeat pickup tops up
- * the running decoy rather than placing a second.
+ * Decoy: a pump lands where the orb was with a folded blow-up dummy of the player on it. It charges
+ * for a moment (spinning up, blinking, beeping, hissing), then the dummy inflates with a fwoomp and
+ * sends out a call: a wavefront travelling out to `lureRadius`. Each zombie the front reaches drops
+ * the player and hunts the dummy until it deflates. It calls again every `pulseSeconds`, catching
+ * anyone new, and wobbles about like a tube man, jiggling on every call and every shove. Nothing
+ * gets within `keepOutRadius` of it. For its last `deflateSeconds` the air goes out: the zombies
+ * lose it, it sags flat, and the empty dummy stays on the floor. A repeat pickup tops it up,
+ * re-inflating it if it had started to go.
  */
 export const decoy: PowerupEffect<Def, DecoyState> = {
   start(ctx, def, active) {
@@ -122,43 +120,31 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       anchor: 0.5,
     });
     const light = new Graphics().circle(0, 0, 3.5).fill(0xffffff);
-    floor.addChild(puck, light);
+    const facing = ctx.player.aim;
+    const folded = new Sprite({
+      texture: Assets.get<Texture>(FLAT),
+      anchor: 0.5,
+      rotation: facing,
+    });
+    folded.scale.set(FOLDED_SCALE);
+    floor.addChild(puck, folded, light);
     ctx.ground.addChild(floor);
 
-    const top = new Container({ label: "decoyHologram" });
+    const top = new Container({ label: "decoyDummy" });
     top.position.set(x, y);
     const halo = new Graphics();
     halo.blendMode = "add";
-    const holo = new Container();
-    holo.visible = false;
-    top.addChild(halo, holo);
-    const anchor = ctx.player.body.anchor;
-    const silhouette = Assets.get<Texture>(SILHOUETTE);
-    const outline = new Sprite({
-      texture: silhouette,
-      anchor,
-      tint: INK,
-      alpha: OUTLINE_ALPHA,
+    const dummy = new Sprite({
+      texture: Assets.get<Texture>(DUMMY),
+      anchor: 0.5,
+      rotation: facing,
     });
-    outline.scale.set(OUTLINE_SCALE);
-    holo.addChild(outline);
-    const rows = scanRows(silhouette, anchor).map(({ texture, x, y }) => {
-      const row = new Sprite({ texture, tint: def.holoColor, x, y });
-      row.alpha = SILHOUETTE_ALPHA;
-      holo.addChild(row);
-      return row;
-    });
-    const detail = new Sprite({
-      texture: Assets.get<Texture>(DETAIL),
-      anchor,
-      tint: def.holoColor,
-      alpha: DETAIL_ALPHA,
-    });
-    detail.blendMode = "add";
-    holo.addChild(detail);
+    dummy.visible = false;
+    top.addChild(halo, dummy);
     ctx.world.addChild(top);
 
     ctx.audio.play("decoyArm", { volume: 0.7 });
+    ctx.audio.play("decoyPump", { volume: 0.5 });
     ctx.fx.sparkle(x, y, ARM_LIGHT, 6);
     active.state = {
       x,
@@ -166,22 +152,23 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
       armLeft: def.armSeconds,
       lure: { x, y, radius: def.keepOutRadius },
       on: false,
+      deflating: false,
       onFor: 0,
       zone: null,
       floor,
       puck,
       light,
+      folded,
       top,
       halo,
-      holo,
-      rows,
-      rowX: rows.map((r) => r.x),
+      dummy,
+      facing,
+      jiggle: 0,
+      jiggleV: 0,
+      bumps: 0,
+      squeakIn: 0,
       fronts: [],
       pulseIn: 0,
-      glitchIn: GLITCH_MAX,
-      glitchRow: -1,
-      faceIn: 0,
-      faceTo: ctx.player.aim,
       hum: null,
     };
     active.windup = 1;
@@ -192,78 +179,97 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
     st.lure.radius = def.keepOutRadius;
     if (!st.on) {
       st.armLeft -= dt;
-      // The active time only starts counting once it's on.
+      // The active time only starts counting once it's up.
       active.left = def.seconds;
       active.windup =
         def.armSeconds > 0 ? Math.max(0, st.armLeft) / def.armSeconds : 0;
-      if (st.armLeft <= 0) switchOn(ctx, def, st);
+      if (st.armLeft <= 0) inflate(ctx, def, st);
     }
+    // A repeat pickup while the air is going out blows it back up.
+    const going = st.on && active.left <= def.deflateSeconds;
+    if (going && !st.deflating) deflate(ctx, st);
+    else if (!going && st.deflating) inflate(ctx, def, st);
     if (st.on) st.onFor += dt;
-    drawPuck(def, dt, active.age, st);
+
+    drawPump(def, dt, active.age, st);
     st.halo.clear();
-    if (st.on) {
-      call(ctx, def, dt, active.age, active.left, st);
-      updateHologram(ctx, def, dt, active.left, st);
-    } else drawCharge(def, st);
+    if (!st.on) drawCharge(def, st);
+    else if (st.deflating) sag(def, active.left, st);
+    else {
+      call(ctx, def, dt, active.age, st);
+      wobble(ctx, def, dt, st);
+    }
   },
 
-  end(ctx, def, active) {
+  end(ctx, _def, active) {
     const st = active.state;
-    if (ctx.horde.lure === st.lure) ctx.horde.lure = null;
+    // Cut short (death, boarding, restart): let the air out on the spot.
+    if (!st.deflating) deflate(ctx, st);
     if (st.zone) ctx.horde.removeZone(st.zone);
     st.hum?.stop();
-    ctx.fx.sparkle(st.x, st.y, def.holoColor, 16);
-    ctx.fx.sparkle(st.x, st.y, ARM_LIGHT, 8);
-    ctx.audio.play("decoyOff", { volume: 0.8 });
-    // The burnt-out puck stays on the floor with the rest of the mess.
-    ctx.floor.stampTexture(st.puck.texture, st.x, st.y, {
-      rotation: st.puck.rotation,
-      tint: DEAD_TINT,
+    ctx.floor.stampTexture(Assets.get<Texture>(FLAT), st.x, st.y, {
+      rotation: st.facing,
+      tint: FLAT_TINT,
     });
-    // The slices are this decoy's own textures; the rest are shared atlas frames.
-    for (const row of st.rows) row.texture.destroy();
     st.floor.destroy({ children: true });
     st.top.destroy({ children: true });
   },
 };
 
-/** Spring up: the hologram pops out, the keep-out opens, and the first call goes once it lands. */
-function switchOn(ctx: PowerupContext, def: Def, st: DecoyState): void {
+/** Up it goes: the dummy pops up off the pump, the keep-out opens, and the first call goes once it's full. */
+function inflate(ctx: PowerupContext, def: Def, st: DecoyState): void {
   st.on = true;
-  st.holo.visible = true;
+  st.deflating = false;
+  st.onFor = 0;
+  st.dummy.visible = true;
+  st.dummy.alpha = 1;
+  st.folded.visible = false;
   ctx.horde.lure = st.lure;
   // The player walks through it freely, and isn't sheltered inside it.
-  st.zone = ctx.horde.addZone(st.x, st.y, 0, false);
-  ctx.audio.play("decoyOn", { volume: 0.8 });
-  st.hum = ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
+  st.zone ??= ctx.horde.addZone(st.x, st.y, 0, false);
+  st.zone.onContact = () => st.bumps++;
+  ctx.audio.play("decoyInflate", { volume: 0.9 });
+  st.hum ??= ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
   ctx.fx.sparkle(st.x, st.y, 0xffffff, 14);
-  ctx.fx.sparkle(st.x, st.y, def.holoColor, 10);
   st.pulseIn = def.springSeconds;
+  st.fronts.length = 0;
 }
 
-/** Spin (winding up while arming), the landing pop and the spring-up squash, and the arming light. */
-function drawPuck(def: Def, dt: number, age: number, st: DecoyState): void {
+/** The air goes out: the horde loses it. The keep-out stays until it's flat (see `sag`). */
+function deflate(ctx: PowerupContext, st: DecoyState): void {
+  st.deflating = true;
+  if (ctx.horde.lure === st.lure) ctx.horde.lure = null;
+  st.fronts.length = 0;
+  st.hum?.stop();
+  st.hum = null;
+  ctx.audio.play("decoyDeflate", { volume: 0.9 });
+}
+
+/** Spin (winding up while arming), the landing pop, the arming light and the folded dummy shuddering as pressure builds. */
+function drawPump(def: Def, dt: number, age: number, st: DecoyState): void {
   const arming = armed(def, st);
   const spin = st.on ? SPIN_IDLE : SPIN_ARMING * arming * arming;
   st.puck.rotation += spin * Math.PI * 2 * dt;
   const drop = Math.min(1, age / DROP_SECONDS);
-  const spring = springAt(def, st);
-  const squash = spring < 1 ? SPRING_SQUASH * Math.sin(spring * Math.PI) : 0;
-  st.puck.scale.set(
-    (DROP_SCALE + (1 - DROP_SCALE) * drop * (2 - drop)) * (1 - squash),
-  );
+  st.puck.scale.set(DROP_SCALE + (1 - DROP_SCALE) * drop * (2 - drop));
   const rate = BLINK_FROM + (BLINK_TO - BLINK_FROM) * arming;
-  st.light.tint = st.on ? def.holoColor : ARM_LIGHT;
+  st.light.tint = st.on ? RING_COLOR : ARM_LIGHT;
   st.light.alpha = st.on || (age * rate) % 1 < 0.5 ? 1 : 0.15;
+  if (st.on) return;
+  const shake = FOLDED_SHAKE * arming * arming * Math.sin(age * rate * Math.PI);
+  st.folded.scale.set(
+    FOLDED_SCALE * (1 + shake),
+    FOLDED_SCALE * (1 - shake * 0.6),
+  );
 }
 
-/** Rings drawn in toward the puck while it charges. */
+/** Rings drawn in toward the pump while it charges. */
 function drawCharge(def: Def, st: DecoyState): void {
   const arming = armed(def, st);
   const g = st.halo;
   for (let i = 0; i < CHARGE_RINGS; i++) {
     const t = (arming * 3 + i / CHARGE_RINGS) % 1;
-    const r = CHARGE_RADIUS - (CHARGE_RADIUS - PUCK_RADIUS) * t * t;
+    const r = CHARGE_RADIUS - (CHARGE_RADIUS - PUMP_RADIUS) * t * t;
     g.circle(0, 0, r).stroke({
       width: 2.5,
       color: ARM_LIGHT,
@@ -273,23 +279,20 @@ function drawCharge(def: Def, st: DecoyState): void {
 }
 
 /**
- * Once sprung: open the keep-out, flash the spring-up burst, send out a call front every
- * `pulseSeconds` (each capturing the zombies it sweeps over this frame) and pulse the keep-out edge.
+ * While up: open the keep-out, flash the inflate burst, send out a call front every `pulseSeconds`
+ * (each capturing the zombies it sweeps over this frame) and pulse the keep-out edge.
  */
 function call(
   ctx: PowerupContext,
   def: Def,
   dt: number,
   age: number,
-  left: number,
   st: DecoyState,
 ): void {
   const g = st.halo;
-  const fade = flicker(age, left, def.flickerSeconds);
   const spring = springAt(def, st);
-  if (st.zone) {
-    st.zone.radius = def.keepOutRadius * Math.min(1, easeOutBack(spring));
-  }
+  const edge = def.keepOutRadius * Math.min(1, easeOutBack(spring));
+  if (st.zone) st.zone.radius = edge;
   if (spring < 1) {
     const r = BURST_RADIUS * (1 - (1 - spring) * (1 - spring));
     g.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.35 * (1 - spring) });
@@ -299,6 +302,7 @@ function call(
   if (st.pulseIn <= 0) {
     st.pulseIn = def.pulseSeconds;
     st.fronts.push(0);
+    st.jiggleV += JIGGLE_CALL;
   }
   // Fronts travel on the world clock, so slow-mo slows the sweep with the crowd.
   const step = def.pulseSpeed * dt * ctx.timeScale;
@@ -311,38 +315,104 @@ function call(
       continue;
     }
     st.fronts[i] = to;
-    drawFront(g, def, to, fade);
+    drawFront(g, def, to);
   }
 
   const pulse = 0.5 + 0.5 * Math.sin(age * Math.PI * 2 * 2);
-  const edge = def.keepOutRadius * Math.min(1, easeOutBack(spring));
   g.circle(0, 0, edge * GLOW_SHARE)
-    .fill({ color: def.holoColor, alpha: (0.15 + 0.1 * pulse) * fade })
+    .fill({ color: RING_COLOR, alpha: 0.1 + 0.08 * pulse })
     .circle(0, 0, edge)
     .stroke({
       width: 2.5 + 1.5 * pulse,
-      color: def.holoColor,
-      alpha: (0.5 + 0.3 * pulse) * fade,
+      color: RING_COLOR,
+      alpha: 0.5 + 0.3 * pulse,
     });
 }
 
 /** A call front: a bright leading edge with fainter bands trailing inside it, fading near full reach. */
-function drawFront(g: Graphics, def: Def, r: number, fade: number): void {
+function drawFront(g: Graphics, def: Def, r: number): void {
   const t = r / def.lureRadius;
-  const life = (1 - t * t) * fade;
+  const life = 1 - t * t;
   for (let k = FRONT_BANDS; k >= 1; k--) {
     const br = r - k * FRONT_BAND_GAP;
     if (br <= 0) continue;
     g.circle(0, 0, br).stroke({
       width: FRONT_BAND_GAP,
-      color: def.holoColor,
+      color: FRONT_COLOR,
       alpha: 0.16 * (1 - k / (FRONT_BANDS + 1)) * life,
     });
   }
   g.circle(0, 0, r)
-    .stroke({ width: 8, color: def.holoColor, alpha: 0.55 * life })
+    .stroke({ width: 8, color: FRONT_COLOR, alpha: 0.55 * life })
     .circle(0, 0, r)
     .stroke({ width: 3, color: FRONT_EDGE, alpha: 0.95 * life });
+}
+
+/**
+ * Inflating, then up: pops from flat to full with a damped squash-and-stretch, then leans and
+ * breathes like a tube man, with the jiggle spring (kicked by calls and bumps) on top.
+ */
+function wobble(
+  ctx: PowerupContext,
+  def: Def,
+  dt: number,
+  st: DecoyState,
+): void {
+  // Bumps from the crowd on the edge: a nudge per zombie, capped, and the odd squeak.
+  st.squeakIn -= dt;
+  if (st.bumps > 0) {
+    st.jiggleV +=
+      Math.min(JIGGLE_BUMP_MAX, st.bumps * JIGGLE_BUMP) * rand(-1, 1);
+    if (st.squeakIn <= 0 && Math.random() < SQUEAK_CHANCE) {
+      st.squeakIn = SQUEAK_GAP;
+      ctx.audio.play("decoySqueak", { volume: 0.45, pitch: rand(0.85, 1.3) });
+    }
+  }
+  st.bumps = 0;
+  st.jiggleV +=
+    (-JIGGLE_STIFFNESS * st.jiggle - JIGGLE_DAMPING * st.jiggleV) * dt;
+  st.jiggle += st.jiggleV * dt;
+
+  const t = st.onFor;
+  const spring = springAt(def, st);
+  // From flat to full: overshoots past full and wobbles in, stretching one way then the other.
+  const grow =
+    spring < 1 ? INFLATE_FROM + (1 - INFLATE_FROM) * easeOutBack(spring) : 1;
+  const stretch =
+    spring < 1
+      ? INFLATE_STRETCH * Math.sin(spring * Math.PI * 3) * (1 - spring)
+      : 0;
+  const breathe = BREATHE * Math.sin(t * BREATHE_HZ * Math.PI * 2);
+  const squash = stretch + breathe + st.jiggle;
+  st.dummy.scale.set(grow * (1 + squash), grow * (1 - squash));
+  st.dummy.rotation =
+    st.facing +
+    LEAN * Math.sin(t * LEAN_HZ * Math.PI * 2) * Math.min(1, spring * 2) +
+    st.jiggle * 0.6;
+}
+
+/**
+ * Air going out over `deflateSeconds`: the flat dummy spreads out underneath while the inflated one
+ * shrinks, crumples and droops on top and fades away, and the keep-out closes in after it.
+ */
+function sag(def: Def, left: number, st: DecoyState): void {
+  const t =
+    def.deflateSeconds > 0 ? 1 - Math.max(0, left) / def.deflateSeconds : 1;
+  const shrink = 1 - SAG_SHRINK * t * t;
+  const crumple = CRUMPLE * Math.sin(t * Math.PI * 9) * (1 - t);
+  st.dummy.scale.set(shrink * (1 + crumple), shrink * (1 - crumple));
+  st.dummy.rotation = st.facing + DROOP * Math.sin(t * Math.PI * 4) * t;
+  st.dummy.alpha = t < 0.6 ? 1 : Math.max(0, (1 - t) / 0.4);
+  st.folded.visible = true;
+  st.folded.rotation = st.facing;
+  st.folded.scale.set(FOLDED_SCALE + (1 - FOLDED_SCALE) * Math.min(1, t * 1.5));
+  const edge = def.keepOutRadius * (1 - SAG_KEEP_OUT * t);
+  if (st.zone) st.zone.radius = edge;
+  st.halo.circle(0, 0, edge).stroke({
+    width: 2.5,
+    color: RING_COLOR,
+    alpha: 0.6 * (1 - t),
+  });
 }
 
 /** Share of arming done, 0 to 1. */
@@ -350,7 +420,7 @@ function armed(def: Def, st: DecoyState): number {
   return def.armSeconds > 0 ? 1 - Math.max(0, st.armLeft) / def.armSeconds : 1;
 }
 
-/** Share of the spring-up done, 0 to 1; 0 while still arming. */
+/** Share of the inflate done, 0 to 1; 0 while still arming. */
 function springAt(def: Def, st: DecoyState): number {
   if (!st.on) return 0;
   return def.springSeconds > 0 ? Math.min(1, st.onFor / def.springSeconds) : 1;
@@ -361,128 +431,4 @@ function easeOutBack(t: number): number {
   const c = 1.7;
   const u = t - 1;
   return 1 + (c + 1) * u * u * u + c * u * u;
-}
-
-/** Boot flicker, scanline glitches, turning to face the nearest zombie, and dying flicker. */
-function updateHologram(
-  ctx: PowerupContext,
-  def: Def,
-  dt: number,
-  left: number,
-  st: DecoyState,
-): void {
-  const holo = st.holo;
-  const onFor = st.onFor;
-  const spring = springAt(def, st);
-  // Springs up: grows past full size and settles, hopping up and landing as it goes.
-  const pop = spring < 1 ? springScale(spring) : 1;
-  const bob =
-    HOLO_SCALE * pop * (1 + BOB * Math.sin(onFor * BOB_HZ * Math.PI * 2));
-  holo.scale.set(bob);
-  holo.y = spring < 1 ? -SPRING_HOP * Math.sin(spring * Math.PI) : 0;
-
-  st.faceIn -= dt;
-  if (st.faceIn <= 0) {
-    st.faceIn = FACE_INTERVAL;
-    st.faceTo = nearestZombieAngle(ctx, st.x, st.y) ?? st.faceTo;
-  }
-  let turn = st.faceTo - holo.rotation;
-  turn = Math.atan2(Math.sin(turn), Math.cos(turn));
-  holo.rotation += turn * Math.min(1, dt * FACE_RATE);
-
-  // A row jumps sideways now and then; more often as it dies.
-  st.glitchIn -= dt;
-  if (st.glitchRow >= 0) st.rows[st.glitchRow].x = st.rowX[st.glitchRow];
-  st.glitchRow = -1;
-  if (st.glitchIn <= 0 && st.rows.length > 0) {
-    const dying = left < def.flickerSeconds;
-    st.glitchIn = rand(GLITCH_MIN, GLITCH_MAX) * (dying ? 0.3 : 1);
-    st.glitchRow = Math.floor(Math.random() * st.rows.length);
-    st.rows[st.glitchRow].x += rand(-GLITCH_SHIFT, GLITCH_SHIFT);
-  }
-  const shimmer = 0.85 + 0.15 * Math.sin(onFor * 37) * Math.sin(onFor * 13);
-  holo.alpha =
-    HOLO_ALPHA *
-    shimmer *
-    (spring < 0.4 ? (Math.random() < 0.5 ? 0.4 : 1) : 1) *
-    flicker(onFor, left, def.flickerSeconds);
-  st.hum?.volume(
-    HUM_VOLUME * (left < def.flickerSeconds ? left / def.flickerSeconds : 1),
-  );
-}
-
-/** 0 up past SPRING_OVERSHOOT, then a damped wobble down to 1. */
-function springScale(t: number): number {
-  const rise = 0.35;
-  if (t < rise) return SPRING_OVERSHOOT * Math.sin(((t / rise) * Math.PI) / 2);
-  const u = (t - rise) / (1 - rise);
-  return (
-    1 + (SPRING_OVERSHOOT - 1) * Math.cos(u * Math.PI * 2.5) * (1 - u) * (1 - u)
-  );
-}
-
-/** Steady until the last `seconds`, then blinking faster and dimmer as time runs out. */
-function flicker(age: number, left: number, seconds: number): number {
-  if (left >= seconds || seconds <= 0) return 1;
-  const t = Math.max(0, left) / seconds;
-  const rate = 5 + 20 * (1 - t);
-  return (age * rate) % 1 < 0.45 + 0.4 * t ? 1 : 0.2;
-}
-
-function nearestZombieAngle(
-  ctx: PowerupContext,
-  x: number,
-  y: number,
-): number | null {
-  let best = FACE_RADIUS * FACE_RADIUS;
-  let angle: number | null = null;
-  ctx.horde.hash.queryBox(
-    x - FACE_RADIUS,
-    y - FACE_RADIUS,
-    x + FACE_RADIUS,
-    y + FACE_RADIUS,
-    (z) => {
-      const dx = z.x - x;
-      const dy = z.y - y;
-      const d2 = dx * dx + dy * dy;
-      if (z.dead || d2 >= best) return;
-      best = d2;
-      angle = Math.atan2(dy, dx);
-    },
-  );
-  return angle;
-}
-
-/**
- * Horizontal slices of a texture with gaps between them, for hologram scanlines, each with its
- * offset from the anchor. Works in the untrimmed space so the slices line up with the
- * original whatever the atlas trimmed. Each slice is a new texture; destroy them with the sprites.
- */
-function scanRows(
-  tex: Texture,
-  anchor: { x: number; y: number },
-): { texture: Texture; x: number; y: number }[] {
-  const { frame, orig } = tex;
-  const trim = tex.trim ?? new Rectangle(0, 0, orig.width, orig.height);
-  const ox = anchor.x * orig.width;
-  const oy = anchor.y * orig.height;
-  const step = orig.height / SCAN_ROWS;
-  const rows: { texture: Texture; x: number; y: number }[] = [];
-  for (let i = 0; i < SCAN_ROWS; i++) {
-    const top = Math.max(i * step, trim.y);
-    const bottom = Math.min((i + 1 - SCAN_GAP) * step, trim.y + trim.height);
-    if (bottom <= top) continue;
-    const slice = new Rectangle(
-      frame.x,
-      frame.y + top - trim.y,
-      frame.width,
-      bottom - top,
-    );
-    rows.push({
-      texture: new Texture({ source: tex.source, frame: slice }),
-      x: trim.x - ox,
-      y: top - oy,
-    });
-  }
-  return rows;
 }

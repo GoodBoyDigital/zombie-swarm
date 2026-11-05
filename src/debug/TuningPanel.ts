@@ -142,6 +142,7 @@ const POWERUP_RANGES: Ranges = {
   pulseSpeed: { min: 50, max: 2000, step: 10 },
   pulseSeconds: { min: 0.2, max: 6, step: 0.1 },
   keepOutRadius: { min: 10, max: 200, step: 1 },
+  deflateSeconds: { min: 0, max: 4, step: 0.1 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

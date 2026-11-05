@@ -122,9 +122,9 @@ export type PowerupDef = PowerupBase &
     | (Timed & { effect: "portal" } & DomeParams)
     | (Timed & {
         effect: "decoy";
-        /** Seconds from pickup until it springs up; `seconds` (how long it runs) starts after. */
+        /** Seconds from pickup until it inflates; `seconds` (how long it's up) starts after. */
         armSeconds: number;
-        /** Seconds the hologram takes to spring up; the first call goes out when it lands. */
+        /** Seconds the dummy takes to inflate; the first call goes out when it's full. */
         springSeconds: number;
         /**
          * Every `pulseSeconds` a call front travels out at `pulseSpeed` px/s to `lureRadius` px.
@@ -135,11 +135,9 @@ export type PowerupDef = PowerupBase &
         pulseSeconds: number;
         /** No zombie gets closer than this, world px; the crowd piles up round the edge. The player walks through. */
         keepOutRadius: number;
-        /** Final seconds in which the hologram glitches to warn it is about to die. */
-        flickerSeconds: number;
-        /** Hologram, lure ring and call rings. */
-        holoColor: number;
-        /** Projector puck on the floor, loaded with the icons by textures.ts. */
+        /** Final seconds of `seconds` in which the air goes out: the zombies lose it and it sags flat. */
+        deflateSeconds: number;
+        /** The pump the dummy inflates from, loaded with the icons by textures.ts. */
         sprite: string;
       })
     | (Instant & {
@@ -319,9 +317,8 @@ export const POWERUPS = {
     lureRadius: 650,
     pulseSpeed: 420,
     pulseSeconds: 2,
-    keepOutRadius: 45,
-    flickerSeconds: 1.5,
-    holoColor: 0x5ff2ff,
+    keepOutRadius: 40,
+    deflateSeconds: 1.6,
     sprite: "/sprites/decoy-puck.png",
     icon: "/sprites/icon-powerup-decoy.png",
     weight: 1,

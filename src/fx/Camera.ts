@@ -53,6 +53,14 @@ export class Camera {
     };
   }
 
+  /** Where a world point sits on screen, ignoring shake. */
+  worldToScreen(x: number, y: number): { x: number; y: number } {
+    return {
+      x: (x - this.x) * this.scale + this.baseX,
+      y: (y - this.y) * this.scale + this.baseY,
+    };
+  }
+
   update(dt: number, targetX: number, targetY: number): void {
     if (CAMERA.viewHeight !== this.fittedViewHeight) this.fit();
     const ease = 1 - Math.exp(-dt * CAMERA.followRate);

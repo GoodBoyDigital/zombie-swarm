@@ -69,13 +69,14 @@ export class Zombie {
 
   constructor(private readonly tex: GameTextures) {}
 
-  spawn(def: ZombieDef, gate: Gate): void {
+  /** `healthScale` is the level's toughness on top of the type's health. */
+  spawn(def: ZombieDef, gate: Gate, healthScale: number): void {
     this.def = def;
     this.art = this.tex.zombies[def.art.key];
     this.gate = gate;
     this.entered = false;
     this.dead = false;
-    this.health = def.health;
+    this.health = def.health * healthScale;
     this.speed = def.speed + rand(-def.speedVariance, def.speedVariance);
     this.kx = 0;
     this.ky = 0;

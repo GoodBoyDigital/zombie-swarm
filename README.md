@@ -42,7 +42,9 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 - Arrow keys or WASD: move
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
-- R: reload, or restart once you are down
+- R: reload, or retry the level from the results card; N: next level after extracting
+- Hold out until the countdown hits zero, then get to the chopper's landing pad (follow the H arrow) and
+  stand on it to board. Extracting unlocks the next level; dying retries the same one. Coins bank either way.
 - 1-8: swap weapon (pistol, rifle, shotgun, railgun, minigun, magnum, uzi, rocket launcher); R: reload early
 - F1-F3: music theme, F4: music off
 - Walk over an orb to pick it up: blue is a weapon, pink helps you out, red hurts everything around you.
@@ -50,6 +52,7 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 - P: drop the next power-up orb in front of you, cycling through `POWERUPS`, to try any of them.
 - Backtick: tuning panel. Edits apply instantly; "Copy ... as source" puts the table on the clipboard in the
   shape of its `src/config/*.ts` file, ready to paste over the original.
+- X (dev server only): jump the countdown to 10 seconds left; press again to skip the chopper's flight in, straight to its descent onto the pad.
 - V: AI debug overlay (wanderers tinted blue, aggro radius and gunshot noise rings, wander/chase counts in the HUD)
 
 ## How it's built
@@ -74,7 +77,8 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 | Drops     | `src/entities/Drops.ts`                             | Power-up orbs in their category colour with the icon on top. Weighted pick over `POWERUPS`; per-kill chances, per-action caps and orb looks in `src/config/drops.ts`. Orbs only come from kills.                                                                                                                                                             |
 | Power-ups | `src/powerups/`                                     | `Powerups.ts` runs each pickup through its handler in `registry.ts` (`POWERUP_EFFECTS`, one file per effect in `effects/`). `PowerupContext.ts` is what handlers get. Defs and category colours in `src/config/powerups.ts`.                                                                                                                                 |
 | Reticle   | `src/ui/Reticle.ts`                                 | Screen-space crosshair with the reload ring. Size is `RETICLE_SIZE`.                                                                                                                                                                                                                                                                                         |
-| Survival  | `src/ui/HealthBar.ts`, `Vignette.ts`, `GameOver.ts` | Health bar, hurt/low-health screen glow, end card. Health and contact damage numbers in `src/config/player.ts`; restart rebuilds the whole `Game` from `main.ts`.                                                                                                                                                                                            |
+| Survival  | `src/ui/HealthBar.ts`, `Vignette.ts`                | Health bar and hurt/low-health screen glow. Health and contact damage numbers in `src/config/player.ts`.                                                                                                                                                                                                                                                     |
+| Run       | `src/run/`, `src/ui/RunHud.ts`, `Results.ts`        | Extraction run: countdown on real time, then the chopper (`Chopper.ts`) lands far from the player; stand on the pad to board. `LEVELS` and `RUN` in `src/config/run.ts`. Results card banks coins and unlocks the next level in the save (`src/meta/save.ts`); restart rebuilds the whole `Game` from `main.ts` on a level.                                  |
 | Tuning    | `src/debug/TuningPanel.ts`                          | Tweakpane overlay bound to the live config records. Register a table in `setupTuning`.                                                                                                                                                                                                                                                                       |
 | Effects   | `src/fx/Effects.ts`                                 | Pooled muzzle flash, tracer, blood sparks.                                                                                                                                                                                                                                                                                                                   |
 | Camera    | `src/fx/Camera.ts`                                  | Eased follow, clamped `CAMERA.edgeReveal` past the arena edge so a strip of wall shows. Zoom and rates in `src/config/camera.ts`.                                                                                                                                                                                                                            |

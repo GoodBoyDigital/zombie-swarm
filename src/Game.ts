@@ -4,6 +4,7 @@ import { ARENA } from "./config/arena";
 import { GRADES } from "./config/grade";
 import { PLAYER } from "./config/player";
 import { POWERUP_DEFS, type PowerupDef } from "./config/powerups";
+import { LEVELS } from "./config/run";
 import { WEAPON_IDS, type WeaponId } from "./config/weapons";
 import { Input } from "./core/Input";
 import { pick, rand } from "./core/random";
@@ -20,10 +21,13 @@ import { ColorGrade } from "./fx/ColorGrade";
 import { Effects } from "./fx/Effects";
 import { ColorMask } from "./fx/ColorMask";
 import type { GameTextures } from "./fx/textures";
-import { GameOver } from "./ui/GameOver";
+import { recordRun } from "./meta/save";
+import { Run } from "./run/Run";
 import { HealthBar } from "./ui/HealthBar";
 import { PowerupPills } from "./ui/PowerupPills";
+import { Results } from "./ui/Results";
 import { Reticle } from "./ui/Reticle";
+import { RunHud } from "./ui/RunHud";
 import { Vignette } from "./ui/Vignette";
 import { UI_FONT } from "./ui/font";
 import { PowerupContext } from "./powerups/PowerupContext";
@@ -51,6 +55,8 @@ const HEALTH_BAR_WIDTH = 200;
 const PILLS_GAP = 32;
 /** Where the P key drops a test orb, ahead of the player along his aim. */
 const TEST_DROP_DISTANCE = 90;
+/** Dev-only X key: jump the countdown to this many seconds left; press again to skip to the chopper's descent. */
+const SKIP_TO_SECONDS = 10;
 
 /** Keys typed into the tuning panel's fields must not reach the game. */
 export const isTyping = (e: KeyboardEvent): boolean =>
@@ -85,12 +91,12 @@ export class Game {
   private readonly healthBar = new HealthBar();
   private readonly pills: PowerupPills;
   private readonly vignette: Vignette;
-  private readonly gameOver: GameOver;
+  private readonly results: Results;
   private readonly reticle: Reticle;
+  private readonly run: Run;
+  private readonly runHud: RunHud;
   private hudTimer = 0;
   private groanTimer = 0;
-  /** Seconds survived; stops at death. */
-  private elapsed = 0;
   private readonly tick: (ticker: { deltaMS: number }) => void;
   private readonly endRender = (): void => profiler.endRender();
   private readonly onKeyDown: (e: KeyboardEvent) => void;
@@ -99,7 +105,9 @@ export class Game {
     private readonly app: Application,
     private readonly tex: GameTextures,
     private readonly audio: Audio,
-    private readonly onRestart: () => void,
+    level: number,
+    /** Builds a fresh Game on the given LEVELS index. */
+    private readonly onRestart: (level: number) => void,
   ) {
     this.input = new Input(app);
     this.grade = new ColorGrade(app.screen);
@@ -107,10 +115,10 @@ export class Game {
     this.colorMask = new ColorMask(app.renderer, app.screen);
     this.camera = new Camera(app, this.world);
     this.arena = new Arena(tex);
-    this.floor = new FloorCanvas(app.renderer, tex);
+    this.floor = new FloorCanvas(app.renderer, tex, LEVELS[level].floor);
     this.player = new Player(tex, ARENA.width / 2, ARENA.height / 2);
     this.camera.snapTo(this.player.x, this.player.y);
-    this.horde = new Horde(tex, this.arena, this.floor);
+    this.horde = new Horde(tex, this.arena, this.floor, LEVELS[level]);
     this.fx = new Effects(tex);
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
@@ -153,6 +161,19 @@ export class Game {
         this.grade,
       ),
     );
+    const chopperWorld = {
+      horde: this.horde,
+      fx: this.fx,
+      camera: this.camera,
+      audio,
+    };
+    this.run = new Run(level, tex, chopperWorld, {
+      ground: this.powerupGround,
+      world: this.powerupWorld,
+      sky: this.powerupSky,
+    });
+    this.run.onBoard = () => this.board();
+    this.run.onExtracted = () => this.finish(true);
     this.audio.duckMusic(1);
     this.onKeyDown = (e) => this.hotkey(e);
     window.addEventListener("keydown", this.onKeyDown);
@@ -206,7 +227,12 @@ export class Game {
       HUD_TOP + HEALTH_BAR_HEIGHT / 2 + 1,
     );
     this.vignette = new Vignette(app);
-    this.gameOver = new GameOver(app, onRestart);
+    this.results = new Results(
+      app,
+      () => onRestart(level),
+      () => onRestart(level + 1),
+    );
+    this.runHud = new RunHud(app);
     this.reticle = new Reticle(this.input);
     app.stage.addChild(
       this.grade.view,
@@ -215,7 +241,8 @@ export class Game {
       this.healthBar.view,
       this.pills.view,
       this.hud,
-      this.gameOver.view,
+      this.runHud.view,
+      this.results.view,
       this.reticle.view,
     );
 
@@ -231,6 +258,7 @@ export class Game {
     this.app.ticker.remove(this.endRender);
     window.removeEventListener("keydown", this.onKeyDown);
     this.powerups.endAll();
+    this.run.destroy();
     this.input.destroy();
     this.floor.destroy();
     this.grade.destroy();
@@ -241,7 +269,8 @@ export class Game {
       this.healthBar.view,
       this.pills.view,
       this.hud,
-      this.gameOver.view,
+      this.runHud.view,
+      this.results.view,
       this.reticle.view,
     ])
       child.destroy({ children: true });
@@ -254,10 +283,14 @@ export class Game {
 
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
+    const level = this.run.levelIndex;
     if (e.code === "KeyR") {
-      if (this.player.alive) this.weapon.reload();
-      else this.onRestart();
+      if (this.results.visible) this.onRestart(level);
+      else if (this.player.alive && !this.run.aboard) this.weapon.reload();
     }
+    if (e.code === "KeyN" && this.results.offersNext) this.onRestart(level + 1);
+    if (e.code === "KeyX" && import.meta.env.DEV)
+      this.run.devSkip(SKIP_TO_SECONDS);
     if (e.code === "KeyV") aiDebug.enabled = !aiDebug.enabled;
     if (e.code === "KeyP")
       this.dropOrb(POWERUP_DEFS[this.testDrop++ % POWERUP_DEFS.length]);
@@ -301,14 +334,15 @@ export class Game {
     this.weapon.reloadScale = mods.reload;
     this.weapon.shotPower = mods.shotPower;
     const p = this.player;
-    if (p.alive) {
-      this.elapsed += dt;
-      p.update(playerDt, this.input, this.camera, this.arena);
-    }
+    // Aboard the chopper the player is out of the fight: no moving, shooting, pickups or bites.
+    const playing = p.alive && !this.run.aboard;
+    if (playing) p.update(playerDt, this.input, this.camera, this.arena);
+    this.run.update(dt, worldDt, p);
+    this.horde.progress = this.run.progress;
     profiler.lap("player");
     this.horde.update(worldDt, p.x, p.y, p.radius);
     profiler.lap("horde");
-    if (p.alive) {
+    if (playing) {
       this.weapon.update(playerDt, this.input.consumeFire());
       this.weapon.updateShots(worldDt);
       profiler.lap("weapon");
@@ -337,6 +371,7 @@ export class Game {
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.pills.update(this.powerups.active);
     this.reticle.update(dt, this.weapon);
+    this.runHud.update(dt, this.run, this.camera);
     this.groan(worldDt);
     profiler.lap("misc");
     profiler.endFrame();
@@ -383,7 +418,7 @@ export class Game {
     if (!p.alive) this.die();
   }
 
-  /** The player goes down: body on the floor, the horde loses interest, music ducks, end card up. */
+  /** The player goes down: body on the floor, the horde loses interest, end card up. */
   private die(): void {
     const p = this.player;
     this.floor.stampTexture(this.tex.playerCorpse, p.x, p.y, {
@@ -392,11 +427,34 @@ export class Game {
     p.view.visible = false;
     this.powerups.endAll();
     this.horde.calm();
+    this.finish(false);
+  }
+
+  /** The player made it onto the pad: he's aboard, the horde forgets him while the chopper lifts off. */
+  private board(): void {
+    this.player.view.visible = false;
+    this.powerups.endAll();
+    this.horde.calm();
+  }
+
+  /** The run is over either way: bank the coins, record progress, show the card. */
+  private finish(extracted: boolean): void {
+    const run = this.run;
+    const coins = this.loot.counters.coins;
+    const save = recordRun(
+      { level: run.levelIndex, extracted, seconds: run.elapsed, coins },
+      LEVELS.length,
+    );
     this.audio.duckMusic(DEATH_MUSIC_DUCK);
-    this.gameOver.show({
-      seconds: this.elapsed,
+    this.results.show({
+      extracted,
+      level: run.level.name,
+      seconds: run.elapsed,
       kills: this.horde.kills,
-      coins: this.loot.counters.coins,
+      coins,
+      bankTotal: save.coins,
+      bestSeconds: save.bestSeconds[run.levelIndex],
+      hasNext: run.levelIndex + 1 < LEVELS.length,
     });
   }
 

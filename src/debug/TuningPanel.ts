@@ -7,6 +7,7 @@ import { EXPLOSIONS } from "../config/explosions";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
+import { LEVELS, RUN } from "../config/run";
 import {
   POWERUP_CATEGORIES,
   POWERUP_DEFS,
@@ -156,9 +157,27 @@ const EXPLOSION_RANGES: Ranges = {
 const SPAWN_RANGES: Ranges = {
   rateStart: { min: 0, max: 100, step: 0.5 },
   rateEnd: { min: 0, max: 100, step: 0.5 },
-  rampSeconds: { min: 1, max: 600, step: 5 },
   rampPower: { min: 0.5, max: 4, step: 0.1 },
   maxAlive: { min: 10, max: 2000, step: 10 },
+};
+
+const RUN_RANGES: Ranges = {
+  seconds: { min: 10, max: 1200, step: 5 },
+  zombieHealth: { min: 0.25, max: 5, step: 0.05 },
+  spawnRate: { min: 0.25, max: 4, step: 0.05 },
+  mixLead: { min: 0, max: 1, step: 0.05 },
+  bruteWeight: { min: 0, max: 10, step: 0.1 },
+  finalSeconds: { min: 0, max: 180, step: 5 },
+  rotorLeadSeconds: { min: 0, max: 60, step: 1 },
+  approachSeconds: { min: 1, max: 20, step: 0.5 },
+  descendSeconds: { min: 0.5, max: 10, step: 0.25 },
+  boardSeconds: { min: 0, max: 5, step: 0.1 },
+  zoneRadius: { min: 20, max: 200, step: 5 },
+  washRadius: { min: 0, max: 400, step: 10 },
+  washPush: { min: 0, max: 800, step: 10 },
+  washDust: { min: 0, max: 200, step: 5 },
+  departSeconds: { min: 0.5, max: 8, step: 0.25 },
+  farBias: { min: 0, max: 6, step: 0.25 },
 };
 
 const CASING_RANGES: Ranges = {
@@ -377,6 +396,8 @@ export function setupTuning(): TuningPanel {
   panel.add("EXPLOSIONS", "ExplosionDef", EXPLOSIONS, EXPLOSION_RANGES);
   panel.add("ZOMBIE_AI", null, ZOMBIE_AI, ZOMBIE_AI_RANGES);
   panel.add("SPAWN", null, SPAWN, SPAWN_RANGES);
+  panel.add("LEVELS", null, { ...LEVELS }, RUN_RANGES);
+  panel.add("RUN", null, RUN, RUN_RANGES);
   panel.add("DISMEMBER", null, DISMEMBER, DISMEMBER_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   panel.add("CAMERA", null, CAMERA, CAMERA_RANGES);

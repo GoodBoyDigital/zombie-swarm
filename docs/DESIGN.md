@@ -15,7 +15,7 @@ picks make every one of those moments different.
 
 ## The run: hold out, then get to the chopper
 
-- A run is a countdown to extraction (start around 12 minutes, tunable). The spawn ramp builds the
+- A run is a countdown to extraction (5 minutes for now, tunable per level). The spawn ramp builds the
   swarm toward its peak as the timer runs out.
 - When the timer hits zero the rescue chopper lands somewhere in the arena, often far from the
   player, at the moment the swarm is biggest. Reach it to win.

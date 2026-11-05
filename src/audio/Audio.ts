@@ -26,6 +26,9 @@ const SFX = {
   explosion: "/audio/sfx/explosion.mp3",
   airstrikeWarning: "/audio/sfx/airstrike-warning.mp3",
   airstrikeRoar: "/audio/sfx/airstrike-roar.mp3",
+  chopperLoop: "/audio/sfx/chopper-loop.mp3",
+  rotorChop: "/audio/sfx/rotor-chop.mp3",
+  extracted: "/audio/sfx/extracted.mp3",
   zombieHit: "/audio/sfx/zombie-hit.mp3",
   zombieDeath: "/audio/sfx/zombie-death.mp3",
   zombieTear: "/audio/sfx/zombie-tear.mp3",
@@ -56,6 +59,13 @@ export interface PlayOptions {
   pitch?: number;
   /** Stereo position, -1 left to 1 right, or a sweep across it, e.g. a plane flying over. */
   pan?: number | PanSweep;
+}
+
+/** A looping sound whose level can follow something, e.g. a chopper getting closer. */
+export interface LoopVoice {
+  stop(): void;
+  /** Eases to the new level over a few frames, so per-frame updates don't zipper. */
+  volume(v: number): void;
 }
 
 export interface PanSweep {
@@ -115,14 +125,24 @@ export class Audio {
 
   /** Start a looping bed at the given volume. Returns a stop function. */
   loop(name: SfxName, volume: number): () => void {
-    const source = this.start(name, this.sfxBus, { volume }, true);
-    return () => source?.stop();
+    const voice = this.loopVoice(name, volume);
+    return () => voice.stop();
+  }
+
+  /** A loop with a volume control. */
+  loopVoice(name: SfxName, volume: number): LoopVoice {
+    const node = this.start(name, this.sfxBus, { volume }, true);
+    return {
+      stop: () => node?.source.stop(),
+      volume: (v) =>
+        node?.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05),
+    };
   }
 
   playMusic(name: MusicName): void {
     if (this.musicName === name) return;
     this.music?.stop();
-    this.music = this.start(name, this.musicBus, {}, true);
+    this.music = this.start(name, this.musicBus, {}, true)?.source ?? null;
     this.musicName = name;
   }
 
@@ -155,7 +175,7 @@ export class Audio {
     bus: GainNode,
     opts: PlayOptions,
     loop: boolean,
-  ): AudioBufferSourceNode | null {
+  ): { source: AudioBufferSourceNode; gain: GainNode } | null {
     const buffer = this.buffers.get(name);
     if (!buffer) return null;
     const source = this.ctx.createBufferSource();
@@ -182,6 +202,6 @@ export class Audio {
       gain.connect(panner).connect(bus);
     }
     source.start();
-    return source;
+    return { source, gain };
   }
 }

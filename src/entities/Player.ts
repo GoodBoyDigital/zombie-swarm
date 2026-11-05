@@ -32,7 +32,7 @@ const SPRITE = {
 } as const;
 
 export class Player {
-  readonly view = new Container();
+  readonly view = new Container({ label: "player" });
   readonly radius = 14;
   health = PLAYER.maxHealth;
   /** Seconds of immunity left after a hit. */

@@ -146,9 +146,8 @@ const WALL_CHUNK = 0x6e675e;
 const ICE_DARK = 0x6fb6e4;
 const ICE_LIGHT = 0xf0fbff;
 const ICE_MID = 0x9fdcff;
-/** Ice block art size in world px; Ice.ts stretches each block over its zombie's sprite. */
-const ICE_BLOCK_WIDTH = 48;
-const ICE_BLOCK_HEIGHT = 40;
+/** Half the side of the ice cube art, world px; Ice.ts scales each cube to its zombie's hit circle. */
+export const ICE_CUBE_HALF = 20;
 
 /**
  * Character, weapon and pickup art comes from the AssetPack atlas; repeating tiles load separately.
@@ -540,27 +539,53 @@ function iceTextures(
         .stroke({ width, color: 0xffffff, alpha: 0.95, cap: "round" });
     }
   };
-  const W = ICE_BLOCK_WIDTH / 2;
-  const H = ICE_BLOCK_HEIGHT / 2;
+  // Chunky ice cubes, top down: a rounded square with a lit top face set up and to the left, and
+  // shaded bevels running from it out to the edge. Outer and top face share their point count so
+  // each bevel is one quad.
+  const H = ICE_CUBE_HALF;
+  const roundSquare = (
+    half: number,
+    corner: number,
+    cx: number,
+    cy: number,
+    wobble: number,
+  ) => {
+    const points: number[] = [];
+    const inner = half - corner;
+    for (let c = 0; c < 4; c++) {
+      // Corners clockwise from bottom right (screen y down), each a short arc.
+      const sx = c === 0 || c === 3 ? 1 : -1;
+      const sy = c < 2 ? 1 : -1;
+      for (let k = 0; k <= 3; k++) {
+        const a = (c * Math.PI) / 2 + (k / 3) * (Math.PI / 2);
+        const d = corner * rand(1 - wobble, 1 + wobble);
+        points.push(
+          cx + sx * inner + Math.cos(a) * d,
+          cy + sy * inner + Math.sin(a) * d,
+        );
+      }
+    }
+    return points;
+  };
   const blocks: Texture[] = [];
   const cracked: Texture[] = [];
   for (let v = 0; v < 3; v++) {
-    const pts = hull(W - 1.5, H - 1.5, 7 + v, 0.12);
-    const peakX = rand(-W * 0.35, -W * 0.1);
-    const peakY = rand(-H * 0.35, -H * 0.1);
+    const outer = roundSquare(H - 1, H * rand(0.3, 0.38), 0, 0, 0.12);
+    const topX = -H * rand(0.08, 0.16);
+    const topY = -H * rand(0.1, 0.18);
+    const top = roundSquare(H * rand(0.58, 0.66), H * 0.22, topX, topY, 0.1);
     // Glints and cracks are rolled once per variant so the cracked twin matches its block.
-    const glintX = rand(-W * 0.55, -W * 0.3);
-    const glintY = rand(-H * 0.5, -H * 0.25);
+    const glintX = topX - H * rand(0.25, 0.35);
+    const glintY = topY - H * rand(0.2, 0.3);
     const cracks: number[][] = [];
-    const ox = rand(-W * 0.2, W * 0.25);
+    const ox = rand(-H * 0.2, H * 0.25);
     const oy = rand(-H * 0.2, H * 0.25);
     const arms = 5 + Math.floor(rand(0, 2));
     for (let i = 0; i < arms; i++) {
       const a = (i / arms) * Math.PI * 2 + rand(-0.4, 0.4);
       const line = [ox, oy];
-      const steps = 3;
-      for (let k = 1; k <= steps; k++) {
-        const d = (k / steps) * rand(0.7, 1) * Math.min(W, H) * 1.1;
+      for (let k = 1; k <= 3; k++) {
+        const d = (k / 3) * rand(0.7, 1) * H;
         const wob = rand(-0.35, 0.35);
         line.push(ox + Math.cos(a + wob) * d, oy + Math.sin(a + wob) * d);
       }
@@ -568,8 +593,32 @@ function iceTextures(
     }
     const draw = (broken: boolean) => {
       const g = new Graphics();
-      g.poly(pts).fill({ color: ICE_MID, alpha: 0.3 });
-      facets(g, pts, peakX, peakY);
+      g.poly(outer).fill({ color: ICE_MID, alpha: 0.35 });
+      const n = outer.length / 2;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        const quad = [
+          outer[i * 2],
+          outer[i * 2 + 1],
+          outer[j * 2],
+          outer[j * 2 + 1],
+          top[j * 2],
+          top[j * 2 + 1],
+          top[i * 2],
+          top[i * 2 + 1],
+        ];
+        const mx = (outer[i * 2] + outer[j * 2]) / 2;
+        const my = (outer[i * 2 + 1] + outer[j * 2 + 1]) / 2;
+        const len = Math.hypot(mx, my) || 1;
+        const lit = ((mx * light.x + my * light.y) / len + 1) / 2;
+        g.poly(quad).fill({
+          color: lit > 0.62 ? ICE_LIGHT : lit > 0.38 ? ICE_MID : ICE_DARK,
+          alpha: 0.3 + lit * 0.25,
+        });
+      }
+      g.poly(top).fill({ color: ICE_LIGHT, alpha: 0.38 });
+      // The top face's upper-left half, bottom-left corner round to top-right, catches more light.
+      g.poly(top.slice(12, 28)).fill({ color: 0xffffff, alpha: 0.18 });
       if (broken)
         for (const line of cracks) {
           g.poly(line, false).stroke({
@@ -585,19 +634,25 @@ function iceTextures(
             join: "round",
           });
         }
-      highlight(g, pts, 0.86, 1.6);
+      highlight(g, outer, 0.88, 1.6);
+      g.poly(top).stroke({ width: 0.8, color: 0xffffff, alpha: 0.55 });
       g.poly([
         glintX,
-        glintY - 3,
-        glintX + 1.2,
+        glintY - 3.5,
+        glintX + 1.4,
         glintY,
         glintX,
-        glintY + 3,
-        glintX - 1.2,
+        glintY + 3.5,
+        glintX - 1.4,
         glintY,
       ]).fill(0xffffff);
-      g.circle(glintX + 4, glintY + 3.5, 0.9).fill(0xffffff);
-      g.poly(pts).stroke({ width: 1.7, color: INK, alpha: 0.9, join: "round" });
+      g.circle(glintX + 4.5, glintY + 3.5, 1).fill(0xffffff);
+      g.poly(outer).stroke({
+        width: 1.7,
+        color: INK,
+        alpha: 0.9,
+        join: "round",
+      });
       return make(g);
     };
     blocks.push(draw(false));

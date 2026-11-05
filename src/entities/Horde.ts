@@ -21,7 +21,7 @@ import { IceBlocks } from "../fx/Ice";
 import { Limbs } from "../fx/Limbs";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
-import { Zombie } from "./Zombie";
+import { hitReach, Zombie } from "./Zombie";
 import { aiDebug } from "./ZombieBrain";
 
 const CELL_SIZE = 48;
@@ -228,7 +228,7 @@ export class Horde {
 
   /** Walls stop zombies once they're in; before that they're funnelled down their gate's corridor. */
   private contain(z: Zombie): void {
-    const r = z.def.radius;
+    const r = z.hitRadius;
     if (!z.entered) {
       if (this.arena.isInside(z.x, z.y, -r)) z.entered = true;
       else {
@@ -359,7 +359,7 @@ export class Horde {
   private separate(): void {
     for (const a of this.alive) {
       if (a.frozen) continue;
-      const r = a.def.radius + MAX_ZOMBIE_RADIUS;
+      const r = a.def.radius + hitReach.radius;
       const herd = a.entered && a.brain.wandering ? a.brain : null;
       this.hash.queryBox(a.x - r, a.y - r, a.x + r, a.y + r, (b) => {
         if (b === a || b.dead) return;
@@ -372,7 +372,7 @@ export class Horde {
           herd.herdCos += Math.cos(b.facing);
           herd.herdSin += Math.sin(b.facing);
         }
-        const min = a.def.radius + b.def.radius;
+        const min = a.def.radius + b.hitRadius;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min || d2 === 0) return;
         const d = Math.sqrt(d2);
@@ -393,7 +393,7 @@ export class Horde {
   private exclude(): void {
     for (const zone of this.zones) {
       // Positions moved a little since the hash was built; pad by a body so nobody slips the query.
-      const reach = zone.radius + MAX_ZOMBIE_RADIUS * 2;
+      const reach = zone.radius + hitReach.radius * 2;
       this.hash.queryBox(
         zone.x - reach,
         zone.y - reach,
@@ -403,7 +403,7 @@ export class Horde {
           if (z.dead) return;
           let dx = z.x - zone.x;
           let dy = z.y - zone.y;
-          const min = zone.radius + z.def.radius;
+          const min = zone.radius + z.hitRadius;
           const d2 = dx * dx + dy * dy;
           if (d2 >= min * min) return;
           const d = Math.sqrt(d2);
@@ -432,7 +432,7 @@ export class Horde {
     for (const z of this.alive) {
       const dx = z.x - px;
       const dy = z.y - py;
-      const min = z.def.radius + pr;
+      const min = z.hitRadius + pr;
       const d2 = dx * dx + dy * dy;
       if (d2 >= min * min || d2 === 0) continue;
       const d = Math.sqrt(d2);

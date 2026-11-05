@@ -7,7 +7,7 @@ import type { Zombie } from "../entities/Zombie";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import type { Effects } from "./Effects";
 import type { Limbs } from "./Limbs";
-import type { GameTextures } from "./textures";
+import { ICE_CUBE_HALF, type GameTextures } from "./textures";
 
 const TWO_PI = Math.PI * 2;
 /** Alpha of the block on the dim beats of the thaw flicker, as a share of full. */
@@ -170,26 +170,17 @@ export class IceBlocks {
     if (b) this.release(z, b);
   }
 
-  /** Stretch the block over the zombie's sprite, flashing white at first, cracking and flickering near the end. */
+  /** Fit the cube to the zombie's frozen hit circle, flashing white at first, cracking and flickering near the end. */
   private place(z: Zombie, b: Block): void {
     const ice = b.sprite;
+    // Frozen, the zombie sits centred on its whole art and its hit circle surrounds it; so does the cube.
     const s = z.sprite;
-    const t = s.texture;
-    const cos = Math.cos(s.rotation);
-    const sin = Math.sin(s.rotation);
-    // The sprite's anchor is the body; the block centres on the whole art, arms and all.
-    const ox = (0.5 - s.anchor.x) * t.width * s.scale.x;
-    const oy = (0.5 - s.anchor.y) * t.height * s.scale.y;
-    let x = s.x + ox * cos - oy * sin;
-    let y = s.y + ox * sin + oy * cos;
-    const size = ICE.blockSize * b.scale;
+    let x = s.x;
+    let y = s.y;
     // Additive for the first moments: the block lands as a white flash, then settles to ice.
     ice.blendMode = b.age < ICE.flashSeconds ? "add" : "normal";
     ice.rotation = s.rotation + b.tilt;
-    ice.scale.set(
-      (t.width * Math.abs(s.scale.x) * size) / ice.texture.width,
-      (t.height * Math.abs(s.scale.y) * size) / ice.texture.height,
-    );
+    ice.scale.set((z.hitRadius * ICE.blockSize * b.scale) / ICE_CUBE_HALF);
     ice.alpha = ICE.blockAlpha;
     if (z.frozenFor < b.warning) {
       if (!b.cracked) {

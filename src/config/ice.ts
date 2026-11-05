@@ -8,8 +8,13 @@ export const ICE = {
   frozenTint: 0x8fd4ff,
   /** Tint on limbs a shatter throws, paler than the body so they read frosted, not just dark. */
   limbTint: 0xc8ecff,
-  /** Ice block size over the zombie sprite's bounds, and its random size jitter either way. */
-  blockSize: 1.12,
+  /**
+   * Frozen hit radius, as a share of half the zombie sprite's longer side: shots, blasts, blades,
+   * crowding and the player's shove all meet the ice here instead of at the body.
+   */
+  hitRadius: 1,
+  /** Half the ice cube's side as a share of that hit radius (corners poke a little past it), and its random size jitter. */
+  blockSize: 0.92,
   blockJitter: 0.08,
   /** Random turn of the block off the body, either way, radians. */
   blockTilt: 0.25,

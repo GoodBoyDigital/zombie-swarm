@@ -148,7 +148,8 @@ const POWERUP_RANGES: Ranges = {
 };
 
 const ICE_RANGES: Ranges = {
-  blockSize: { min: 0.6, max: 2, step: 0.02 },
+  hitRadius: { min: 0.4, max: 2, step: 0.02 },
+  blockSize: { min: 0.5, max: 1.5, step: 0.02 },
   blockJitter: { min: 0, max: 0.4, step: 0.01 },
   blockTilt: { min: 0, max: 1, step: 0.01 },
   blockAlpha: { min: 0, max: 1, step: 0.01 },

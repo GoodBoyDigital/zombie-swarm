@@ -3,10 +3,10 @@ import { ARENA } from "../config/arena";
 import type { Audio } from "../audio/Audio";
 import { BLOOD_SPRAY } from "../combat/CombatContext";
 import { RUN } from "../config/run";
-import { KNOCKBACK_DRAG, MAX_ZOMBIE_RADIUS, PART_IDS } from "../config/zombies";
+import { KNOCKBACK_DRAG, PART_IDS } from "../config/zombies";
 import { rand } from "../core/random";
 import type { ExclusionZone, Horde } from "../entities/Horde";
-import type { Zombie } from "../entities/Zombie";
+import { hitReach, type Zombie } from "../entities/Zombie";
 import { aiDebug } from "../entities/ZombieBrain";
 import type { Camera } from "../fx/Camera";
 import type { Effects } from "../fx/Effects";
@@ -321,7 +321,7 @@ export class Chopper {
     const circles = this.footprint();
     const crushed = new Set<Zombie>();
     for (const c of circles) {
-      const reach = c.r + MAX_ZOMBIE_RADIUS;
+      const reach = c.r + hitReach.radius;
       horde.hash.queryBox(
         c.x - reach,
         c.y - reach,
@@ -329,7 +329,7 @@ export class Chopper {
         c.y + reach,
         (z) => {
           if (z.dead) return;
-          const r = c.r + z.def.radius * RUN.squishOverlap;
+          const r = c.r + z.hitRadius * RUN.squishOverlap;
           if ((z.x - c.x) ** 2 + (z.y - c.y) ** 2 < r * r) crushed.add(z);
         },
       );
@@ -393,12 +393,21 @@ export class Chopper {
       this.bladeTurn -= pass;
       if (this.chops < 1) continue;
       const r = RUN.sliceRadius;
+      const pad = r + hitReach.radius;
       const { x, y } = this;
       this.inReach.length = 0;
-      this.world.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
-        if (!z.dead && (z.x - x) ** 2 + (z.y - y) ** 2 < r * r)
-          this.inReach.push(z);
-      });
+      this.world.horde.hash.queryBox(
+        x - pad,
+        y - pad,
+        x + pad,
+        y + pad,
+        (z) => {
+          // A frozen zombie's ice cube reaches further into the blades than its body.
+          const reach = r + z.hitRadius - z.def.radius;
+          if (!z.dead && (z.x - x) ** 2 + (z.y - y) ** 2 < reach * reach)
+            this.inReach.push(z);
+        },
+      );
       for (const z of this.inReach) {
         if (this.chops < 1) break;
         if (Math.random() >= RUN.sliceChance) continue;

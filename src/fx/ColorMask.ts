@@ -6,8 +6,8 @@ import {
   Sprite,
   type Renderer,
 } from "pixi.js";
-import { MAX_ZOMBIE_RADIUS } from "../config/zombies";
 import type { Horde } from "../entities/Horde";
+import { hitReach } from "../entities/Zombie";
 import type { Player } from "../entities/Player";
 import type { SpareMask } from "./ColorGrade";
 import type { Effects } from "./Effects";
@@ -79,7 +79,7 @@ export class ColorMask implements SpareMask {
     if (ground.children.length > 0) draw(ground);
     let used = 0;
     // Sprites reach past the body circle (arms out), so look a little wider than it.
-    const reach = REACH + MAX_ZOMBIE_RADIUS * 2;
+    const reach = REACH + hitReach.radius * 2;
     horde.hash.queryBox(
       player.x - reach,
       player.y - reach,

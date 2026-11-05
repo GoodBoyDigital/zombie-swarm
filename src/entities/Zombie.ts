@@ -2,6 +2,7 @@ import { Sprite } from "pixi.js";
 import { ICE } from "../config/ice";
 import {
   KNOCKBACK_DRAG,
+  MAX_ZOMBIE_RADIUS,
   PART_IDS,
   ZOMBIE_AI,
   type PartShape,
@@ -27,6 +28,12 @@ const WANDER_TINT_FACTOR = 0.55;
 const LOSING_TINT_FACTOR = 0.35;
 /** Spacing of the points tested along a shot when looking for which part it struck, world px. */
 const PART_RAY_STEP = 1.5;
+
+/**
+ * The largest hit radius any zombie has had: the body radius, or bigger while frozen in ice.
+ * Pad spatial hash queries by this so a hit near a cell edge isn't missed. Only ever grows.
+ */
+export const hitReach = { radius: MAX_ZOMBIE_RADIUS };
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -72,6 +79,11 @@ export class Zombie {
    * bite or get pushed, the crowd flows round it, and any hit shatters it (CombatContext.applyHit).
    */
   frozenFor = 0;
+  /** Hit radius while frozen, sized to the ice cube round the whole sprite. */
+  private iceRadius = 0;
+  /** How far freezing moved the position from the body to the middle of the art, undone on thaw. */
+  private iceShiftX = 0;
+  private iceShiftY = 0;
 
   constructor(private readonly tex: GameTextures) {}
 
@@ -118,11 +130,17 @@ export class Zombie {
     return this.frozenFor > 0;
   }
 
+  /** Circle that shots, blasts, blades, crowding and walls test: the body, or the ice cube while frozen. */
+  get hitRadius(): number {
+    return this.frozenFor > 0 ? this.iceRadius : this.def.radius;
+  }
+
   /**
    * Freeze solid for at least `seconds`: it stops mid-stride, in a cold tint. The freezing blast's
    * shove along (dirX, dirY) is the only push it takes: the block skids on it until drag stops it.
    */
   freeze(seconds: number, dirX = 0, dirY = 0, knockback = 0): void {
+    if (this.frozenFor <= 0) this.encase();
     this.frozenFor = Math.max(this.frozenFor, seconds);
     const k = knockback * this.def.knockbackScale;
     this.kx = dirX * k;
@@ -219,7 +237,7 @@ export class Zombie {
     if (this.frozenFor > 0) {
       this.frozenFor = Math.max(0, this.frozenFor - dt);
       this.coast(dt);
-      if (this.frozenFor === 0) this.sprite.tint = this.debugTint();
+      if (this.frozenFor === 0) this.thaw();
       return;
     }
     this.wobblePhase += this.wobbleRate * dt;
@@ -259,6 +277,37 @@ export class Zombie {
     const flashing = this.flash > 0;
     const tint = flashing ? 0xffffff : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
+  }
+
+  /**
+   * Centre on the whole art, arms and all, instead of the body, so the ice cube and its hit circle
+   * (ICE.hitRadius of the sprite's longer half) surround everything you can see.
+   */
+  private encase(): void {
+    const s = this.sprite;
+    const t = s.texture;
+    const w = t.width * Math.abs(s.scale.x);
+    const h = t.height * Math.abs(s.scale.y);
+    const ox = (0.5 - s.anchor.x) * w;
+    const oy = (0.5 - s.anchor.y) * h;
+    const cos = Math.cos(s.rotation);
+    const sin = Math.sin(s.rotation);
+    this.iceShiftX = ox * cos - oy * sin;
+    this.iceShiftY = ox * sin + oy * cos;
+    this.x += this.iceShiftX;
+    this.y += this.iceShiftY;
+    s.anchor.set(0.5);
+    s.position.set(this.x, this.y);
+    this.iceRadius = (ICE.hitRadius * Math.max(w, h)) / 2;
+    hitReach.radius = Math.max(hitReach.radius, this.iceRadius);
+  }
+
+  /** Out of the ice: back on its body, in its own colour. */
+  private thaw(): void {
+    this.x -= this.iceShiftX;
+    this.y -= this.iceShiftY;
+    this.sprite.anchor.set(this.def.art.anchor.x, this.def.art.anchor.y);
+    this.sprite.tint = this.debugTint();
   }
 
   /** Carry on along the knockback velocity, which drag bleeds away. */

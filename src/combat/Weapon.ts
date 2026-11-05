@@ -75,6 +75,8 @@ export class Weapon {
   private readonly shots: CombatContext;
   private engine: { id: WeaponId; idle: LoopVoice; run: LoopVoice } | null =
     null;
+  /** World seconds to the chainsaw's next exhaust puff. */
+  private smokeLeft = 0;
 
   constructor(
     private readonly player: Player,
@@ -157,10 +159,47 @@ export class Weapon {
     this.audio.play("reload", { pitch: rand(0.95, 1.05), volume: 0.6 });
   }
 
-  /** Projectiles in flight. Called on world time, so rockets slow down with the world. */
+  /** Projectiles in flight and engine exhaust. Called on world time, so both slow with the world. */
   updateShots(dt: number): void {
     for (const handler of Object.values(SHOT_HANDLERS))
       handler.update?.(this.shots, dt);
+    this.exhaust(dt);
+  }
+
+  /**
+   * Chuck, chuck, chuck: a chainsaw puffs two-stroke smoke out of the side of its engine, slow and
+   * light at idle, fast, big and dark flat out. The puffs stay where they left the exhaust.
+   */
+  private exhaust(dt: number): void {
+    const s = this.def.saw;
+    if (!s) return;
+    this.smokeLeft -= dt;
+    if (this.smokeLeft > 0) return;
+    const k = this.spin;
+    const mix = (idle: number, cut: number) => idle + (cut - idle) * k;
+    this.smokeLeft += mix(s.smokeInterval, s.smokeCutInterval);
+    // A long frame or a fresh pickup must not dump a backlog of puffs.
+    this.smokeLeft = Math.max(this.smokeLeft, 0);
+    const { aim } = this.player;
+    const port = this.player.ejectPort();
+    const cos = Math.cos(aim);
+    const sin = Math.sin(aim);
+    // Out of the housing's side (the sprite's +y), angled a little back.
+    const kick = mix(s.smokeKick, s.smokeCutKick);
+    const sx = -sin * 0.92 - cos * 0.4;
+    const sy = cos * 0.92 - sin * 0.4;
+    const size = mix(s.smokeSize, s.smokeCutSize) * rand(0.8, 1.2);
+    this.shots.fx.puff(
+      port.x,
+      port.y,
+      sx * kick * rand(0.8, 1.2),
+      sy * kick * rand(0.8, 1.2),
+      size,
+      size * s.smokeGrow,
+      mixColor(s.smokeColor, s.smokeCutColor, k),
+      mix(s.smokeAlpha, s.smokeCutAlpha),
+      s.smokeLife * rand(0.85, 1.15),
+    );
   }
 
   /** Fire timing and reloads, on real time. */
@@ -267,4 +306,15 @@ export class Weapon {
     // Rockets and waves already in flight carry their own rate.
     this.shots.dismemberScale = 1;
   }
+}
+
+/** Blend two colours channel by channel, `t` 0 = a, 1 = b. */
+function mixColor(a: number, b: number, t: number): number {
+  let out = 0;
+  for (const shift of [16, 8, 0]) {
+    const ca = (a >> shift) & 0xff;
+    const cb = (b >> shift) & 0xff;
+    out |= Math.round(ca + (cb - ca) * t) << shift;
+  }
+  return out;
 }

@@ -4,7 +4,7 @@ import type { ExplosionDef } from "../config/explosions";
 import { pick, rand } from "../core/random";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "./textures";
 
-type Kind = "flash" | "tracer" | "spark" | "dust" | "glow" | "boom" | "ring";
+type Kind = "flash" | "tracer" | "spark" | "puff" | "glow" | "boom" | "ring";
 
 interface Particle {
   sprite: Sprite;
@@ -16,7 +16,9 @@ interface Particle {
   /** Flash only: the gun it's pinned to, and its small random tilt off the barrel. */
   source: MuzzleSource | null;
   tilt: number;
-  /** Blast parts: scale at birth and at full size. Tracers: thickness at birth in size0. */
+  /** Puffs only: alpha at birth, fading to nothing. */
+  peak: number;
+  /** Blast parts and puffs: scale at birth and at full size. Tracers: thickness at birth in size0. */
   size0: number;
   size1: number;
 }
@@ -382,19 +384,66 @@ export class Effects {
   dust(x: number, y: number, dirX: number, dirY: number, count: number): void {
     const base = Math.atan2(dirY, dirX);
     for (let i = 0; i < count; i++) {
-      const p = this.spawn("dust", this.tex.blast.glow, rand(0.35, 0.7));
       const a = base + rand(-0.8, 0.8);
       const speed = rand(40, 160);
-      p.vx = Math.cos(a) * speed;
-      p.vy = Math.sin(a) * speed;
-      p.sprite.anchor.set(0.5);
-      p.sprite.position.set(x + rand(-6, 6), y + rand(-6, 6));
-      p.size0 = rand(3, 6) / BLAST_TEXTURE_RADIUS;
-      p.size1 = p.size0 * rand(2, 3);
-      p.sprite.scale.set(p.size0);
-      p.sprite.tint = DUST_TINT;
-      p.sprite.alpha = DUST_ALPHA;
+      const r = rand(3, 6);
+      this.drift(
+        this.tex.blast.glow,
+        x + rand(-6, 6),
+        y + rand(-6, 6),
+        Math.cos(a) * speed,
+        Math.sin(a) * speed,
+        r,
+        r * rand(2, 3),
+        DUST_TINT,
+        DUST_ALPHA,
+        rand(0.35, 0.7),
+      );
     }
+  }
+
+  /**
+   * One round smoke puff: drifts from (x, y) at (vx, vy) px/s with drag, grows from radius r0 to
+   * r1 px and fades out from `alpha` over `life` seconds. Stays where it was puffed.
+   */
+  puff(
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    r0: number,
+    r1: number,
+    tint: number,
+    alpha: number,
+    life: number,
+  ): void {
+    this.drift(this.tex.smoke, x, y, vx, vy, r0, r1, tint, alpha, life);
+  }
+
+  /** A puff in any round texture of radius BLAST_TEXTURE_RADIUS: smoke, or the softer dust glow. */
+  private drift(
+    texture: Texture,
+    x: number,
+    y: number,
+    vx: number,
+    vy: number,
+    r0: number,
+    r1: number,
+    tint: number,
+    alpha: number,
+    life: number,
+  ): void {
+    const p = this.spawn("puff", texture, life);
+    p.vx = vx;
+    p.vy = vy;
+    p.sprite.anchor.set(0.5);
+    p.sprite.position.set(x, y);
+    p.sprite.rotation = rand(0, Math.PI * 2);
+    p.size0 = r0 / BLAST_TEXTURE_RADIUS;
+    p.size1 = r1 / BLAST_TEXTURE_RADIUS;
+    p.sprite.scale.set(p.size0);
+    p.sprite.tint = tint;
+    p.sprite.alpha = p.peak = alpha;
   }
 
   /** Lumps of torn zombie thrown off in a wide fan along a direction, e.g. off a chainsaw. */
@@ -531,13 +580,13 @@ export class Effects {
           p.vy *= Math.exp(-dt * 6);
           p.sprite.alpha = Math.min(1, t * 2);
           break;
-        case "dust":
+        case "puff":
           p.sprite.x += p.vx * dt;
           p.sprite.y += p.vy * dt;
           p.vx *= Math.exp(-dt * 4);
           p.vy *= Math.exp(-dt * 4);
           p.sprite.scale.set(p.size1 + (p.size0 - p.size1) * t);
-          p.sprite.alpha = DUST_ALPHA * t;
+          p.sprite.alpha = p.peak * t;
           break;
         case "glow":
           p.sprite.scale.set(p.size1 + (p.size0 - p.size1) * t);
@@ -591,6 +640,7 @@ export class Effects {
       vy: 0,
       source: null,
       tilt: 0,
+      peak: 1,
       size0: 1,
       size1: 1,
     };

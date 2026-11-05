@@ -85,6 +85,8 @@ export interface GameTextures {
   powerupIcons: Record<string, Texture>;
   /** Explosion parts, all white or grey so they tint: a vector fireball, shockwave ring, soft flash, scorch variants. */
   blast: { boom: Texture; ring: Texture; glow: Texture; scorches: Texture[] };
+  /** A flat white smoke puff, radius BLAST_TEXTURE_RADIUS: a solid lumpy core in a softer rim. Tinted per puff. */
+  smoke: Texture;
 }
 
 const SPRITES = {
@@ -376,6 +378,19 @@ export async function createTextures(
   const glow = new Graphics();
   for (let i = 8; i >= 1; i--)
     glow.circle(0, 0, (R * i) / 8).fill({ color: 0xffffff, alpha: 0.14 });
+  const smoke = new Graphics();
+  const puffLobes: [number, number, number][] = [
+    [0, 0, 0.62],
+    [-0.28, -0.18, 0.42],
+    [0.3, -0.12, 0.4],
+    [0.05, 0.3, 0.42],
+  ];
+  for (const [x, y, r] of puffLobes)
+    smoke
+      .circle(x * R, y * R, r * R * 1.45)
+      .fill({ color: 0xffffff, alpha: 0.3 });
+  for (const [x, y, r] of puffLobes)
+    smoke.circle(x * R, y * R, r * R).fill(0xffffff);
   // Scorches, white with alpha so the stamp tint sets the colour: a lumpy char blob darkest in the
   // middle, tapered rays blasted outward from it, and soot spatter thrown past their tips.
   const scorches = Array.from({ length: 4 }, () => {
@@ -431,6 +446,7 @@ export async function createTextures(
       glow: make(glow, 1),
       scorches,
     },
+    smoke: make(smoke, 1),
     player: sprite("player"),
     playerFlash: sprite("playerFlash"),
     playerCorpse: sprite("playerCorpse"),

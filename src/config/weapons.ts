@@ -108,6 +108,26 @@ export interface SawParams {
   splats: number;
   /** Camera trauma added per tick while the bar is in flesh. */
   cutShake: number;
+  /**
+   * Two-stroke exhaust puffed out of the engine housing (the sprite's `eject` point), on world time.
+   * Each pair is idle then flat out; the engine's rev blends between them.
+   */
+  smokeInterval: number;
+  smokeCutInterval: number;
+  /** Puff radius at birth, px; it grows to `smokeGrow` times that. */
+  smokeSize: number;
+  smokeCutSize: number;
+  smokeGrow: number;
+  /** Peak opacity, 0..1. */
+  smokeAlpha: number;
+  smokeCutAlpha: number;
+  smokeColor: number;
+  smokeCutColor: number;
+  /** Speed the puff leaves the exhaust at, px/s, sideways off the engine. */
+  smokeKick: number;
+  smokeCutKick: number;
+  /** Seconds a puff lasts. */
+  smokeLife: number;
 }
 
 export interface SonicParams {
@@ -403,7 +423,7 @@ export const WEAPONS = {
       path: "/sprites/weapon-chainsaw.png",
       grip: { x: 0.3, y: 0.68 },
       muzzle: { x: 1, y: 0.72 },
-      eject: { x: 0.25, y: 0.5 },
+      eject: { x: 0.36, y: 0.95 },
     },
     shot: "saw",
     casing: null,
@@ -436,6 +456,18 @@ export const WEAPONS = {
       chunks: 4,
       splats: 3,
       cutShake: 0.14,
+      smokeInterval: 0.25,
+      smokeCutInterval: 0.07,
+      smokeSize: 3,
+      smokeCutSize: 4.5,
+      smokeGrow: 2.4,
+      smokeAlpha: 0.6,
+      smokeCutAlpha: 0.8,
+      smokeColor: 0xbac6d6,
+      smokeCutColor: 0x8794a6,
+      smokeKick: 45,
+      smokeCutKick: 150,
+      smokeLife: 0.6,
     },
   },
   sonic: {

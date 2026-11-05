@@ -239,6 +239,16 @@ const WEAPON_RANGES: Ranges = {
   speed: { min: 100, max: 2000, step: 10 },
   tumble: { min: 0, max: 30, step: 0.5 },
   dismemberScale: { min: 0, max: 5, step: 0.05 },
+  smokeInterval: { min: 0.02, max: 1, step: 0.01 },
+  smokeCutInterval: { min: 0.02, max: 1, step: 0.01 },
+  smokeSize: { min: 0.5, max: 12, step: 0.25 },
+  smokeCutSize: { min: 0.5, max: 12, step: 0.25 },
+  smokeGrow: { min: 1, max: 6, step: 0.1 },
+  smokeAlpha: { min: 0, max: 1, step: 0.01 },
+  smokeCutAlpha: { min: 0, max: 1, step: 0.01 },
+  smokeKick: { min: 0, max: 300, step: 2 },
+  smokeCutKick: { min: 0, max: 300, step: 2 },
+  smokeLife: { min: 0.1, max: 3, step: 0.05 },
   spinUp: { min: 0, max: 2, step: 0.05 },
 };
 

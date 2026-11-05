@@ -5,18 +5,21 @@ description: Throw up an editable card for one weapon (or all) from src/config/w
 
 # Weapon card
 
-Shows one weapon from `src/config/weapons.ts` as an inline page: the gun's sprite scaled up, every
+Shows one weapon from `src/config/weapons.ts` as an inline panel: the gun's sprite scaled up, every
 numeric field editable, draggable bars and derived damage rates, and a save button that writes the numbers
 back into the file. With no argument it shows a picker over every weapon.
 
 ## Steps
 
-1. Read `assets/weapon-card.html` from this skill's folder.
-2. Replace the single token `__WEAPON__` with the weapon id the user asked for (`pistol`, `rifle`,
-   `shotgun`, `railgun`, `minigun`, `magnum`, `uzi`, or whatever ids exist in the config). Use an
-   empty string for "all". Match loosely: "the uzi" → `uzi`.
-3. Put the whole file in an ```html fence in the final answer. Do not write it anywhere in the project.
-4. Say in one line which weapon it shows and that Save rewrites `src/config/weapons.ts`.
+1. Answer with this fence, with the weapon id the user asked for after `weapon=` (`pistol`, `rifle`,
+   `shotgun`, `railgun`, `minigun`, `magnum`, `uzi`, or whatever ids exist in the config). Leave out
+   `?weapon=…` for "all". Match loosely: "the uzi" → `uzi`. Do not read or paste the HTML.
+
+   ```inline-panel
+   weapon/assets/weapon-card.html?weapon=<id>
+   ```
+
+2. Say in one line which weapon it shows and that Save rewrites `src/config/weapons.ts`.
 
 ## Notes
 
@@ -31,8 +34,8 @@ back into the file. With no argument it shows a picker over every weapon.
   visible above the scrolling properties; do not add a separate reload-count config field.
 - Show the pistol's reload count as a read-only ∞, not a finite slider or number input.
   Preserve its `magazines: Infinity` on save. Its per-magazine round capacity is separate.
-- The page reads the config through the Playbot SDK, so it always reflects the file on disk in this
-  workspace, not a worktree branch. If the weapon isn't found, the page says so; check the id with
+- The panel reads the config through the Playbot SDK, so it always reflects the file on disk in this
+  workspace, not a worktree branch. If the weapon isn't found, the panel says so; check the id with
   `grep -n "^  \w\+: {" src/config/weapons.ts`.
 - The sprite comes from the weapon's `sprite.path`, read from the atlas source folder `assets/sprites{tps}/`.
 - Save only touches the numeric lines inside that weapon's block and refuses if the file changed

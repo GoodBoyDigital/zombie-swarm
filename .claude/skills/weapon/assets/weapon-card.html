@@ -49,7 +49,7 @@
 <div class="msg" id="msg" role="status">Loading…</div>
 <div id="card"></div>
 <script>
-const WANT = "__WEAPON__";
+const WANT = new URLSearchParams(location.search).get('weapon') ?? '';
 const PATH = "src/config/weapons.ts";
 const FIELDS = ["magazine","magazines","reloadSeconds","pellets","spread","spreadBloom","spreadMax","fireInterval","damage","knockback","recoil","cameraKick","gunKick","pierce","range","shake","tracerWidth","noiseRadius"];
 const STEP = { spread: 0.005, spreadBloom: 0.01, spreadMax: 0.005, fireInterval: 0.005, reloadSeconds: 0.01, shake: 0.01, damage: 0.5, cameraKick: 0.5, gunKick: 0.5 };

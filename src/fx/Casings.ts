@@ -101,9 +101,17 @@ export class Casings {
 
   /**
    * A blow-up dummy bursting at (x, y): its googly eyes, a few flaps and `count` bits of vinyl in all,
-   * flung out and fluttering down to stay on the floor where they land.
+   * `scale` times their baked size (the eyes `eyeScale`), flung out and fluttering down to stay on
+   * the floor where they land.
    */
-  shreds(x: number, y: number, count: number, speed: number): void {
+  shreds(
+    x: number,
+    y: number,
+    count: number,
+    speed: number,
+    scale: number,
+    eyeScale: number,
+  ): void {
     const { eyes, flaps, confetti } = this.tex.shreds;
     for (let i = 0; i < count; i++) {
       const texture =
@@ -116,7 +124,7 @@ export class Casings {
       const v = speed * rand(0.35, 1);
       this.toss(
         texture,
-        rand(0.9, 1.3),
+        (i < eyes.length ? eyeScale : scale) * rand(0.85, 1.2),
         x + Math.cos(a) * 8,
         y + Math.sin(a) * 8,
         rand(14, 30),

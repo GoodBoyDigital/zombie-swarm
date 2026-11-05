@@ -29,9 +29,19 @@ const PUMP_RADIUS = 12;
 /** The folded dummy on the pump: its size, and how hard it shudders by the end of arming. */
 const FOLDED_SCALE = 0.55;
 const FOLDED_SHAKE = 0.12;
-/** Inflating: the flat size it starts from, and the squash-and-stretch overshoot as it pops full. */
-const INFLATE_FROM = 0.25;
-const INFLATE_STRETCH = 0.35;
+/**
+ * Deploying, like an airbag: it slams from folded to DEPLOY_OVERSHOOT in SNAP_SECONDS, then settles
+ * with a fast damped wobble (decay per second, wobbles per second) and squash-stretch.
+ */
+const SNAP_SECONDS = 0.06;
+const DEPLOY_OVERSHOOT = 1.3;
+const SETTLE_DECAY = 12;
+const SETTLE_HZ = 7;
+const DEPLOY_STRETCH = 0.2;
+/** The deploy's camera kick, and its puff of air and dust. */
+const DEPLOY_TRAUMA = 0.3;
+const DUST = 0xd9d2c3;
+const BURST_SECONDS = 0.18;
 /** Tube-man sway while up: lean (radians) and its rate, squash-stretch breathing and its rate. */
 const LEAN = 0.14;
 const LEAN_HZ = 0.55;
@@ -60,8 +70,8 @@ const DEAD_TINT = 0x6a6f6a;
 /** Keep-out edge: the pulsing ring and the glow inside it, drawn over the pile. */
 const GLOW_SHARE = 0.7;
 const RING_COLOR = 0xffe14a;
-/** Flash disc thrown out as it inflates, px across at its widest. */
-const BURST_RADIUS = 70;
+/** Air blast disc thrown out as it deploys, px across at its widest. */
+const BURST_RADIUS = 80;
 /** Call fronts: trailing bands behind the bright edge, their spacing px, and the colours. */
 const FRONT_BANDS = 4;
 const FRONT_BAND_GAP = 14;
@@ -110,7 +120,7 @@ interface DecoyState {
 
 /**
  * Decoy: a pump lands where the orb was with a folded blow-up dummy of the player on it. It charges
- * for a moment (spinning up, blinking, beeping, hissing), then the dummy inflates with a fwoomp and
+ * for a moment (spinning up, blinking, beeping, hissing), then the dummy slams out like an airbag and
  * sends out a call: a wavefront travelling out to `lureRadius`. Each zombie the front reaches drops
  * the player and hunts the dummy until it pops. It calls again every `pulseSeconds`, catching
  * anyone new, and wobbles about like a tube man, jiggling on every call and every shove. Nothing
@@ -224,12 +234,19 @@ export const decoy: PowerupEffect<Def, DecoyState> = {
 /** Bang: a push-only blast knocks the pile back, and shreds of vinyl fly out to litter the floor. */
 function pop(ctx: PowerupContext, def: Def, st: DecoyState): void {
   explode(ctx, st.x, st.y, EXPLOSIONS[def.explosion]);
-  ctx.casings.shreds(st.x, st.y, def.shreds, def.shredSpeed);
+  ctx.casings.shreds(
+    st.x,
+    st.y,
+    def.shreds,
+    def.shredSpeed,
+    def.shredScale,
+    def.shredEyeScale,
+  );
   ctx.fx.sparkle(st.x, st.y, 0xffffff, 12);
   ctx.fx.sparkle(st.x, st.y, POP_GLINT, 10);
 }
 
-/** Up it goes: the dummy pops up off the pump, the keep-out opens, and the first call goes once it's full. */
+/** Bang, it's up: the dummy slams out of the pump like an airbag, the keep-out opens, and the first call goes once it's settled. */
 function inflate(ctx: PowerupContext, def: Def, st: DecoyState): void {
   st.on = true;
   st.onFor = 0;
@@ -239,9 +256,11 @@ function inflate(ctx: PowerupContext, def: Def, st: DecoyState): void {
   // The player walks through it freely, and isn't sheltered inside it.
   st.zone = ctx.horde.addZone(st.x, st.y, 0, false);
   st.zone.onContact = () => st.bumps++;
-  ctx.audio.play("decoyInflate", { volume: 0.9 });
+  ctx.audio.play("decoyDeploy", { volume: 1 });
   st.hum = ctx.audio.loopVoice("decoyHum", HUM_VOLUME);
-  ctx.fx.sparkle(st.x, st.y, 0xffffff, 14);
+  ctx.camera.addTrauma(DEPLOY_TRAUMA);
+  ctx.fx.sparkle(st.x, st.y, 0xffffff, 12);
+  ctx.fx.sparkle(st.x, st.y, DUST, 16);
   st.pulseIn = def.springSeconds;
   st.fronts.length = 0;
 }
@@ -291,12 +310,12 @@ function call(
   st: DecoyState,
 ): void {
   const g = st.halo;
-  const spring = springAt(def, st);
-  const edge = def.keepOutRadius * Math.min(1, easeOutBack(spring));
+  const edge = def.keepOutRadius * Math.min(1, deployScale(st.onFor));
   if (st.zone) st.zone.radius = edge;
-  if (spring < 1) {
-    const r = BURST_RADIUS * (1 - (1 - spring) * (1 - spring));
-    g.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.35 * (1 - spring) });
+  const burst = st.onFor / BURST_SECONDS;
+  if (burst < 1) {
+    const r = BURST_RADIUS * (1 - (1 - burst) * (1 - burst));
+    g.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.45 * (1 - burst) });
   }
 
   st.pulseIn -= dt;
@@ -350,7 +369,7 @@ function drawFront(g: Graphics, def: Def, r: number): void {
 }
 
 /**
- * Inflating, then up: pops from flat to full with a damped squash-and-stretch, then leans and
+ * Deployed: slams out and settles with a damped squash-and-stretch (deployScale), then leans and
  * breathes like a tube man, with the jiggle spring (kicked by calls and bumps) on top. In its last
  * `warnSeconds` it swells and sways faster, then strains for a beat with a squeak before it pops.
  */
@@ -386,14 +405,13 @@ function wobble(
   st.sway += dt * (1 + WARN_RATE * warn);
   const t = st.sway;
   const spring = springAt(def, st);
-  // From flat to full: overshoots past full and wobbles in, stretching one way then the other.
   const grow =
-    (spring < 1 ? INFLATE_FROM + (1 - INFLATE_FROM) * easeOutBack(spring) : 1) *
-    (1 + WARN_SWELL * warn + SWELL_POP * strain);
+    deployScale(st.onFor) * (1 + WARN_SWELL * warn + SWELL_POP * strain);
+  const settle = Math.max(0, st.onFor - SNAP_SECONDS);
   const stretch =
-    spring < 1
-      ? INFLATE_STRETCH * Math.sin(spring * Math.PI * 3) * (1 - spring)
-      : 0;
+    DEPLOY_STRETCH *
+    Math.exp(-settle * SETTLE_DECAY) *
+    Math.sin(settle * SETTLE_HZ * Math.PI * 2);
   const breathe = BREATHE * Math.sin(t * BREATHE_HZ * Math.PI * 2);
   const tremble = SWELL_TREMBLE * strain * Math.sin(st.onFor * 90);
   const squash = stretch + breathe + st.jiggle + tremble;
@@ -409,15 +427,23 @@ function armed(def: Def, st: DecoyState): number {
   return def.armSeconds > 0 ? 1 - Math.max(0, st.armLeft) / def.armSeconds : 1;
 }
 
-/** Share of the inflate done, 0 to 1; 0 while still arming. */
+/** Share of the settle before the first call, 0 to 1; 0 while still arming. */
 function springAt(def: Def, st: DecoyState): number {
   if (!st.on) return 0;
   return def.springSeconds > 0 ? Math.min(1, st.onFor / def.springSeconds) : 1;
 }
 
-/** Overshoots a little before settling. */
-function easeOutBack(t: number): number {
-  const c = 1.7;
-  const u = t - 1;
-  return 1 + (c + 1) * u * u * u + c * u * u;
+/** Size `t` seconds after deploying: folded to past full in SNAP_SECONDS, then a quick damped wobble down to 1. */
+function deployScale(t: number): number {
+  if (t < SNAP_SECONDS) {
+    const k = t / SNAP_SECONDS;
+    return FOLDED_SCALE + (DEPLOY_OVERSHOOT - FOLDED_SCALE) * k * (2 - k);
+  }
+  const u = t - SNAP_SECONDS;
+  return (
+    1 +
+    (DEPLOY_OVERSHOOT - 1) *
+      Math.exp(-u * SETTLE_DECAY) *
+      Math.cos(u * SETTLE_HZ * Math.PI * 2)
+  );
 }

@@ -124,7 +124,7 @@ export type PowerupDef = PowerupBase &
         effect: "decoy";
         /** Seconds from pickup until it inflates; `seconds` (how long it's up) starts after. */
         armSeconds: number;
-        /** Seconds the dummy takes to inflate; the first call goes out when it's full. */
+        /** Seconds after it slams out before the first call goes, while it settles. */
         springSeconds: number;
         /**
          * Every `pulseSeconds` a call front travels out at `pulseSpeed` px/s to `lureRadius` px.
@@ -139,9 +139,12 @@ export type PowerupDef = PowerupBase &
         warnSeconds: number;
         /** The pop: a push-only blast that knocks the pile back. */
         explosion: ExplosionId;
-        /** Bits of vinyl it bursts into, and how fast they fly, px/s; they stay on the floor. */
+        /** Bits of vinyl it bursts into, how fast they fly (px/s) and their size; they stay on the floor at that size. */
         shreds: number;
         shredSpeed: number;
+        shredScale: number;
+        /** The googly eyes' size among the shreds, flying and on the floor. */
+        shredEyeScale: number;
         /** The pump the dummy inflates from, loaded with the icons by textures.ts. */
         sprite: string;
       })
@@ -318,7 +321,7 @@ export const POWERUPS = {
     seconds: 10,
     effect: "decoy",
     armSeconds: 1.5,
-    springSeconds: 0.45,
+    springSeconds: 0.3,
     lureRadius: 650,
     pulseSpeed: 420,
     pulseSeconds: 2,
@@ -327,6 +330,8 @@ export const POWERUPS = {
     explosion: "decoyPop",
     shreds: 40,
     shredSpeed: 420,
+    shredScale: 1.8,
+    shredEyeScale: 0.9,
     sprite: "/sprites/decoy-puck.png",
     icon: "/sprites/icon-powerup-decoy.png",
     weight: 1,

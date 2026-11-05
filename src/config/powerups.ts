@@ -158,9 +158,8 @@ export type PowerupDef = PowerupBase &
         spinRate: number;
         /** Spiral arms, evenly spaced round the disc. */
         arms: number;
-        /** World px per second, and how far a blade flies before it's gone. */
+        /** World px per second; a blade flies until it hits a zombie or a wall. */
         bladeSpeed: number;
-        bladeRange: number;
         bladeDamage: number;
         /** Zombies one blade hits before it's spent and drops to the floor; each is hit once. 1 = stops in the first. */
         bladePierce: number;
@@ -169,7 +168,7 @@ export type PowerupDef = PowerupBase &
         dismemberScale: number;
         /** Disc radius, world px. */
         discRadius: number;
-        /** Each blade is a copy of the disc at this fraction of its size. */
+        /** Each blade is a plain steel saw blade at this fraction of the disc's size. */
         bladeScale: number;
         /**
          * A spent blade drops from this fake height (world px), skids on about this far (world px,
@@ -363,7 +362,6 @@ export const POWERUPS = {
     spinRate: 1,
     arms: 2,
     bladeSpeed: 420,
-    bladeRange: 420,
     bladeDamage: 3,
     bladePierce: 1,
     bladeKnockback: 260,

@@ -1,5 +1,6 @@
 import { Container, Graphics, GraphicsContext, type Texture } from "pixi.js";
 import { raycastZombies } from "../../combat/raycast";
+import { ARENA } from "../../config/arena";
 import type { EffectDef } from "../../config/powerups";
 import { rand } from "../../core/random";
 import type { Zombie } from "../../entities/Zombie";
@@ -11,6 +12,8 @@ type Def = EffectDef<"hypnoDisc">;
 const INK = 0x151a15;
 const STEEL = 0x9aa3a8;
 const STEEL_LIGHT = 0xe4eaec;
+const STEEL_FACE = 0xb9c1c5;
+const STEEL_DARK = 0x737b80;
 const RED = 0xd63a35;
 const CREAM = 0xf6eccb;
 const TAU = Math.PI * 2;
@@ -27,9 +30,10 @@ const HEIGHT_SCALE = 0.02;
 const DROP_SHARE = 0.35;
 /** The skid decays by e^-SKID_DECAY over settleSeconds, so it has all but stopped by then. */
 const SKID_DECAY = 5;
-/** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
+/** A blade that reaches a wall sticks in it this long, then drops off it onto the floor. */
 const STUCK_SECONDS = 0.6;
-const STUCK_FADE = 0.25;
+/** How far a blade dropping off a wall lands from where it was stuck, as a share of its radius. */
+const WALL_DROP = 0.8;
 /** The disc pops in and shrinks away over these, in world seconds. */
 const POP_IN = 0.12;
 const POP_OUT = 0.15;
@@ -46,8 +50,8 @@ const STREAK = new GraphicsContext()
   .poly([0, -0.7, -2.6, 0, 0, 0.7])
   .fill({ color: STEEL_LIGHT, alpha: 0.3 });
 
-/** Saw disc, like the icon, also thrown as the blades: hooked steel teeth round a red and cream spiral, a dark hub. */
-const DISC = (() => {
+/** Hooked steel saw teeth round the rim, with a glint, shared by the disc and its blades. */
+function sawTeeth(): GraphicsContext {
   const TEETH = 16;
   const teeth: number[] = [];
   for (let i = 0; i < TEETH; i++) {
@@ -59,14 +63,17 @@ const DISC = (() => {
       Math.sin(a + step * 0.75) * 0.8,
     );
   }
-  const g = new GraphicsContext()
+  return new GraphicsContext()
     .poly(teeth)
     .fill(STEEL)
     .stroke({ width: 0.09, color: INK, join: "round" })
     .arc(0, 0, 0.82, Math.PI * 1.05, Math.PI * 1.55)
-    .stroke({ width: 0.06, color: STEEL_LIGHT, cap: "round" })
-    .circle(0, 0, 0.72)
-    .fill(CREAM);
+    .stroke({ width: 0.06, color: STEEL_LIGHT, cap: "round" });
+}
+
+/** The disc over the deploy point, like the icon: saw teeth round a red and cream spiral, a dark hub. */
+const DISC = (() => {
+  const g = sawTeeth().circle(0, 0, 0.72).fill(CREAM);
   spiralArms(g, 0.72, 3, RED, 1);
   return g
     .circle(0, 0, 0.72)
@@ -76,6 +83,37 @@ const DISC = (() => {
     .stroke({ width: 0.06, color: INK })
     .circle(0, 0, 0.08)
     .fill(0x2c302c);
+})();
+
+/**
+ * A thrown blade: a plain old-school circular saw, all steel. Brighter face plate with a glint,
+ * expansion slots cut in from the rim, a darker clamping collar and the arbor hole.
+ */
+const BLADE = (() => {
+  const SLOTS = 4;
+  const g = sawTeeth()
+    .circle(0, 0, 0.74)
+    .fill(STEEL_FACE)
+    .stroke({ width: 0.05, color: INK })
+    .arc(0, 0, 0.6, Math.PI * 1.1, Math.PI * 1.45)
+    .stroke({ width: 0.07, color: STEEL_LIGHT, cap: "round" })
+    .arc(0, 0, 0.6, Math.PI * 0.15, Math.PI * 0.3)
+    .stroke({ width: 0.05, color: STEEL_LIGHT, cap: "round" });
+  for (let i = 0; i < SLOTS; i++) {
+    const a = (i / SLOTS) * TAU + 0.4;
+    g.moveTo(Math.cos(a) * 0.82, Math.sin(a) * 0.82)
+      .lineTo(Math.cos(a + 0.12) * 0.56, Math.sin(a + 0.12) * 0.56)
+      .stroke({ width: 0.06, color: INK, cap: "round" })
+      .circle(Math.cos(a + 0.12) * 0.54, Math.sin(a + 0.12) * 0.54, 0.05)
+      .fill(INK);
+  }
+  return g
+    .circle(0, 0, 0.3)
+    .fill(STEEL_DARK)
+    .stroke({ width: 0.05, color: INK })
+    .circle(0, 0, 0.11)
+    .fill(0x2c302c)
+    .stroke({ width: 0.04, color: INK });
 })();
 
 /** `arms` spiral bands from the centre out to `radius`, each half the gap between arms wide. */
@@ -107,27 +145,26 @@ function spiralArms(
 
 interface Blade {
   view: Container;
-  /** A small copy of the disc, spinning in flight; the streak behind it holds the flight direction. */
+  /** A plain steel saw blade, spinning in flight; the streak behind it holds the flight direction. */
   saw: Graphics;
   /** World px; also how far its sweep reaches past a zombie's circle. */
   radius: number;
   streak: Graphics;
   dx: number;
   dy: number;
-  /** World px of flight left. */
-  left: number;
   pierce: number;
   /** Zombies this blade already cut, so it hits each once. */
   hit: Zombie[];
   /** Seconds left stuck in a wall, or 0 while flying. */
   stuck: number;
-  /** World seconds since it was spent in a zombie, skidding and settling; -1 while flying. */
+  /** World seconds since it was spent, skidding and settling onto the floor; -1 before that. */
   skid: number;
-  /** Where it was spent, how far it skids from there and its spin then. */
+  /** Where it was spent, how far it skids from there (along dx, dy), its angle and spin rate then. */
   x0: number;
   y0: number;
   skidLength: number;
   spin0: number;
+  spin: number;
 }
 
 interface Spin {
@@ -158,7 +195,8 @@ let spentTexture: Texture | null = null;
  * A saw disc deploys where the player stands and spins there for `seconds`, flinging razor blades out along spiral arms.
  * Each blade flies straight and stops in the first `bladePierce` zombies it hits (each once,
  * through applyHit with a raised tear-off chance), then drops and skids to rest on the floor,
- * where it is stamped; one that reaches a wall sticks in it and fades.
+ * where it is stamped. One that misses flies on until it bites into a wall, then drops off it
+ * onto the floor the same way; none just vanish.
  */
 export const hypnoDisc: PowerupEffect<Def, Spin> = {
   start(ctx, def, active) {
@@ -277,12 +315,10 @@ function launch(
   const b = pool.pop() ?? newBlade();
   b.dx = Math.cos(angle);
   b.dy = Math.sin(angle);
-  b.left = def.bladeRange;
   b.pierce = def.bladePierce;
   b.hit.length = 0;
   b.stuck = 0;
   b.skid = -1;
-  b.view.alpha = 1;
   b.saw.tint = 0xffffff;
   b.streak.visible = true;
   b.streak.rotation = angle;
@@ -301,7 +337,7 @@ function launch(
 function newBlade(): Blade {
   const view = new Container({ label: "hypnoBlade" });
   const streak = view.addChild(new Graphics({ context: STREAK }));
-  const saw = view.addChild(new Graphics({ context: DISC }));
+  const saw = view.addChild(new Graphics({ context: BLADE }));
   return {
     view,
     saw,
@@ -309,7 +345,6 @@ function newBlade(): Blade {
     radius: 0,
     dx: 0,
     dy: 0,
-    left: 0,
     pierce: 0,
     hit: [],
     stuck: 0,
@@ -318,10 +353,11 @@ function newBlade(): Blade {
     y0: 0,
     skidLength: 0,
     spin0: 0,
+    spin: 0,
   };
 }
 
-/** Move a blade one step, cutting what it sweeps through. False once it's spent or out of range. */
+/** Move a blade one step, cutting what it sweeps through. False once it has flown off out of a gate. */
 function fly(
   ctx: PowerupContext,
   def: Def,
@@ -331,7 +367,7 @@ function fly(
 ): boolean {
   const { x, y } = b.view;
   const wall = wallHit(x, y, b.dx, b.dy);
-  const step = Math.min(def.bladeSpeed * dt, b.left);
+  const step = def.bladeSpeed * dt;
   const reach = wall
     ? Math.min(step, Math.max(0, wall.t - b.radius * 0.5))
     : step;
@@ -364,31 +400,56 @@ function fly(
   }
   b.view.position.set(x + b.dx * travel, y + b.dy * travel);
   b.saw.rotation += BLADE_SPIN * dt;
-  b.left -= travel;
   if (b.pierce <= 0) {
     // Thunk: it bites into the zombie, then drops and skids on along the floor, stopping short of a wall.
     ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);
     const ahead = wallHit(b.view.x, b.view.y, b.dx, b.dy);
-    b.skid = 0;
-    b.x0 = b.view.x;
-    b.y0 = b.view.y;
-    b.skidLength = Math.min(
-      def.skidDistance * rand(0.6, 1.4),
-      ahead ? Math.max(0, ahead.t - b.radius) : Infinity,
+    spend(
+      b,
+      b.dx,
+      b.dy,
+      Math.min(
+        def.skidDistance * rand(0.6, 1.4),
+        ahead ? Math.max(0, ahead.t - b.radius) : Infinity,
+      ),
+      BLADE_SPIN,
     );
-    b.spin0 = b.saw.rotation;
-    b.streak.visible = false;
     return true;
   }
   if (wall && travel >= reach && reach < step) {
-    // Thunk: it bites into the wall face, chips it and stays put for a moment.
+    // Thunk: it bites into the wall face, chips it and stays put for a moment, then drops off it
+    // (along the wall's inward normal) onto the floor.
     b.stuck = STUCK_SECONDS;
+    b.dx = wall.nx;
+    b.dy = wall.ny;
     b.streak.visible = false;
     ctx.fx.sparkle(wall.x, wall.y, 0xffe08a, 4);
     ctx.floor.chipWall(wall.x, wall.y, wall.nx, wall.ny);
     return true;
   }
-  return b.left > 0;
+  // Out through a gate: gone once it's past the floor's margin, into the dark.
+  const { x: nx, y: ny } = b.view;
+  const m = ARENA.margin;
+  return nx > -m && ny > -m && nx < ARENA.width + m && ny < ARENA.height + m;
+}
+
+/** Start a blade's drop and skid from where it is: `length` px along (dx, dy), spinning down from `spin`. */
+function spend(
+  b: Blade,
+  dx: number,
+  dy: number,
+  length: number,
+  spin: number,
+): void {
+  b.skid = 0;
+  b.dx = dx;
+  b.dy = dy;
+  b.x0 = b.view.x;
+  b.y0 = b.view.y;
+  b.skidLength = length;
+  b.spin0 = b.saw.rotation;
+  b.spin = spin;
+  b.streak.visible = false;
 }
 
 /**
@@ -410,7 +471,7 @@ function skid(ctx: PowerupContext, def: Def, b: Blade, dt: number): boolean {
     b.x0 + b.dx * b.skidLength * decay,
     b.y0 + b.dy * b.skidLength * decay,
   );
-  b.saw.rotation = b.spin0 + (BLADE_SPIN / k) * decay;
+  b.saw.rotation = b.spin0 + (b.spin / k) * decay;
   const look = f * f * (3 - 2 * f);
   b.saw.scale.set(
     b.radius * (1 + (SPENT_SCALE - 1) * look) * (1 + z * HEIGHT_SCALE),
@@ -426,7 +487,7 @@ function stampSpent(ctx: PowerupContext, b: Blade): void {
   if (!spentTexture) {
     const holder = new Container();
     holder
-      .addChild(new Graphics({ context: DISC }))
+      .addChild(new Graphics({ context: BLADE }))
       .scale.set(SPENT_BAKE_RADIUS);
     spentTexture = ctx.floor.bake(holder);
     holder.destroy({ children: true });
@@ -444,11 +505,11 @@ function lerpGrey(from: number, to: number, f: number): number {
   return (c << 16) | (c << 8) | c;
 }
 
-/** A blade stuck in a wall waits, then fades. False once it's gone. */
+/** A blade stuck in a wall waits, then drops off it onto the floor, without spinning. */
 function stick(b: Blade, dt: number): boolean {
   b.stuck -= dt;
-  b.view.alpha = Math.min(1, b.stuck / STUCK_FADE);
-  return b.stuck > 0;
+  if (b.stuck <= 0) spend(b, b.dx, b.dy, b.radius * WALL_DROP, 0);
+  return true;
 }
 
 function easeOutBack(f: number): number {

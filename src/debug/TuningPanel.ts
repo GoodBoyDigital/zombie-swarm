@@ -140,7 +140,6 @@ const POWERUP_RANGES: Ranges = {
   spinRate: { min: 0, max: 6, step: 0.05 },
   arms: { min: 1, max: 8, step: 1 },
   bladeSpeed: { min: 100, max: 1500, step: 10 },
-  bladeRange: { min: 50, max: 1000, step: 10 },
   bladeDamage: { min: 0, max: 30, step: 0.5 },
   bladePierce: { min: 1, max: 20, step: 1 },
   bladeKnockback: { min: 0, max: 1200, step: 10 },

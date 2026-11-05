@@ -72,6 +72,7 @@ export class Drops {
       this.weaponsThisVolley = 0;
       this.powerupsThisVolley = 0;
     }
+    if (this.orbNear(x, y)) return;
     let dropped = false;
     const onBackup = this.heldWeapon() === BACKUP_WEAPON;
     const weaponChance =
@@ -89,6 +90,7 @@ export class Drops {
     }
     if (
       this.powerupsThisVolley < DROP_RULES.maxPowerupsPerAction &&
+      this.powerupOrbs() < DROP_RULES.maxPowerupOrbs &&
       Math.random() < DROP_RULES.powerupChancePerKill
     ) {
       this.powerupsThisVolley++;
@@ -96,6 +98,17 @@ export class Drops {
       const nudge = dropped ? DROP_RULES.orbRadius * 2.4 : 0;
       this.spawn(pickWeighted(POWERUP_DROPS), x + nudge, y);
     }
+  }
+
+  /** An orb already lies within `orbSpacing` of (x, y). */
+  private orbNear(x: number, y: number): boolean {
+    const r2 = DROP_RULES.orbSpacing * DROP_RULES.orbSpacing;
+    return this.live.some((d) => (d.x - x) ** 2 + (d.y - y) ** 2 < r2);
+  }
+
+  /** Red and pink orbs on the floor. */
+  private powerupOrbs(): number {
+    return this.live.filter((d) => d.def.category !== "weapon").length;
   }
 
   /** A gun orb is already lying on the floor. */

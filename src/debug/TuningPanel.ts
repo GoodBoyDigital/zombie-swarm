@@ -50,6 +50,8 @@ const LOOT_RANGES: Ranges = {
   weaponChanceArmed: { min: 0, max: 1, step: 0.001 },
   weaponChanceWhileWaiting: { min: 0, max: 1, step: 0.01 },
   powerupChancePerKill: { min: 0, max: 1, step: 0.005 },
+  maxPowerupOrbs: { min: 0, max: 20, step: 1 },
+  orbSpacing: { min: 0, max: 600, step: 10 },
   maxWeaponsPerAction: { min: 0, max: 10, step: 1 },
   maxPowerupsPerAction: { min: 0, max: 10, step: 1 },
   bobHeight: { min: 0, max: 10, step: 0.5 },

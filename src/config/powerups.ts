@@ -194,7 +194,7 @@ export const POWERUPS = {
     effect: "heal",
     heal: 15,
     icon: "/sprites/icon-medkit.png",
-    weight: 4,
+    weight: 1,
     sound: "pickupHealth",
   },
   magnet: {
@@ -207,7 +207,7 @@ export const POWERUPS = {
     modifiers: { magnetRadius: 200 / PLAYER.magnetRadius, magnetPull: 2 },
     ringColor: 0xff3fc8,
     icon: "/sprites/icon-powerup-magnet.png",
-    weight: 2,
+    weight: 1,
   },
   powerMode: {
     id: "powerMode",
@@ -221,7 +221,7 @@ export const POWERUPS = {
     auraSpin: 0.6,
     auraColor: 0xffc23a,
     icon: "/sprites/icon-powerup-power.png",
-    weight: 3,
+    weight: 1,
   },
   speed: {
     id: "speed",
@@ -233,7 +233,7 @@ export const POWERUPS = {
     modifiers: { moveSpeed: 1.2 },
     trailColor: 0x7fd8ff,
     icon: "/sprites/icon-powerup-speed.png",
-    weight: 2,
+    weight: 1,
   },
   slowMo: {
     id: "slowMo",
@@ -254,7 +254,7 @@ export const POWERUPS = {
       tint: { r: 1, g: 1, b: 1.04 },
     },
     icon: "/sprites/icon-powerup-slowmo.png",
-    weight: 1.2,
+    weight: 1,
   },
   shield: {
     id: "shield",
@@ -269,7 +269,7 @@ export const POWERUPS = {
     flickerSeconds: 1.5,
     ripple: 5,
     icon: "/sprites/icon-powerup-shield.png",
-    weight: 1.5,
+    weight: 1,
   },
   portal: {
     id: "portal",
@@ -295,7 +295,7 @@ export const POWERUPS = {
     screenFlash: 0.85,
     screenFlashSeconds: 0.7,
     icon: "/sprites/icon-powerup-nuke.png",
-    weight: 1.5,
+    weight: 1,
   },
   airstrike: {
     id: "airstrike",
@@ -318,7 +318,7 @@ export const POWERUPS = {
     strafeRounds: 5,
     strafeDamage: 2,
     icon: "/sprites/icon-powerup-airstrike.png",
-    weight: 1.5,
+    weight: 1,
     sound: "airstrikeWarning",
   },
 } as const satisfies Record<string, PowerupDef>;

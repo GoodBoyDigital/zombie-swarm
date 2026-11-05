@@ -15,7 +15,14 @@ export const DROP_RULES = {
    */
   weaponChanceWhileWaiting: 0.1,
   /** Chance a kill drops a red or pink power-up, rolled independently of guns. */
-  powerupChancePerKill: 0.04,
+  powerupChancePerKill: 0.06,
+  /** Most red or pink orbs lying on the floor at once; kills past it drop none. */
+  maxPowerupOrbs: 6,
+  /**
+   * No orb drops from a kill within this many px of an orb already on the floor, so a crowd mown
+   * down in one spot leaves one orb there rather than a clump, and the rest turn up elsewhere.
+   */
+  orbSpacing: 180,
   /**
    * Most orbs one action can drop (a trigger pull, a blast, a bomb), per kind, so a nuke through
    * a crowd doesn't carpet the floor with orbs.

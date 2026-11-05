@@ -3,7 +3,7 @@ import { ARENA } from "../config/arena";
 import type { Audio } from "../audio/Audio";
 import { BLOOD_SPRAY } from "../combat/CombatContext";
 import { RUN } from "../config/run";
-import { KNOCKBACK_DRAG, MAX_ZOMBIE_RADIUS } from "../config/zombies";
+import { KNOCKBACK_DRAG, MAX_ZOMBIE_RADIUS, PART_IDS } from "../config/zombies";
 import { rand } from "../core/random";
 import type { ExclusionZone, Horde } from "../entities/Horde";
 import type { Zombie } from "../entities/Zombie";
@@ -43,6 +43,10 @@ const SQUISH_SPRAY = 10;
 const SQUISH_TRAUMA = 0.4;
 const LAND_TRAUMA = 0.15;
 const TWO_PI = Math.PI * 2;
+/** Rotor blades; each one sweeping past is a chance to chop. */
+const BLADES = 4;
+/** Chopped bodies and pieces leave along the blade, with this much of the push straight out from the hub. */
+const FLING_OUT = 0.5;
 
 /** What the chopper pushes, squishes and shakes. */
 export interface ChopperWorld {
@@ -100,6 +104,12 @@ export class Chopper {
   private readonly keepOut: ExclusionZone[] = [];
   /** Footprint outline while the AI debug overlay (V) is on. */
   private readonly debug = new Graphics();
+  /** Rotor angle since the last blade pass, chops banked by the rate limit, and the chop sound's cooldown. */
+  private bladeTurn = 0;
+  private chops = 0;
+  private chopSound = 0;
+  private readonly stump = { x: 0, y: 0 };
+  private readonly inReach: Zombie[] = [];
 
   constructor(
     private readonly tex: GameTextures,
@@ -212,6 +222,7 @@ export class Chopper {
       this.y = this.from.y + Math.sin(this.heading) * run;
     }
     this.rotor.rotation += RUN.rotorSpin * dt;
+    if (this.phase === "landed") this.slice(dt);
     const wash =
       this.phase === "descend" ? this.descentWash(dt) : this.blow(dt);
     this.kickDust(dt, wash);
@@ -349,7 +360,7 @@ export class Chopper {
         SQUISH_SPRAY,
         BLOOD_SPRAY,
       );
-      horde.kill(z);
+      horde.kill(z, "count");
     }
     for (const c of circles) this.keepOut.push(horde.addZone(c.x, c.y, c.r));
     audio.play("explosion", {
@@ -359,6 +370,72 @@ export class Chopper {
     if (crushed.size > 0)
       audio.play("zombieTear", { pitch: rand(0.7, 0.85), volume: 0.9 });
     camera.addTrauma(crushed.size > 0 ? SQUISH_TRAUMA : LAND_TRAUMA);
+  }
+
+  /**
+   * Landed: the turning blades chew the crowd at the body's edge. Each blade pass rolls for every
+   * zombie in reach, rate-limited so it reads as a gory spectacle rather than a force field.
+   */
+  private slice(dt: number): void {
+    this.chops = Math.min(
+      RUN.sliceBurst,
+      this.chops + RUN.slicesPerSecond * dt,
+    );
+    this.chopSound -= dt;
+    this.bladeTurn += RUN.rotorSpin * dt;
+    const pass = TWO_PI / BLADES;
+    while (this.bladeTurn >= pass) {
+      this.bladeTurn -= pass;
+      if (this.chops < 1) continue;
+      const r = RUN.sliceRadius;
+      const { x, y } = this;
+      this.inReach.length = 0;
+      this.world.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
+        if (!z.dead && (z.x - x) ** 2 + (z.y - y) ** 2 < r * r)
+          this.inReach.push(z);
+      });
+      for (const z of this.inReach) {
+        if (this.chops < 1) break;
+        if (Math.random() >= RUN.sliceChance) continue;
+        this.chops -= 1;
+        this.chop(z);
+      }
+    }
+  }
+
+  /** Chop one zombie: limbs and head fly off along the blade, blood sprays after them, no reward. */
+  private chop(z: Zombie): void {
+    const { horde, fx, audio } = this.world;
+    const d = Math.max(0.001, Math.hypot(z.x - this.x, z.y - this.y));
+    const rx = (z.x - this.x) / d;
+    const ry = (z.y - this.y) / d;
+    // The rotor turns clockwise on screen, so a blade moves along (-ry, rx) where it meets the zombie.
+    let fx0 = -ry + rx * FLING_OUT;
+    let fy0 = rx + ry * FLING_OUT;
+    const len = Math.hypot(fx0, fy0);
+    fx0 /= len;
+    fy0 /= len;
+    z.kx = fx0 * RUN.sliceFling;
+    z.ky = fy0 * RUN.sliceFling;
+    let head = false;
+    const parts = z.def.art.parts;
+    for (let bit = 0; bit < PART_IDS.length; bit++) {
+      if (!parts?.[PART_IDS[bit]] || z.missing & (1 << bit)) continue;
+      if (Math.random() >= RUN.slicePartChance) continue;
+      horde.limbs.launch(z, bit, fx0, fy0, this.stump);
+      z.sever(bit);
+      head ||= PART_IDS[bit] === "head";
+      fx.bloodBurst(this.stump.x, this.stump.y, fx0, fy0, 10, BLOOD_SPRAY);
+    }
+    fx.bloodBurst(z.x, z.y, fx0, fy0, RUN.sliceSpray, BLOOD_SPRAY);
+    for (let i = 0; i < 3; i++) horde.splat(z.x, z.y, fx0, fy0);
+    z.drop();
+    horde.kill(z, "none");
+    if (this.chopSound > 0) return;
+    this.chopSound = RUN.chopSoundGap;
+    audio.play("rotorChop", { pitch: rand(0.85, 1.15), volume: 0.8 });
+    if (head)
+      audio.play("zombieHeadPop", { pitch: rand(0.9, 1.2), volume: 0.6 });
   }
 
   private releaseKeepOut(): void {

@@ -30,6 +30,12 @@ const ZOMBIE_IDS = Object.keys(ZOMBIES) as ZombieId[];
 /** How long the debug overlay shows a gunshot's noise ring. */
 const NOISE_RING_SECONDS = 0.35;
 
+/**
+ * How a kill pays out: `full` counts it and fires onKill (loot, orb drops), `count` only adds to
+ * the kill count, `none` neither (comic deaths, like the chopper's rotor).
+ */
+export type KillCredit = "full" | "count" | "none";
+
 /** A circle zombies can't enter: a shield bubble, a safety portal. Move it by writing x, y and radius. */
 export interface ExclusionZone {
   x: number;
@@ -228,9 +234,9 @@ export class Horde {
   }
 
   /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
-  kill(z: Zombie): void {
-    this.kills++;
-    this.onKill?.(z);
+  kill(z: Zombie, credit: KillCredit = "full"): void {
+    if (credit !== "none") this.kills++;
+    if (credit === "full") this.onKill?.(z);
     this.corpses.spawn(
       z.x,
       z.y,

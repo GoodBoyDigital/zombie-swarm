@@ -95,6 +95,21 @@ export const RUN = {
   descentReach: 120,
   /** At touchdown a zombie is squished if its centre is inside a footprint circle grown by this share of its own radius. */
   squishOverlap: 0.5,
+  /**
+   * Rotor slicing while landed: on each blade pass, every zombie within `sliceRadius` px of the hub
+   * has `sliceChance` of being chopped, limited to `slicesPerSecond` (with bursts up to `sliceBurst`).
+   * Chopped zombies lose limbs and head, which fly off along the blade at `sliceFling` px/s. No reward.
+   */
+  sliceRadius: 135,
+  sliceChance: 0.12,
+  slicesPerSecond: 5,
+  sliceBurst: 3,
+  sliceFling: 520,
+  /** Chance each attached part comes off when chopped, and blood sparks per chop. */
+  slicePartChance: 0.7,
+  sliceSpray: 26,
+  /** Minimum seconds between chop sounds. */
+  chopSoundGap: 0.12,
   /** Rotor wash while low: zombies inside `washRadius` drift outward at up to `washPush` px/s, fading to 0 at the edge. */
   washRadius: 170,
   washPush: 160,

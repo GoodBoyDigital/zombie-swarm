@@ -217,7 +217,7 @@ export const ZOMBIES = {
     radius: 20,
     speed: 24,
     speedVariance: 8,
-    health: 15,
+    health: 12,
     knockbackScale: 0.25,
     mass: 4,
     color: 0xffffff,

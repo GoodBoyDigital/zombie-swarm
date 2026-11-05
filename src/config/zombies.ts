@@ -243,34 +243,34 @@ export const MAX_ZOMBIE_RADIUS = Math.max(
 );
 
 /**
- * What spawns when. Each row gives relative weights per type at `at` seconds of play; weights are
- * interpolated between rows and held flat after the last one. Brutes start at 150 s; runners are off for now.
- */
-/**
- * Spawns per second at the start and after `rampSeconds` of play. The curve eases in (`rampPower`):
- * the first couple of minutes feel sparse and harmless, then the rate climbs steeply so the arena fills
- * before the player notices it happening. Roughly 1/s at 1 min, 2/s at 2 min, 5.6/s at 4 min,
- * 11.6/s at 6 min, 20/s at 8 min.
- * `maxAlive` caps the horde.
+ * Spawns per second at the start of a run and when the countdown runs out; the swarm holds at the
+ * peak while the chopper comes in. The ramp runs on the run's progress, so it peaks at extraction
+ * whatever the level's length. The curve eases in (`rampPower`): the first few minutes feel sparse
+ * and harmless, then the rate climbs steeply so the arena fills before the player notices it
+ * happening. Over a 12 minute run: about 1.5/s at 2 min, 4/s at 4 min, 7.5/s at 6 min, 12.5/s at
+ * 9 min, 17.5/s in the last minute. Levels scale both rates. `maxAlive` caps the horde.
  */
 export const SPAWN = {
   rateStart: 0.75,
   rateEnd: 20,
-  rampSeconds: 480,
-  rampPower: 2,
+  rampPower: 1.8,
   maxAlive: 600,
 };
 
+/**
+ * What spawns when. Each row gives relative weights per type at `at`, a share of the run (0 at the
+ * start, 1 when the chopper is called); weights are interpolated between rows and held flat after
+ * the last one. Levels pull the rows earlier and weight brutes up. Runners are off for now.
+ */
 export const SPAWN_TABLE: readonly {
   at: number;
   weights: Record<ZombieId, number>;
 }[] = [
   { at: 0, weights: { walker: 1, runner: 0, brute: 0 } },
-  { at: 60, weights: { walker: 1, runner: 0, brute: 0 } },
-  { at: 120, weights: { walker: 1, runner: 0, brute: 0 } },
-  { at: 150, weights: { walker: 1, runner: 0, brute: 0.03 } },
-  { at: 300, weights: { walker: 1, runner: 0, brute: 0.12 } },
-  { at: 480, weights: { walker: 1, runner: 0, brute: 0.2 } },
+  { at: 0.25, weights: { walker: 1, runner: 0, brute: 0 } },
+  { at: 0.3, weights: { walker: 1, runner: 0, brute: 0.03 } },
+  { at: 0.6, weights: { walker: 1, runner: 0, brute: 0.12 } },
+  { at: 1, weights: { walker: 1, runner: 0, brute: 0.2 } },
 ];
 
 /**

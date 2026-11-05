@@ -8,6 +8,7 @@ import {
   type Texture,
 } from "pixi.js";
 import { ARENA } from "../config/arena";
+import type { LevelDef } from "../config/run";
 import { profiler } from "../debug/Profiler";
 import { BLAST_TEXTURE_RADIUS, type GameTextures } from "../fx/textures";
 
@@ -57,6 +58,7 @@ export class FloorCanvas {
   constructor(
     private readonly renderer: Renderer,
     private readonly tex: GameTextures,
+    floor: LevelDef["floor"],
   ) {
     const size = {
       width: ARENA.width + ARENA.margin * 2,
@@ -75,7 +77,7 @@ export class FloorCanvas {
     this.wallView = new Sprite(this.wallTarget);
     this.wallView.position.set(this.origin, this.origin);
     this.stamp.anchor.set(0.5);
-    this.paintBase(size.width, size.height, tex);
+    this.paintBase(size.width, size.height, floor);
     for (let i = 0; i < CHIP_VARIANTS; i++) this.chips.push(this.makeChip());
   }
 
@@ -226,20 +228,24 @@ export class FloorCanvas {
   }
 
   /** Dirt everywhere, concrete inside the walls. Tiled once into the render texture. */
-  private paintBase(width: number, height: number, tex: GameTextures): void {
+  private paintBase(
+    width: number,
+    height: number,
+    floor: LevelDef["floor"],
+  ): void {
     const m = ARENA.margin;
     const base = new Container();
     // Pure black beyond the walls: the outside world is darkness zombies walk in from.
     base.addChild(new Graphics().rect(0, 0, width, height).fill(OUTSIDE_COLOR));
     const concrete = new TilingSprite({
-      texture: tex.tiles.concrete,
+      texture: this.tex.tiles[floor.tile],
       width: ARENA.width,
       height: ARENA.height,
     });
     concrete.position.set(m, m);
-    // Larger repeat hides the tile seam; the tint keeps the floor from competing with the characters.
+    // Larger repeat hides the tile seam; the level's tint keeps the floor from competing with the characters.
     concrete.tileScale.set(1.5);
-    concrete.tint = 0xb4b4ae;
+    concrete.tint = floor.tint;
     base.addChild(concrete);
     this.renderer.render({ container: base, target: this.target, clear: true });
     base.destroy({ children: true });

@@ -77,8 +77,8 @@ export interface GameTextures {
   casings: Record<CasingId, Texture>;
   /** Little broken bits of wall that bullets knock onto the floor. */
   wallChunks: Texture[];
-  /** Repeating floor and wall tiles. */
-  tiles: { concrete: Texture; wall: Texture };
+  /** Repeating floor and wall tiles; levels pick their floor from these by FloorTile. */
+  tiles: { concrete: Texture; blotchy: Texture; wall: Texture };
   /** Pickup sprites. All loot shares one texture source so a ParticleContainer can draw it in one call. */
   loot: Record<LootId, Texture>;
   /** Each power-up's icon, from its def's `icon` path. Drawn on orbs and HUD pills. */
@@ -93,6 +93,7 @@ const SPRITES = {
   playerCorpse: "/sprites/player-corpse.png",
   rocket: "/sprites/projectile-rocket.png",
   tileConcrete: "/assets/tiles/tile-concrete.png",
+  tileBlotchy: "/assets/tiles/tile-concrete-blotchy.png",
   tileWall: "/assets/tiles/tile-wall.png",
 } as const;
 
@@ -148,7 +149,11 @@ export async function createTextures(
       (n) => `/sprites/zombie-${art.key}-corpse-${n}.png`,
     ),
   });
-  const tilePaths = [SPRITES.tileConcrete, SPRITES.tileWall];
+  const tilePaths = [
+    SPRITES.tileConcrete,
+    SPRITES.tileBlotchy,
+    SPRITES.tileWall,
+  ];
   const [sheet, tiles] = await Promise.all([
     Assets.load<Spritesheet>({
       src: assetUrl("/assets/sprites@2x.json"),
@@ -444,6 +449,7 @@ export async function createTextures(
     wallChunks,
     tiles: {
       concrete: sprite("tileConcrete"),
+      blotchy: sprite("tileBlotchy"),
       wall: sprite("tileWall"),
     },
   };

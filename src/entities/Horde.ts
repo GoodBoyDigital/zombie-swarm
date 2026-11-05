@@ -8,6 +8,7 @@ import {
   type ZombieDef,
   type ZombieId,
 } from "../config/zombies";
+import type { LevelDef } from "../config/run";
 import { pick, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
 import type { Arena } from "../world/Arena";
@@ -62,14 +63,16 @@ export class Horde {
   readonly zones: ExclusionZone[] = [];
   private readonly zonePool: ExclusionZone[] = [];
   private readonly lastNoise = { x: 0, y: 0, radius: 0, age: Infinity };
+  /** Share of the run's countdown gone, 0 to 1, set by the run each frame; drives the spawn ramp and mix. */
+  progress = 0;
   private readonly pool: Zombie[] = [];
-  private elapsed = 0;
   private spawnDebt = 0;
 
   constructor(
     private readonly tex: GameTextures,
     private readonly arena: Arena,
     private readonly floor: FloorCanvas,
+    private readonly level: LevelDef,
   ) {
     // Zombies are added and removed most frames; keep that from rebuilding the whole stage.
     this.view.isRenderGroup = true;
@@ -83,7 +86,6 @@ export class Horde {
     playerY: number,
     playerRadius: number,
   ): void {
-    this.elapsed += dt;
     this.spawnWave(dt);
     this.corpses.update(dt);
     this.limbs.update(dt);
@@ -260,9 +262,11 @@ export class Horde {
   }
 
   private spawnWave(dt: number): void {
-    const t = Math.min(1, this.elapsed / SPAWN.rampSeconds) ** SPAWN.rampPower;
+    const t = Math.min(1, this.progress) ** SPAWN.rampPower;
     this.spawnDebt +=
-      dt * (SPAWN.rateStart + (SPAWN.rateEnd - SPAWN.rateStart) * t);
+      dt *
+      this.level.spawnRate *
+      (SPAWN.rateStart + (SPAWN.rateEnd - SPAWN.rateStart) * t);
     while (this.spawnDebt >= 1 && this.alive.length < SPAWN.maxAlive) {
       this.spawnDebt -= 1;
       this.spawn(ZOMBIES[this.pickType()]);
@@ -272,7 +276,7 @@ export class Horde {
 
   private spawn(def: ZombieDef): void {
     const z = this.pool.pop() ?? this.create();
-    z.spawn(def, pick(this.arena.gates));
+    z.spawn(def, pick(this.arena.gates), this.level.zombieHealth);
     this.alive.push(z);
     this.view.addChild(z.sprite);
   }
@@ -281,16 +285,21 @@ export class Horde {
     return new Zombie(this.tex);
   }
 
-  /** Weighted pick from the spawn table, interpolating weights between the rows around `elapsed`. */
+  /**
+   * Weighted pick from the spawn table, interpolating weights between the rows around the run's
+   * progress. The level's `mixLead` reads further down the table, so tougher types arrive sooner.
+   */
   private pickType(): ZombieId {
+    const at = this.progress + this.level.mixLead;
     let next = SPAWN_TABLE.length - 1;
-    while (next > 0 && SPAWN_TABLE[next - 1].at > this.elapsed) next--;
+    while (next > 0 && SPAWN_TABLE[next - 1].at > at) next--;
     const hi = SPAWN_TABLE[next];
     const lo = SPAWN_TABLE[Math.max(0, next - 1)];
     const span = hi.at - lo.at;
-    const t = span > 0 ? clamp((this.elapsed - lo.at) / span, 0, 1) : 1;
+    const t = span > 0 ? clamp((at - lo.at) / span, 0, 1) : 1;
     const weight = (id: ZombieId) =>
-      lo.weights[id] + (hi.weights[id] - lo.weights[id]) * t;
+      (lo.weights[id] + (hi.weights[id] - lo.weights[id]) * t) *
+      (id === "brute" ? this.level.bruteWeight : 1);
     let total = 0;
     for (const id of ZOMBIE_IDS) total += weight(id);
     let r = Math.random() * total;

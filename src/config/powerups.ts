@@ -171,8 +171,9 @@ export type PowerupDef = PowerupBase &
         /** Each blade is a plain steel saw blade at this fraction of the disc's size. */
         bladeScale: number;
         /**
-         * A spent blade drops from this fake height (world px), skids on about this far (world px,
-         * ±40%), and takes this long (world seconds) to come to rest and darken into its floor stamp.
+         * A blade spent in a zombie is knocked back: it drops from this fake height (world px),
+         * skids about this far (world px, ±40%), and takes this long (world seconds) to come to
+         * rest and darken into its floor stamp.
          */
         dropHeight: number;
         skidDistance: number;

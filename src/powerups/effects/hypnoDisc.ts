@@ -30,10 +30,11 @@ const HEIGHT_SCALE = 0.02;
 const DROP_SHARE = 0.35;
 /** The skid decays by e^-SKID_DECAY over settleSeconds, so it has all but stopped by then. */
 const SKID_DECAY = 5;
-/** A blade that reaches a wall sticks in it this long, then drops off it onto the floor. */
+/** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
 const STUCK_SECONDS = 0.6;
-/** How far a blade dropping off a wall lands from where it was stuck, as a share of its radius. */
-const WALL_DROP = 0.8;
+const STUCK_FADE = 0.25;
+/** A blade knocked back off a zombie leaves within this many radians of straight back the way it came. */
+const BOUNCE_SPREAD = 0.5;
 /** The disc pops in and shrinks away over these, in world seconds. */
 const POP_IN = 0.12;
 const POP_OUT = 0.15;
@@ -157,14 +158,13 @@ interface Blade {
   hit: Zombie[];
   /** Seconds left stuck in a wall, or 0 while flying. */
   stuck: number;
-  /** World seconds since it was spent, skidding and settling onto the floor; -1 before that. */
+  /** World seconds since it was spent in a zombie, skidding and settling onto the floor; -1 before that. */
   skid: number;
-  /** Where it was spent, how far it skids from there (along dx, dy), its angle and spin rate then. */
+  /** Where it was spent, how far it skids back from there (along dx, dy) and its angle then. */
   x0: number;
   y0: number;
   skidLength: number;
   spin0: number;
-  spin: number;
 }
 
 interface Spin {
@@ -194,9 +194,9 @@ let spentTexture: Texture | null = null;
 /**
  * A saw disc deploys where the player stands and spins there for `seconds`, flinging razor blades out along spiral arms.
  * Each blade flies straight and stops in the first `bladePierce` zombies it hits (each once,
- * through applyHit with a raised tear-off chance), then drops and skids to rest on the floor,
- * where it is stamped. One that misses flies on until it bites into a wall, then drops off it
- * onto the floor the same way; none just vanish.
+ * through applyHit with a raised tear-off chance), then is knocked back the way it came, drops
+ * and skids to rest on the floor, where it is stamped. One that misses flies on until it bites
+ * into a wall, sticks there a moment and fades.
  */
 export const hypnoDisc: PowerupEffect<Def, Spin> = {
   start(ctx, def, active) {
@@ -320,6 +320,7 @@ function launch(
   b.stuck = 0;
   b.skid = -1;
   b.saw.tint = 0xffffff;
+  b.view.alpha = 1;
   b.streak.visible = true;
   b.streak.rotation = angle;
   b.radius = def.discRadius * def.bladeScale;
@@ -353,7 +354,6 @@ function newBlade(): Blade {
     y0: 0,
     skidLength: 0,
     spin0: 0,
-    spin: 0,
   };
 }
 
@@ -401,27 +401,27 @@ function fly(
   b.view.position.set(x + b.dx * travel, y + b.dy * travel);
   b.saw.rotation += BLADE_SPIN * dt;
   if (b.pierce <= 0) {
-    // Thunk: it bites into the zombie, then drops and skids on along the floor, stopping short of a wall.
+    // Thunk: it bites into the zombie and is knocked back the way it came, give or take, dropping
+    // to the floor and skidding to a stop short of any wall.
     ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);
-    const ahead = wallHit(b.view.x, b.view.y, b.dx, b.dy);
-    spend(
-      b,
-      b.dx,
-      b.dy,
-      Math.min(
-        def.skidDistance * rand(0.6, 1.4),
-        ahead ? Math.max(0, ahead.t - b.radius) : Infinity,
-      ),
-      BLADE_SPIN,
+    const back = Math.atan2(-b.dy, -b.dx) + rand(-BOUNCE_SPREAD, BOUNCE_SPREAD);
+    b.dx = Math.cos(back);
+    b.dy = Math.sin(back);
+    const behind = wallHit(b.view.x, b.view.y, b.dx, b.dy);
+    b.skid = 0;
+    b.x0 = b.view.x;
+    b.y0 = b.view.y;
+    b.skidLength = Math.min(
+      def.skidDistance * rand(0.6, 1.4),
+      behind ? Math.max(0, behind.t - b.radius) : Infinity,
     );
+    b.spin0 = b.saw.rotation;
+    b.streak.visible = false;
     return true;
   }
   if (wall && travel >= reach && reach < step) {
-    // Thunk: it bites into the wall face, chips it and stays put for a moment, then drops off it
-    // (along the wall's inward normal) onto the floor.
+    // Thunk: it bites into the wall face, chips it and stays put for a moment, then fades.
     b.stuck = STUCK_SECONDS;
-    b.dx = wall.nx;
-    b.dy = wall.ny;
     b.streak.visible = false;
     ctx.fx.sparkle(wall.x, wall.y, 0xffe08a, 4);
     ctx.floor.chipWall(wall.x, wall.y, wall.nx, wall.ny);
@@ -433,27 +433,8 @@ function fly(
   return nx > -m && ny > -m && nx < ARENA.width + m && ny < ARENA.height + m;
 }
 
-/** Start a blade's drop and skid from where it is: `length` px along (dx, dy), spinning down from `spin`. */
-function spend(
-  b: Blade,
-  dx: number,
-  dy: number,
-  length: number,
-  spin: number,
-): void {
-  b.skid = 0;
-  b.dx = dx;
-  b.dy = dy;
-  b.x0 = b.view.x;
-  b.y0 = b.view.y;
-  b.skidLength = length;
-  b.spin0 = b.saw.rotation;
-  b.spin = spin;
-  b.streak.visible = false;
-}
-
 /**
- * A spent blade drops (fake height, growing a little while up), skids on along its flight line
+ * A spent blade drops (fake height, growing a little while up), skids back along its knock
  * slowing fast, its spin winding down, and blends from its flying look to the floor stamp's.
  * Stamped into the floor once settled. False then.
  */
@@ -471,7 +452,7 @@ function skid(ctx: PowerupContext, def: Def, b: Blade, dt: number): boolean {
     b.x0 + b.dx * b.skidLength * decay,
     b.y0 + b.dy * b.skidLength * decay,
   );
-  b.saw.rotation = b.spin0 + (b.spin / k) * decay;
+  b.saw.rotation = b.spin0 + (BLADE_SPIN / k) * decay;
   const look = f * f * (3 - 2 * f);
   b.saw.scale.set(
     b.radius * (1 + (SPENT_SCALE - 1) * look) * (1 + z * HEIGHT_SCALE),
@@ -505,11 +486,11 @@ function lerpGrey(from: number, to: number, f: number): number {
   return (c << 16) | (c << 8) | c;
 }
 
-/** A blade stuck in a wall waits, then drops off it onto the floor, without spinning. */
+/** A blade stuck in a wall waits, then fades. False once it's gone. */
 function stick(b: Blade, dt: number): boolean {
   b.stuck -= dt;
-  if (b.stuck <= 0) spend(b, b.dx, b.dy, b.radius * WALL_DROP, 0);
-  return true;
+  b.view.alpha = Math.min(1, b.stuck / STUCK_FADE);
+  return b.stuck > 0;
 }
 
 function easeOutBack(f: number): number {

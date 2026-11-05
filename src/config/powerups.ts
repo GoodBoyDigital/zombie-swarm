@@ -224,6 +224,10 @@ export type PowerupDef = PowerupBase &
         discRadius: number;
         /** Each blade is a plain steel saw blade at this fraction of the disc's size. */
         bladeScale: number;
+        /** Blade hit circle as a fraction of its drawn radius; below 1 it bites in before it hits. */
+        bladeHitScale: number;
+        /** Extra blood sparks thrown on along the blade's path per hit. */
+        bladeBlood: number;
         /**
          * A blade spent in a zombie is knocked back: it drops from this fake height (world px),
          * skids about this far (world px, ±40%), and takes this long (world seconds) to come to
@@ -467,6 +471,8 @@ export const POWERUPS = {
     dismemberScale: 2,
     discRadius: 22,
     bladeScale: 1,
+    bladeHitScale: 0.55,
+    bladeBlood: 22,
     dropHeight: 6,
     skidDistance: 25,
     settleSeconds: 0.3,

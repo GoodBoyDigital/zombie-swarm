@@ -1,4 +1,5 @@
 import { Container, Graphics, GraphicsContext, type Texture } from "pixi.js";
+import { BLOOD_SPRAY } from "../../combat/CombatContext";
 import { raycastZombies } from "../../combat/raycast";
 import { ARENA } from "../../config/arena";
 import type { EffectDef } from "../../config/powerups";
@@ -380,7 +381,8 @@ function fly(
     b.dy,
     reach,
     Infinity,
-    b.radius,
+    // A hit circle smaller than the drawn blade, so it bites in before it registers.
+    b.radius * def.bladeHitScale,
   )) {
     if (b.hit.includes(hit.zombie)) continue;
     b.hit.push(hit.zombie);
@@ -393,6 +395,10 @@ function fly(
       def.bladeDamage,
       def.bladeKnockback,
     );
+    // A big splash thrown on along the blade's path, on top of the hit's own blood.
+    ctx.fx.bloodBurst(hit.x, hit.y, b.dx, b.dy, def.bladeBlood, BLOOD_SPRAY);
+    ctx.horde.splat(hit.x, hit.y, b.dx, b.dy);
+    ctx.horde.splat(hit.x, hit.y, b.dx, b.dy);
     st.sliced = true;
     if (--b.pierce > 0) continue;
     travel = hit.t;

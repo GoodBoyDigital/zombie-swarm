@@ -16,11 +16,17 @@ const CREAM = 0xf6eccb;
 const TAU = Math.PI * 2;
 /** Blade spin in flight, radians per second. */
 const BLADE_SPIN = 28;
-/** A spent blade drops onto the floor at this share of its flying size, tinted darker so it reads as lying flat. */
+/** A spent blade settles onto the floor at this share of its flying size, tinted darker so it reads as lying flat. */
 const SPENT_SCALE = 0.8;
 const SPENT_TINT = 0x8c8c8c;
 /** Radius the spent-blade texture is baked at, px; stamps scale it down to the blade. */
 const SPENT_BAKE_RADIUS = 32;
+/** Apparent growth per px of height while a spent blade drops, as for casings. */
+const HEIGHT_SCALE = 0.02;
+/** Share of settleSeconds the drop to the floor takes. */
+const DROP_SHARE = 0.35;
+/** The skid decays by e^-SKID_DECAY over settleSeconds, so it has all but stopped by then. */
+const SKID_DECAY = 5;
 /** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
 const STUCK_SECONDS = 0.6;
 const STUCK_FADE = 0.25;
@@ -115,6 +121,13 @@ interface Blade {
   hit: Zombie[];
   /** Seconds left stuck in a wall, or 0 while flying. */
   stuck: number;
+  /** World seconds since it was spent in a zombie, skidding and settling; -1 while flying. */
+  skid: number;
+  /** Where it was spent, how far it skids from there and its spin then. */
+  x0: number;
+  y0: number;
+  skidLength: number;
+  spin0: number;
 }
 
 interface Spin {
@@ -144,8 +157,8 @@ let spentTexture: Texture | null = null;
 /**
  * A saw disc deploys where the player stands and spins there for `seconds`, flinging razor blades out along spiral arms.
  * Each blade flies straight and stops in the first `bladePierce` zombies it hits (each once,
- * through applyHit with a raised tear-off chance), then drops onto the floor where it stays; one
- * that reaches a wall sticks in it and fades.
+ * through applyHit with a raised tear-off chance), then drops and skids to rest on the floor,
+ * where it is stamped; one that reaches a wall sticks in it and fades.
  */
 export const hypnoDisc: PowerupEffect<Def, Spin> = {
   start(ctx, def, active) {
@@ -204,7 +217,13 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
 
     for (let i = st.blades.length - 1; i >= 0; i--) {
       const b = st.blades[i];
-      if (b.stuck > 0 ? stick(b, wdt) : fly(ctx, def, st, b, wdt)) continue;
+      const alive =
+        b.skid >= 0
+          ? skid(ctx, def, b, wdt)
+          : b.stuck > 0
+            ? stick(b, wdt)
+            : fly(ctx, def, st, b, wdt);
+      if (alive) continue;
       b.view.removeFromParent();
       st.blades.splice(i, 1);
       pool.push(b);
@@ -236,6 +255,7 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
   end(ctx, _def, active) {
     const st = active.state;
     for (const b of st.blades) {
+      if (b.skid >= 0) stampSpent(ctx, b);
       b.view.removeFromParent();
       pool.push(b);
     }
@@ -261,7 +281,9 @@ function launch(
   b.pierce = def.bladePierce;
   b.hit.length = 0;
   b.stuck = 0;
+  b.skid = -1;
   b.view.alpha = 1;
+  b.saw.tint = 0xffffff;
   b.streak.visible = true;
   b.streak.rotation = angle;
   b.radius = def.discRadius * def.bladeScale;
@@ -291,6 +313,11 @@ function newBlade(): Blade {
     pierce: 0,
     hit: [],
     stuck: 0,
+    skid: -1,
+    x0: 0,
+    y0: 0,
+    skidLength: 0,
+    spin0: 0,
   };
 }
 
@@ -339,10 +366,19 @@ function fly(
   b.saw.rotation += BLADE_SPIN * dt;
   b.left -= travel;
   if (b.pierce <= 0) {
-    // Thunk: it stops dead in the zombie and drops, left on the floor with the rest of the mess.
+    // Thunk: it bites into the zombie, then drops and skids on along the floor, stopping short of a wall.
     ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);
-    dropSpent(ctx, b);
-    return false;
+    const ahead = wallHit(b.view.x, b.view.y, b.dx, b.dy);
+    b.skid = 0;
+    b.x0 = b.view.x;
+    b.y0 = b.view.y;
+    b.skidLength = Math.min(
+      def.skidDistance * rand(0.6, 1.4),
+      ahead ? Math.max(0, ahead.t - b.radius) : Infinity,
+    );
+    b.spin0 = b.saw.rotation;
+    b.streak.visible = false;
+    return true;
   }
   if (wall && travel >= reach && reach < step) {
     // Thunk: it bites into the wall face, chips it and stays put for a moment.
@@ -355,8 +391,38 @@ function fly(
   return b.left > 0;
 }
 
-/** Stamp a spent blade into the floor where it stopped: a little smaller and darker than in flight. */
-function dropSpent(ctx: PowerupContext, b: Blade): void {
+/**
+ * A spent blade drops (fake height, growing a little while up), skids on along its flight line
+ * slowing fast, its spin winding down, and blends from its flying look to the floor stamp's.
+ * Stamped into the floor once settled. False then.
+ */
+function skid(ctx: PowerupContext, def: Def, b: Blade, dt: number): boolean {
+  const a = (b.skid += dt);
+  const settle = Math.max(0.01, def.settleSeconds);
+  const f = Math.min(1, a / settle);
+  const drop = Math.min(1, f / DROP_SHARE);
+  const z = def.dropHeight * (1 - drop * drop);
+  // On the floor once it lands: under the horde and the player, like the stamp it becomes.
+  if (z <= 0 && b.view.parent !== ctx.ground) ctx.ground.addChild(b.view);
+  const k = SKID_DECAY / settle;
+  const decay = 1 - Math.exp(-k * a);
+  b.view.position.set(
+    b.x0 + b.dx * b.skidLength * decay,
+    b.y0 + b.dy * b.skidLength * decay,
+  );
+  b.saw.rotation = b.spin0 + (BLADE_SPIN / k) * decay;
+  const look = f * f * (3 - 2 * f);
+  b.saw.scale.set(
+    b.radius * (1 + (SPENT_SCALE - 1) * look) * (1 + z * HEIGHT_SCALE),
+  );
+  b.saw.tint = lerpGrey(0xff, SPENT_TINT & 0xff, look);
+  if (f < 1) return true;
+  stampSpent(ctx, b);
+  return false;
+}
+
+/** Burn a settled blade into the floor exactly as it lies: smaller and darker than in flight. */
+function stampSpent(ctx: PowerupContext, b: Blade): void {
   if (!spentTexture) {
     const holder = new Container();
     holder
@@ -366,10 +432,16 @@ function dropSpent(ctx: PowerupContext, b: Blade): void {
     holder.destroy({ children: true });
   }
   ctx.floor.stampTexture(spentTexture, b.view.x, b.view.y, {
-    rotation: rand(0, TAU),
+    rotation: b.saw.rotation,
     scale: (b.radius * SPENT_SCALE) / SPENT_BAKE_RADIUS,
     tint: SPENT_TINT,
   });
+}
+
+/** A grey tint between two channel levels. */
+function lerpGrey(from: number, to: number, f: number): number {
+  const c = Math.round(from + (to - from) * f);
+  return (c << 16) | (c << 8) | c;
 }
 
 /** A blade stuck in a wall waits, then fades. False once it's gone. */

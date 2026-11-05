@@ -171,6 +171,13 @@ export type PowerupDef = PowerupBase &
         discRadius: number;
         /** Each blade is a copy of the disc at this fraction of its size. */
         bladeScale: number;
+        /**
+         * A spent blade drops from this fake height (world px), skids on about this far (world px,
+         * ±40%), and takes this long (world seconds) to come to rest and darken into its floor stamp.
+         */
+        dropHeight: number;
+        skidDistance: number;
+        settleSeconds: number;
       })
   );
 
@@ -363,6 +370,9 @@ export const POWERUPS = {
     dismemberScale: 2,
     discRadius: 22,
     bladeScale: 1,
+    dropHeight: 6,
+    skidDistance: 25,
+    settleSeconds: 0.3,
     icon: "/sprites/icon-powerup-hypno.png",
     weight: 1,
     sound: "hypnoSpinUp",

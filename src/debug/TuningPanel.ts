@@ -147,6 +147,9 @@ const POWERUP_RANGES: Ranges = {
   dismemberScale: { min: 0, max: 4, step: 0.1 },
   discRadius: { min: 6, max: 60, step: 1 },
   bladeScale: { min: 0.1, max: 1.5, step: 0.05 },
+  dropHeight: { min: 0, max: 40, step: 1 },
+  skidDistance: { min: 0, max: 120, step: 1 },
+  settleSeconds: { min: 0.05, max: 2, step: 0.05 },
 };
 
 const EXPLOSION_RANGES: Ranges = {

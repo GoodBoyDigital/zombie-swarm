@@ -202,6 +202,37 @@ export type PowerupDef = PowerupBase &
         /** Camera trauma. */
         shake: number;
       })
+    | (Instant & {
+        effect: "hypnoDisc";
+        /** Seconds the disc spins over the player spitting blades. */
+        seconds: number;
+        /** Blades launched per second across all arms. */
+        bladesPerSecond: number;
+        /** Emitter turns per second; with the blades' speed this sets how tight the spiral is. */
+        spinRate: number;
+        /** Spiral arms, evenly spaced round the disc. */
+        arms: number;
+        /** World px per second; a blade flies until it hits a zombie or a wall. */
+        bladeSpeed: number;
+        bladeDamage: number;
+        /** Zombies one blade hits before it's spent and drops to the floor; each is hit once. 1 = stops in the first. */
+        bladePierce: number;
+        bladeKnockback: number;
+        /** Multiplier on the part tear-off chances in DISMEMBER for blade hits. */
+        dismemberScale: number;
+        /** Disc radius, world px. */
+        discRadius: number;
+        /** Each blade is a plain steel saw blade at this fraction of the disc's size. */
+        bladeScale: number;
+        /**
+         * A blade spent in a zombie is knocked back: it drops from this fake height (world px),
+         * skids about this far (world px, ±40%), and takes this long (world seconds) to come to
+         * rest and darken into its floor stamp.
+         */
+        dropHeight: number;
+        skidDistance: number;
+        settleSeconds: number;
+      })
   );
 
 /** An electric dome zombies can't enter (shield, safety portal). */
@@ -418,6 +449,30 @@ export const POWERUPS = {
     icon: "/sprites/icon-powerup-ice.png",
     weight: 1,
     sound: "iceBlast",
+  },
+  hypnoDisc: {
+    id: "hypnoDisc",
+    name: "Hip-no-disc",
+    category: "destructive",
+    mode: "instant",
+    effect: "hypnoDisc",
+    seconds: 2,
+    bladesPerSecond: 75,
+    spinRate: 1,
+    arms: 2,
+    bladeSpeed: 420,
+    bladeDamage: 3,
+    bladePierce: 1,
+    bladeKnockback: 260,
+    dismemberScale: 2,
+    discRadius: 22,
+    bladeScale: 1,
+    dropHeight: 6,
+    skidDistance: 25,
+    settleSeconds: 0.3,
+    icon: "/sprites/icon-powerup-hypno.png",
+    weight: 1,
+    sound: "hypnoSpinUp",
   },
 } as const satisfies Record<string, PowerupDef>;
 

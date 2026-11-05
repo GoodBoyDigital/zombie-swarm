@@ -154,6 +154,15 @@ export class FloorCanvas {
     for (const chip of this.chips) chip.destroy(true);
   }
 
+  /** Bake a display object into a texture at the floor's resolution, for repeated stamping. */
+  bake(target: Container): Texture {
+    return this.renderer.generateTexture({
+      target,
+      antialias: true,
+      resolution: this.renderer.resolution,
+    });
+  }
+
   /** Burn a texture into the floor at a world position. */
   stampTexture(
     texture: Texture,

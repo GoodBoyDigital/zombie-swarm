@@ -22,9 +22,6 @@ const STUCK_FADE = 0.25;
 /** The disc pops in and shrinks away over these, in world seconds. */
 const POP_IN = 0.12;
 const POP_OUT = 0.15;
-/** The floor swirl grows in over SWIRL_IN and fades over SWIRL_OUT once the disc stops. */
-const SWIRL_IN = 0.2;
-const SWIRL_OUT = 0.3;
 /** Seconds between "shing" launch sounds, and between slice sounds while blades are landing hits. */
 const SHING_GAP = 0.07;
 const SLICE_GAP = 0.06;
@@ -69,11 +66,6 @@ const DISC = (() => {
     .circle(0, 0, 0.08)
     .fill(0x2c302c);
 })();
-
-/** Hypnotic swirl on the floor under the disc, unit radius, drawn additively. */
-const SWIRL = spiralArms(new GraphicsContext(), 1, 4, 0xff4436, 0.55)
-  .circle(0, 0, 1)
-  .stroke({ width: 0.03, color: 0xff4436, alpha: 0.7 });
 
 /** `arms` spiral bands from the centre out to `radius`, each half the gap between arms wide. */
 function spiralArms(
@@ -125,7 +117,7 @@ interface Spin {
   t: number;
   /** Emitter angle at pickup, so successive discs don't spiral the same way round. */
   phase: number;
-  /** Where the player stood at pickup: the disc, swirl and emitter stay put here while he moves on. */
+  /** Where the player stood at pickup: the disc and emitter stay put here while he moves on. */
   x: number;
   y: number;
   /** Volleys of `arms` blades launched so far. */
@@ -136,7 +128,6 @@ interface Spin {
   /** A blade landed a hit since the last slice sound. */
   sliced: boolean;
   disc: Graphics;
-  swirl: Graphics;
   root: Container;
 }
 
@@ -151,9 +142,6 @@ const pool: Blade[] = [];
 export const hypnoDisc: PowerupEffect<Def, Spin> = {
   start(ctx, def, active) {
     const root = new Container({ label: "hypnoDisc" });
-    const swirl = new Graphics({ context: SWIRL, label: "hypnoSwirl" });
-    swirl.blendMode = "add";
-    ctx.ground.addChild(swirl);
     const disc = new Graphics({ context: DISC, label: "hypnoDiscSaw" });
     ctx.world.addChild(root, disc);
     // One volley for the whole spin: its kills share one set of drop caps, like a blast's.
@@ -169,7 +157,6 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
       lastSlice: -1,
       sliced: false,
       disc,
-      swirl,
       root,
     };
     active.left = 1;
@@ -233,18 +220,8 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
     st.disc.position.set(st.x, st.y);
     st.disc.rotation = turn;
     st.disc.scale.set(def.discRadius * pop);
-    // The swirl turns the other way and breathes, fading as the disc goes.
-    const fade = spinning ? 1 : Math.max(0, 1 - (t - def.seconds) / SWIRL_OUT);
-    st.swirl.position.set(st.x, st.y);
-    st.swirl.rotation = -turn * 0.6;
-    st.swirl.scale.set(
-      def.swirlRadius *
-        Math.min(1, t / SWIRL_IN) *
-        (1 + 0.08 * Math.sin(t * 30)),
-    );
-    st.swirl.alpha = 0.55 * fade;
 
-    const done = !spinning && pop <= 0 && fade <= 0 && st.blades.length === 0;
+    const done = !spinning && pop <= 0 && st.blades.length === 0;
     active.left = done ? 0 : 1;
   },
 
@@ -258,7 +235,6 @@ export const hypnoDisc: PowerupEffect<Def, Spin> = {
     ctx.dismemberScale = 1;
     st.root.destroy();
     st.disc.destroy();
-    st.swirl.destroy();
   },
 };
 

@@ -167,11 +167,10 @@ export type PowerupDef = PowerupBase &
         bladeKnockback: number;
         /** Multiplier on the part tear-off chances in DISMEMBER for blade hits. */
         dismemberScale: number;
-        /** Disc radius over the player and of the hypnotic swirl on the ground, world px. */
+        /** Disc radius, world px. */
         discRadius: number;
         /** Each blade is a copy of the disc at this fraction of its size. */
         bladeScale: number;
-        swirlRadius: number;
       })
   );
 
@@ -358,13 +357,12 @@ export const POWERUPS = {
     arms: 2,
     bladeSpeed: 420,
     bladeRange: 420,
-    bladeDamage: 4,
+    bladeDamage: 2,
     bladePierce: 4,
     bladeKnockback: 260,
     dismemberScale: 2,
     discRadius: 22,
     bladeScale: 1,
-    swirlRadius: 70,
     icon: "/sprites/icon-powerup-hypno.png",
     weight: 1,
     sound: "hypnoSpinUp",

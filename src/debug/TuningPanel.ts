@@ -145,6 +145,8 @@ const POWERUP_RANGES: Ranges = {
   warnSeconds: { min: 0, max: 3, step: 0.1 },
   shreds: { min: 0, max: 150, step: 1 },
   shredSpeed: { min: 50, max: 1200, step: 10 },
+  shredLift: { min: 0, max: 600, step: 5 },
+  shredSpin: { min: 0, max: 30, step: 0.5 },
   shredScale: { min: 0.5, max: 4, step: 0.1 },
   shredEyeScale: { min: 0.3, max: 4, step: 0.1 },
 };

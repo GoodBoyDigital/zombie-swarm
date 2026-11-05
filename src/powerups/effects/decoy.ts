@@ -239,6 +239,8 @@ function pop(ctx: PowerupContext, def: Def, st: DecoyState): void {
     st.y,
     def.shreds,
     def.shredSpeed,
+    def.shredLift,
+    def.shredSpin,
     def.shredScale,
     def.shredEyeScale,
   );

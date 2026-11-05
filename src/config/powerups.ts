@@ -139,9 +139,14 @@ export type PowerupDef = PowerupBase &
         warnSeconds: number;
         /** The pop: a push-only blast that knocks the pile back. */
         explosion: ExplosionId;
-        /** Bits of vinyl it bursts into, how fast they fly (px/s) and their size; they stay on the floor at that size. */
+        /**
+         * Bits of vinyl it bursts into, how fast they fly out and up (px/s), how fast they turn
+         * (radians/s; light vinyl, so slow) and their size; they stay on the floor at that size.
+         */
         shreds: number;
         shredSpeed: number;
+        shredLift: number;
+        shredSpin: number;
         shredScale: number;
         /** The googly eyes' size among the shreds, flying and on the floor. */
         shredEyeScale: number;
@@ -330,6 +335,8 @@ export const POWERUPS = {
     explosion: "decoyPop",
     shreds: 40,
     shredSpeed: 420,
+    shredLift: 185,
+    shredSpin: 6,
     shredScale: 1.8,
     shredEyeScale: 0.9,
     sprite: "/sprites/decoy-puck.png",

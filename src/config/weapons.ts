@@ -410,7 +410,7 @@ export const WEAPONS = {
     spreadMax: 0.04,
     fireInterval: 0.11,
     magazine: 50,
-    magazines: 1,
+    magazines: 3,
     reloadSeconds: 1.6,
     damage: 2,
     knockback: 90,

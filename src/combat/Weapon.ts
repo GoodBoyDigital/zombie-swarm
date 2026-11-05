@@ -12,6 +12,7 @@ import type { Player } from "../entities/Player";
 import type { Camera } from "../fx/Camera";
 import type { Casings } from "../fx/Casings";
 import type { Effects } from "../fx/Effects";
+import { HeadGlow } from "../fx/HeadGlow";
 import type { FloorCanvas } from "../world/FloorCanvas";
 import { CombatContext } from "./CombatContext";
 import { SHOT_HANDLERS } from "./shots";
@@ -75,6 +76,8 @@ export class Weapon {
   private readonly shots: CombatContext;
   private engine: { id: WeaponId; idle: LoopVoice; run: LoopVoice } | null =
     null;
+  /** The tesla's lit emitter; made on first use, hidden for every other gun. */
+  private head: HeadGlow | null = null;
   /** World seconds to the chainsaw's next exhaust puff. */
   private smokeLeft = 0;
 
@@ -115,11 +118,12 @@ export class Weapon {
     return this.spinHeld && this.def.saw ? this.def.saw.moveScale : 1;
   }
 
-  /** Stop any engine loop, e.g. when the player is down or aboard, or the game is torn down. */
+  /** Stop any engine loop and put out the gun's glow, e.g. when the player is down or aboard, or the game is torn down. */
   silence(): void {
     this.engine?.idle.stop();
     this.engine?.run.stop();
     this.engine = null;
+    this.head?.hide();
   }
 
   /** Swap to a weapon with a full magazine and its pickup's spares, dropping any reload in progress. */
@@ -212,6 +216,7 @@ export class Weapon {
       : Math.max(0, this.bloom - spreadBloom * 2 * dt);
     const ready = this.windUp(dt, triggerHeld && !this.reloading);
     this.runEngine();
+    this.glowHead(dt, firing);
     if (this.reloading) {
       this.reloadLeft -= dt;
       if (this.reloadLeft > 0) return;
@@ -251,6 +256,20 @@ export class Weapon {
       ? Math.max(ENGINE_IDLE_SPIN, this.spin)
       : this.spin;
     return this.spin >= 1;
+  }
+
+  /** Light the tesla's emitter head while it's held, hotter while firing. */
+  private glowHead(dt: number, firing: boolean): void {
+    const t = this.def.tesla;
+    if (!t) {
+      this.head?.hide();
+      return;
+    }
+    if (!this.head) {
+      this.head = new HeadGlow(this.shots.fx);
+      this.shots.fx.view.addChild(this.head.view);
+    }
+    this.head.update(dt, this.player, firing, t);
   }
 
   /** Keep an engine gun's loops running while it's held, mixed by how hard it's revving. */
@@ -296,6 +315,7 @@ export class Weapon {
     this.camera.kick(aimX * kick, aimY * kick);
     this.shots.horde.noise(m.x, m.y, def.noiseRadius ?? WEAPON_NOISE_RADIUS);
 
+    this.head?.shot();
     this.shots.beginVolley();
     this.shots.dismemberScale = def.dismemberScale ?? 1;
     const spread = this.spread;

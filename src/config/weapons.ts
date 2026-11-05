@@ -93,6 +93,20 @@ export interface TeslaParams {
   falloff: number;
   /** Seconds a struck zombie twitches in place. */
   stun: number;
+  /** Glow round the emitter head: colour and halo radius at rest, px. */
+  glowColor: number;
+  glowSize: number;
+  /** Halo opacity at rest and flat out. */
+  glowIdle: number;
+  glowFiring: number;
+  /** Halo size multiplier flat out. */
+  glowFiringScale: number;
+  /** Seconds to ramp up to full heat while firing, and back down after release. */
+  glowRampUp: number;
+  glowRampDown: number;
+  /** Sparks jumping between the prongs per second, at rest and flat out. */
+  idleSparks: number;
+  firingSparks: number;
 }
 
 export interface SawParams {
@@ -414,6 +428,15 @@ export const WEAPONS = {
       jumpRadius: 85,
       falloff: 0.88,
       stun: 0.25,
+      glowColor: 0x4aa8ff,
+      glowSize: 11,
+      glowIdle: 0.6,
+      glowFiring: 1,
+      glowFiringScale: 1.9,
+      glowRampUp: 0.06,
+      glowRampDown: 0.2,
+      idleSparks: 2.5,
+      firingSparks: 30,
     },
   },
   chainsaw: {

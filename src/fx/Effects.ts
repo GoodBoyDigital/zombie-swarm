@@ -90,7 +90,7 @@ export class Effects {
   private readonly rails: RailBeam[] = [];
   private readonly railPool: RailBeam[] = [];
 
-  constructor(private readonly tex: GameTextures) {}
+  constructor(readonly tex: GameTextures) {}
 
   /**
    * Flash at the gun's barrel tip. It follows the tip for its whole short life, because the gun

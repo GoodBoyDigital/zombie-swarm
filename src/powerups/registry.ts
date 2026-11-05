@@ -3,6 +3,7 @@ import { airstrike } from "./effects/airstrike";
 import { decoy } from "./effects/decoy";
 import { equip } from "./effects/equip";
 import { heal } from "./effects/heal";
+import { iceBlast } from "./effects/iceBlast";
 import { magnet } from "./effects/magnet";
 import { nuke } from "./effects/nuke";
 import { power } from "./effects/power";
@@ -26,4 +27,5 @@ export const POWERUP_EFFECTS: { [K in EffectId]: PowerupEffect<EffectDef<K>> } =
     portal,
     airstrike,
     decoy,
+    iceBlast,
   };

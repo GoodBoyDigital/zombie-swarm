@@ -4,6 +4,7 @@ import { CASINGS } from "../config/casings";
 import { DISMEMBER } from "../config/dismember";
 import { DROP_RULES } from "../config/drops";
 import { EXPLOSIONS } from "../config/explosions";
+import { ICE } from "../config/ice";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
@@ -149,6 +150,33 @@ const POWERUP_RANGES: Ranges = {
   shredSpin: { min: 0, max: 30, step: 0.5 },
   shredScale: { min: 0.5, max: 4, step: 0.1 },
   shredEyeScale: { min: 0.3, max: 4, step: 0.1 },
+  freezeSeconds: { min: 0.5, max: 30, step: 0.5 },
+  thawWarningSeconds: { min: 0, max: 5, step: 0.1 },
+  blastDamage: { min: 0, max: 30, step: 0.5 },
+  knockback: { min: 0, max: 2000, step: 10 },
+  blastSeconds: { min: 0.1, max: 2, step: 0.05 },
+  crystals: { min: 0, max: 150, step: 1 },
+  frostMark: { min: 0, max: 2, step: 0.05 },
+  shake: { min: 0, max: 2, step: 0.05 },
+};
+
+const ICE_RANGES: Ranges = {
+  hitRadius: { min: 0.4, max: 2, step: 0.02 },
+  blockSize: { min: 0.5, max: 1.5, step: 0.02 },
+  blockJitter: { min: 0, max: 0.4, step: 0.01 },
+  blockTilt: { min: 0, max: 1, step: 0.01 },
+  blockAlpha: { min: 0, max: 1, step: 0.01 },
+  flashSeconds: { min: 0, max: 0.5, step: 0.01 },
+  flickerRate: { min: 1, max: 40, step: 0.5 },
+  shake: { min: 0, max: 4, step: 0.1 },
+  shatterShards: { min: 0, max: 60, step: 1 },
+  thawShards: { min: 0, max: 30, step: 1 },
+  limbChance: { min: 0, max: 1, step: 0.05 },
+  chunks: { min: 0, max: 20, step: 1 },
+  chunkScale: { min: 0.2, max: 3, step: 0.05 },
+  splatScale: { min: 0.2, max: 5, step: 0.1 },
+  minFling: { min: 0, max: 600, step: 10 },
+  soundGap: { min: 0, max: 0.5, step: 0.01 },
 };
 
 const EXPLOSION_RANGES: Ranges = {
@@ -413,6 +441,7 @@ export function setupTuning(): TuningPanel {
   panel.add("LEVELS", null, { ...LEVELS }, RUN_RANGES);
   panel.add("RUN", null, RUN, RUN_RANGES);
   panel.add("DISMEMBER", null, DISMEMBER, DISMEMBER_RANGES);
+  panel.add("ICE", null, ICE, ICE_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   panel.add("CAMERA", null, CAMERA, CAMERA_RANGES);
   return panel;

@@ -1,5 +1,6 @@
 import type { ExplosionDef } from "../config/explosions";
 import { rand } from "../core/random";
+import { hitReach } from "../entities/Zombie";
 import type { CombatContext } from "./CombatContext";
 
 /**
@@ -17,12 +18,15 @@ export function explode(
   ctx.beginVolley();
   const r = def.radius;
   if (def.damage > 0 || def.knockback > 0) {
-    ctx.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
+    const pad = r + hitReach.radius;
+    ctx.horde.hash.queryBox(x - pad, y - pad, x + pad, y + pad, (z) => {
       if (z.dead) return;
       const dx = z.x - x;
       const dy = z.y - y;
       const d2 = dx * dx + dy * dy;
-      if (d2 > r * r) return;
+      // Centres in the radius count, and so does any part of a frozen zombie's bigger ice cube.
+      const reach = r + z.hitRadius - z.def.radius;
+      if (d2 > reach * reach) return;
       const d = Math.sqrt(d2);
       // Dead centre has no direction of its own; throw it any way.
       const a = d > 0 ? Math.atan2(dy, dx) : rand(0, Math.PI * 2);

@@ -49,6 +49,7 @@ export class CombatContext {
   /**
    * Resolve one zombie taking a hit: damage, knockback along `dir`, gore and the kill.
    * The one place a zombie takes damage; a blast calls it once per zombie with a direction radiating out.
+   * A frozen zombie shatters at any damage, whatever its health (the horde's kill does the shatter).
    */
   applyHit(
     zombie: Zombie,
@@ -59,6 +60,12 @@ export class CombatContext {
     damage: number,
     knockback: number,
   ): void {
+    if (zombie.frozen) {
+      if (damage <= 0 || zombie.dead) return;
+      zombie.shatter(dirX, dirY, knockback);
+      this.horde.kill(zombie);
+      return;
+    }
     let killed = zombie.hit(damage * this.damageScale, dirX, dirY, knockback);
     // Before the kill, so the corpse lies down without the piece too.
     const severed = this.dismember(zombie, hitX, hitY, dirX, dirY);

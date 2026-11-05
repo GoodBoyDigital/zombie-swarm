@@ -1,6 +1,8 @@
 import { Sprite } from "pixi.js";
+import { ICE } from "../config/ice";
 import {
   KNOCKBACK_DRAG,
+  MAX_ZOMBIE_RADIUS,
   PART_IDS,
   ZOMBIE_AI,
   type PartShape,
@@ -31,6 +33,12 @@ const PART_RAY_STEP = 1.5;
 const STARTLE_SECONDS = 0.3;
 const STARTLE_POP = 0.18;
 const STARTLE_TWIST = 0.35;
+
+/**
+ * The largest hit radius any zombie has had: the body radius, or bigger while frozen in ice.
+ * Pad spatial hash queries by this so a hit near a cell edge isn't missed. Only ever grows.
+ */
+export const hitReach = { radius: MAX_ZOMBIE_RADIUS };
 
 /** One pooled zombie. Position lives on the object; the sprite mirrors it once per frame. */
 export class Zombie {
@@ -74,6 +82,16 @@ export class Zombie {
   entered = false;
   /** Killed this frame. Ignored by raycasts and crowding until the horde releases it. */
   dead = false;
+  /**
+   * Seconds left frozen solid in a block of ice (src/fx/Ice.ts). Frozen, it doesn't move, turn,
+   * bite or get pushed, the crowd flows round it, and any hit shatters it (CombatContext.applyHit).
+   */
+  frozenFor = 0;
+  /** Hit radius while frozen, sized to the ice cube round the whole sprite. */
+  private iceRadius = 0;
+  /** How far freezing moved the position from the body to the middle of the art, undone on thaw. */
+  private iceShiftX = 0;
+  private iceShiftY = 0;
 
   constructor(private readonly tex: GameTextures) {}
 
@@ -91,6 +109,7 @@ export class Zombie {
     this.flash = 0;
     this.startleLeft = 0;
     this.lure = null;
+    this.frozenFor = 0;
     const along = rand(-gate.halfWidth, gate.halfWidth);
     const horizontal = gate.side === "top" || gate.side === "bottom";
     this.x = gate.spawn.x + (horizontal ? along : rand(-30, 30));
@@ -115,6 +134,39 @@ export class Zombie {
     this.sprite.texture = this.look.body;
     this.sprite.anchor.set(def.art.anchor.x, def.art.anchor.y);
     this.sprite.visible = true;
+  }
+
+  get frozen(): boolean {
+    return this.frozenFor > 0;
+  }
+
+  /** Circle that shots, blasts, blades, crowding and walls test: the body, or the ice cube while frozen. */
+  get hitRadius(): number {
+    return this.frozenFor > 0 ? this.iceRadius : this.def.radius;
+  }
+
+  /**
+   * Freeze solid for at least `seconds`: it stops mid-stride, in a cold tint. The freezing blast's
+   * shove along (dirX, dirY) is the only push it takes: the block skids on it until drag stops it.
+   */
+  freeze(seconds: number, dirX = 0, dirY = 0, knockback = 0): void {
+    if (this.frozenFor <= 0) this.encase();
+    this.frozenFor = Math.max(this.frozenFor, seconds);
+    const k = knockback * this.def.knockbackScale;
+    this.kx = dirX * k;
+    this.ky = dirY * k;
+    this.flash = 0;
+    this.sprite.texture = this.look.body;
+    this.sprite.tint = ICE.frozenTint;
+  }
+
+  /** Frozen and hit: killed outright whatever its health, thrown along the hit for the shatter's pieces. */
+  shatter(dirX: number, dirY: number, knockback: number): void {
+    this.health = 0;
+    this.dead = true;
+    const k = knockback * this.def.knockbackScale;
+    this.kx = dirX * k;
+    this.ky = dirY * k;
   }
 
   /** Returns true if this hit killed the zombie. */
@@ -178,6 +230,7 @@ export class Zombie {
 
   /** Shove along a unit direction without hurting, scaled by the type's knockbackScale. */
   push(dirX: number, dirY: number, knockback: number): void {
+    if (this.frozenFor > 0) return;
     const k = knockback * this.def.knockbackScale;
     this.kx += dirX * k;
     this.ky += dirY * k;
@@ -189,6 +242,12 @@ export class Zombie {
   }
 
   update(dt: number, target: ZombieTarget): void {
+    if (this.frozenFor > 0) {
+      this.frozenFor = Math.max(0, this.frozenFor - dt);
+      this.coast(dt);
+      if (this.frozenFor === 0) this.thaw();
+      return;
+    }
     this.wobblePhase += this.wobbleRate * dt;
     this.startleLeft = Math.max(0, this.startleLeft - dt);
     const move =
@@ -208,11 +267,9 @@ export class Zombie {
       (ai.shuffle ?? ZOMBIE_AI.shuffle) * this.shuffleScale,
     );
     const gait = 1 + shuffle * (pulse / PULSE_MEAN - 1);
-    this.x += (Math.cos(this.facing) * move * gait + this.kx) * dt;
-    this.y += (Math.sin(this.facing) * move * gait + this.ky) * dt;
-    const decay = Math.exp(-dt * KNOCKBACK_DRAG);
-    this.kx *= decay;
-    this.ky *= decay;
+    this.x += Math.cos(this.facing) * move * gait * dt;
+    this.y += Math.sin(this.facing) * move * gait * dt;
+    this.coast(dt);
 
     if (this.flash > 0) {
       this.flash -= dt;
@@ -221,6 +278,46 @@ export class Zombie {
     const flashing = this.flash > 0;
     const tint = flashing ? 0xffffff : this.debugTint();
     if (this.sprite.tint !== tint) this.sprite.tint = tint;
+  }
+
+  /**
+   * Centre on the whole art, arms and all, instead of the body, so the ice cube and its hit circle
+   * (ICE.hitRadius of the sprite's longer half) surround everything you can see.
+   */
+  private encase(): void {
+    const s = this.sprite;
+    const t = s.texture;
+    const w = t.width * Math.abs(s.scale.x);
+    const h = t.height * Math.abs(s.scale.y);
+    const ox = (0.5 - s.anchor.x) * w;
+    const oy = (0.5 - s.anchor.y) * h;
+    const cos = Math.cos(s.rotation);
+    const sin = Math.sin(s.rotation);
+    this.iceShiftX = ox * cos - oy * sin;
+    this.iceShiftY = ox * sin + oy * cos;
+    this.x += this.iceShiftX;
+    this.y += this.iceShiftY;
+    s.anchor.set(0.5);
+    s.position.set(this.x, this.y);
+    this.iceRadius = (ICE.hitRadius * Math.max(w, h)) / 2;
+    hitReach.radius = Math.max(hitReach.radius, this.iceRadius);
+  }
+
+  /** Out of the ice: back on its body, in its own colour. */
+  private thaw(): void {
+    this.x -= this.iceShiftX;
+    this.y -= this.iceShiftY;
+    this.sprite.anchor.set(this.def.art.anchor.x, this.def.art.anchor.y);
+    this.sprite.tint = this.debugTint();
+  }
+
+  /** Carry on along the knockback velocity, which drag bleeds away. */
+  private coast(dt: number): void {
+    this.x += this.kx * dt;
+    this.y += this.ky * dt;
+    const decay = Math.exp(-dt * KNOCKBACK_DRAG);
+    this.kx *= decay;
+    this.ky *= decay;
   }
 
   private debugTint(): number {

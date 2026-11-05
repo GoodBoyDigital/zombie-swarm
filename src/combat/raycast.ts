@@ -1,6 +1,5 @@
-import { MAX_ZOMBIE_RADIUS } from "../config/zombies";
 import type { SpatialHash } from "../core/SpatialHash";
-import type { Zombie } from "../entities/Zombie";
+import { hitReach, type Zombie } from "../entities/Zombie";
 
 export interface RayHit {
   zombie: Zombie;
@@ -27,7 +26,7 @@ export function raycastZombies(
 ): RayHit[] {
   const ex = ox + dirX * range;
   const ey = oy + dirY * range;
-  const pad = MAX_ZOMBIE_RADIUS + sweepRadius;
+  const pad = hitReach.radius + sweepRadius;
   const hits: RayHit[] = [];
 
   hash.queryBox(
@@ -40,7 +39,7 @@ export function raycastZombies(
       if (z.dead) return;
       const rx = z.x - ox;
       const ry = z.y - oy;
-      const r = z.def.radius + sweepRadius;
+      const r = z.hitRadius + sweepRadius;
       const along = rx * dirX + ry * dirY;
       if (along > range + r) return;
       // Behind the muzzle only counts if the muzzle is actually inside the zombie.

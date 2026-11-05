@@ -118,8 +118,15 @@ export class Game {
     this.floor = new FloorCanvas(app.renderer, tex, LEVELS[level].floor);
     this.player = new Player(tex, ARENA.width / 2, ARENA.height / 2);
     this.camera.snapTo(this.player.x, this.player.y);
-    this.horde = new Horde(tex, this.arena, this.floor, LEVELS[level]);
     this.fx = new Effects(tex);
+    this.horde = new Horde(
+      tex,
+      this.arena,
+      this.floor,
+      LEVELS[level],
+      this.fx,
+      audio,
+    );
     this.fx.view.isRenderGroup = true;
     this.casings = new Casings(tex, this.floor);
     this.loot = new Loot(tex, this.fx, this.audio);
@@ -179,8 +186,8 @@ export class Game {
     window.addEventListener("keydown", this.onKeyDown);
 
     // Draw order: floor gore, walls, sliding bodies, player, then the living horde over him so
-    // he gets swamped, then casings and effects. Flying limbs go over the effects so a head stays
-    // readable through its own blood spray. Power-up orbs sit over all of it so they are never
+    // he gets swamped, ice over the frozen ones, then casings and effects. Flying limbs go over
+    // the effects so a head stays readable through its own blood spray. Power-up orbs sit over all of it so they are never
     // lost in the crowd, and power-up visuals (bubbles, domes) over the orbs. Explosions go over
     // everything on the ground, and only planes and falling bombs fly over the explosions.
     this.world.addChild(
@@ -192,6 +199,7 @@ export class Game {
       this.powerupGround,
       this.player.view,
       this.horde.view,
+      this.horde.ice.view,
       this.casings.view,
       this.fx.view,
       this.horde.limbs.view,

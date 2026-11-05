@@ -29,6 +29,14 @@ const SCORCH_ALPHA = 0.85;
 const HEAT_TINT = 0x5a3418;
 const HEAT_ALPHA = 0.3;
 const HEAT_SIZE = 1.3;
+/** Frost: a cold haze a bit wider than the crystals, then the crystal mark itself. */
+const FROST_HAZE = 0xa9dcff;
+const FROST_HAZE_ALPHA = 0.25;
+const FROST_TINT = 0xe2f5ff;
+const FROST_ALPHA = 0.8;
+/** What a shattered zombie leaves: crushed ice slush and a small frost mark, world px. */
+const SLUSH_TINT = 0xc4e9ff;
+const SHATTER_FROST = 30;
 
 interface StampOptions {
   rotation?: number;
@@ -199,6 +207,51 @@ export class FloorCanvas {
         alpha: SCORCH_ALPHA,
       },
     );
+  }
+
+  /**
+   * Frost a patch of floor reaching `radius` world px: a pale blue haze under white crystal rays,
+   * one of a few variants at a random turn. The rayed scorch, but cold.
+   */
+  frost(x: number, y: number, radius: number): void {
+    const marks = this.tex.ice.frost;
+    const scale = (radius / BLAST_TEXTURE_RADIUS) * (0.9 + Math.random() * 0.2);
+    this.stampTexture(this.tex.blast.glow, x, y, {
+      scale: scale * HEAT_SIZE,
+      tint: FROST_HAZE,
+      alpha: FROST_HAZE_ALPHA,
+    });
+    this.stampTexture(marks[Math.floor(Math.random() * marks.length)], x, y, {
+      rotation: Math.random() * Math.PI * 2,
+      scale,
+      tint: FROST_TINT,
+      alpha: FROST_ALPHA,
+    });
+  }
+
+  /** Where a frozen zombie shattered: slush thrown along the hit, and a little frost, `size` times the usual. */
+  frostSplat(
+    x: number,
+    y: number,
+    dirX: number,
+    dirY: number,
+    size: number,
+  ): void {
+    const splats = this.tex.splats;
+    const throwDist = (6 + Math.random() * 16) * size;
+    this.stampTexture(
+      splats[Math.floor(Math.random() * splats.length)],
+      x + dirX * throwDist,
+      y + dirY * throwDist,
+      {
+        rotation: Math.atan2(dirY, dirX),
+        scaleX: (0.9 + Math.random() * 0.4) * size,
+        scaleY: (0.6 + Math.random() * 0.3) * size,
+        tint: SLUSH_TINT,
+        alpha: 0.6,
+      },
+    );
+    this.frost(x, y, SHATTER_FROST * size);
   }
 
   /** A faint blue burn, clipped at the wall so the black beyond the arena stays black. */

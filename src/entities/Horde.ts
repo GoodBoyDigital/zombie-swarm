@@ -13,12 +13,15 @@ import {
 import type { LevelDef } from "../config/run";
 import { pick, rand } from "../core/random";
 import { SpatialHash } from "../core/SpatialHash";
+import type { Audio } from "../audio/Audio";
 import type { Arena } from "../world/Arena";
 import type { FloorCanvas } from "../world/FloorCanvas";
+import type { Effects } from "../fx/Effects";
+import { IceBlocks } from "../fx/Ice";
 import { Limbs } from "../fx/Limbs";
 import type { GameTextures } from "../fx/textures";
 import { Corpses } from "./Corpses";
-import { Zombie } from "./Zombie";
+import { hitReach, Zombie } from "./Zombie";
 import { aiDebug, type ZombieTarget } from "./ZombieBrain";
 
 const CELL_SIZE = 48;
@@ -66,6 +69,8 @@ export class Horde {
   readonly corpses: Corpses;
   /** Pieces shot off zombies, tumbling to the floor. Game draws them over the living and the effects so they fly clear of the crowd and the spray. */
   readonly limbs: Limbs;
+  /** Ice over frozen zombies, and their shatter; drawn over the living. Freeze zombies through it. */
+  readonly ice: IceBlocks;
   /** AI debug overlay (key V): the player's aggro radius and the last gunshot's noise ring. */
   readonly debugView = new Graphics();
   kills = 0;
@@ -99,11 +104,14 @@ export class Horde {
     private readonly arena: Arena,
     private readonly floor: FloorCanvas,
     private readonly level: LevelDef,
+    fx: Effects,
+    audio: Audio,
   ) {
     // Zombies are added and removed most frames; keep that from rebuilding the whole stage.
     this.view.isRenderGroup = true;
     this.corpses = new Corpses(tex, floor);
     this.limbs = new Limbs(tex, floor);
+    this.ice = new IceBlocks(tex, fx, floor, audio, this.limbs);
   }
 
   update(
@@ -150,6 +158,7 @@ export class Horde {
       if (z.brain.wandering) this.wandering++;
       if (lure !== null && z.lure === lure) this.lured++;
     }
+    this.ice.update(dt);
     this.drawDebug(dt, playerX, playerY);
   }
 
@@ -163,7 +172,7 @@ export class Horde {
     const reach = pr + margin + MAX_ZOMBIE_RADIUS;
     let total = 0;
     this.hash.queryBox(px - reach, py - reach, px + reach, py + reach, (z) => {
-      if (z.dead) return;
+      if (z.dead || z.frozen) return;
       const dx = z.x - px;
       const dy = z.y - py;
       const touch = z.def.radius + pr + margin;
@@ -281,7 +290,7 @@ export class Horde {
 
   /** Walls stop zombies once they're in; before that they're funnelled down their gate's corridor. */
   private contain(z: Zombie): void {
-    const r = z.def.radius;
+    const r = z.hitRadius;
     if (!z.entered) {
       if (this.arena.isInside(z.x, z.y, -r)) z.entered = true;
       else {
@@ -299,10 +308,18 @@ export class Horde {
     z.y = clamp(z.y, b.minY + r, b.maxY - r);
   }
 
-  /** Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down. */
+  /**
+   * Kill a zombie. The body keeps its knockback and skids to rest before it's stamped down;
+   * a frozen one shatters instead and leaves no body.
+   */
   kill(z: Zombie, credit: KillCredit = "full"): void {
     if (credit !== "none") this.kills++;
     if (credit === "full") this.onKill?.(z);
+    if (z.frozen) {
+      this.ice.shatter(z);
+      this.release(z);
+      return;
+    }
     this.corpses.spawn(
       z.x,
       z.y,
@@ -399,10 +416,12 @@ export class Horde {
   /**
    * Soft-body crowding: overlapping zombies nudge each other apart so the swarm stays a swarm, not a stack.
    * The same neighbour pass feeds wanderers' herd sums (everyone the query visits, so roughly a cell around them).
+   * Frozen zombies are solid: they never budge, and whoever overlaps one takes all of the push.
    */
   private separate(): void {
     for (const a of this.alive) {
-      const r = a.def.radius + MAX_ZOMBIE_RADIUS;
+      if (a.frozen) continue;
+      const r = a.def.radius + hitReach.radius;
       const herd = a.entered && a.brain.wandering ? a.brain : null;
       this.hash.queryBox(a.x - r, a.y - r, a.x + r, a.y + r, (b) => {
         if (b === a || b.dead) return;
@@ -415,12 +434,13 @@ export class Horde {
           herd.herdCos += Math.cos(b.facing);
           herd.herdSin += Math.sin(b.facing);
         }
-        const min = a.def.radius + b.def.radius;
+        const min = a.def.radius + b.hitRadius;
         const d2 = dx * dx + dy * dy;
         if (d2 >= min * min || d2 === 0) return;
         const d = Math.sqrt(d2);
         // Each pair is visited from both sides; the lighter body takes the larger share of the overlap.
-        const push = ((min - d) / d) * (b.def.mass / (a.def.mass + b.def.mass));
+        const share = b.frozen ? 1 : b.def.mass / (a.def.mass + b.def.mass);
+        const push = ((min - d) / d) * share;
         a.x -= dx * push;
         a.y -= dy * push;
       });
@@ -435,7 +455,7 @@ export class Horde {
   private exclude(): void {
     for (const zone of this.zones) {
       // Positions moved a little since the hash was built; pad by a body so nobody slips the query.
-      const reach = zone.radius + MAX_ZOMBIE_RADIUS * 2;
+      const reach = zone.radius + hitReach.radius * 2;
       this.hash.queryBox(
         zone.x - reach,
         zone.y - reach,
@@ -445,7 +465,7 @@ export class Horde {
           if (z.dead) return;
           let dx = z.x - zone.x;
           let dy = z.y - zone.y;
-          const min = zone.radius + z.def.radius;
+          const min = zone.radius + z.hitRadius;
           const d2 = dx * dx + dy * dy;
           if (d2 >= min * min) return;
           const d = Math.sqrt(d2);
@@ -474,7 +494,7 @@ export class Horde {
     for (const z of this.alive) {
       const dx = z.x - px;
       const dy = z.y - py;
-      const min = z.def.radius + pr;
+      const min = z.hitRadius + pr;
       const d2 = dx * dx + dy * dy;
       if (d2 >= min * min || d2 === 0) continue;
       const d = Math.sqrt(d2);

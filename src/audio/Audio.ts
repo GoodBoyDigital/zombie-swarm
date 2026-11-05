@@ -44,6 +44,9 @@ const SFX = {
   bruteGroan: "/audio/sfx/zombie-groan-brute.mp3",
   runnerShriek: "/audio/sfx/zombie-shriek-runner.mp3",
   hordeAmbience: "/audio/sfx/horde-ambience.mp3",
+  iceBlast: "/audio/sfx/ice-blast.mp3",
+  iceShatter: "/audio/sfx/ice-shatter.mp3",
+  iceCrack: "/audio/sfx/ice-crack.mp3",
 } as const;
 
 export const MUSIC = {

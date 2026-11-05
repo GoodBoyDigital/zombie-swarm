@@ -3,10 +3,10 @@ import { ARENA } from "../config/arena";
 import type { Audio } from "../audio/Audio";
 import { BLOOD_SPRAY } from "../combat/CombatContext";
 import { RUN } from "../config/run";
-import { KNOCKBACK_DRAG, MAX_ZOMBIE_RADIUS, PART_IDS } from "../config/zombies";
+import { KNOCKBACK_DRAG, PART_IDS } from "../config/zombies";
 import { rand } from "../core/random";
 import type { ExclusionZone, Horde } from "../entities/Horde";
-import type { Zombie } from "../entities/Zombie";
+import { hitReach, type Zombie } from "../entities/Zombie";
 import { aiDebug } from "../entities/ZombieBrain";
 import type { Camera } from "../fx/Camera";
 import type { Effects } from "../fx/Effects";
@@ -321,7 +321,7 @@ export class Chopper {
     const circles = this.footprint();
     const crushed = new Set<Zombie>();
     for (const c of circles) {
-      const reach = c.r + MAX_ZOMBIE_RADIUS;
+      const reach = c.r + hitReach.radius;
       horde.hash.queryBox(
         c.x - reach,
         c.y - reach,
@@ -329,16 +329,21 @@ export class Chopper {
         c.y + reach,
         (z) => {
           if (z.dead) return;
-          const r = c.r + z.def.radius * RUN.squishOverlap;
+          const r = c.r + z.hitRadius * RUN.squishOverlap;
           if ((z.x - c.x) ** 2 + (z.y - c.y) ** 2 < r * r) crushed.add(z);
         },
       );
     }
     for (const z of crushed) {
       // Flattened where it stood: a star of streaks and a spray out from under the skids.
+      // A frozen one shatters instead (the horde's kill), no blood.
       z.kx = 0;
       z.ky = 0;
       z.drop();
+      if (z.frozen) {
+        horde.kill(z, "count");
+        continue;
+      }
       for (let i = 0; i < SQUISH_SPLATS; i++) {
         const a = (i / SQUISH_SPLATS) * TWO_PI + rand(-0.4, 0.4);
         horde.splat(z.x, z.y, Math.cos(a), Math.sin(a));
@@ -388,12 +393,21 @@ export class Chopper {
       this.bladeTurn -= pass;
       if (this.chops < 1) continue;
       const r = RUN.sliceRadius;
+      const pad = r + hitReach.radius;
       const { x, y } = this;
       this.inReach.length = 0;
-      this.world.horde.hash.queryBox(x - r, y - r, x + r, y + r, (z) => {
-        if (!z.dead && (z.x - x) ** 2 + (z.y - y) ** 2 < r * r)
-          this.inReach.push(z);
-      });
+      this.world.horde.hash.queryBox(
+        x - pad,
+        y - pad,
+        x + pad,
+        y + pad,
+        (z) => {
+          // A frozen zombie's ice cube reaches further into the blades than its body.
+          const reach = r + z.hitRadius - z.def.radius;
+          if (!z.dead && (z.x - x) ** 2 + (z.y - y) ** 2 < reach * reach)
+            this.inReach.push(z);
+        },
+      );
       for (const z of this.inReach) {
         if (this.chops < 1) break;
         if (Math.random() >= RUN.sliceChance) continue;
@@ -418,7 +432,8 @@ export class Chopper {
     z.kx = fx0 * RUN.sliceFling;
     z.ky = fy0 * RUN.sliceFling;
     let head = false;
-    const parts = z.def.art.parts;
+    // A frozen zombie shatters in the horde's kill, its pieces flung along the blade; no gore here.
+    const parts = z.frozen ? undefined : z.def.art.parts;
     for (let bit = 0; bit < PART_IDS.length; bit++) {
       if (!parts?.[PART_IDS[bit]] || z.missing & (1 << bit)) continue;
       if (Math.random() >= RUN.slicePartChance) continue;
@@ -427,8 +442,10 @@ export class Chopper {
       head ||= PART_IDS[bit] === "head";
       fx.bloodBurst(this.stump.x, this.stump.y, fx0, fy0, 10, BLOOD_SPRAY);
     }
-    fx.bloodBurst(z.x, z.y, fx0, fy0, RUN.sliceSpray, BLOOD_SPRAY);
-    for (let i = 0; i < 3; i++) horde.splat(z.x, z.y, fx0, fy0);
+    if (!z.frozen) {
+      fx.bloodBurst(z.x, z.y, fx0, fy0, RUN.sliceSpray, BLOOD_SPRAY);
+      for (let i = 0; i < 3; i++) horde.splat(z.x, z.y, fx0, fy0);
+    }
     z.drop();
     horde.kill(z, "none");
     if (this.chopSound > 0) return;

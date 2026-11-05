@@ -169,6 +169,8 @@ export type PowerupDef = PowerupBase &
         dismemberScale: number;
         /** Disc radius over the player and of the hypnotic swirl on the ground, world px. */
         discRadius: number;
+        /** Each blade is a copy of the disc at this fraction of its size. */
+        bladeScale: number;
         swirlRadius: number;
       })
   );
@@ -346,7 +348,7 @@ export const POWERUPS = {
   },
   hypnoDisc: {
     id: "hypnoDisc",
-    name: "Hypno Disc",
+    name: "Hip-no-disc",
     category: "destructive",
     mode: "instant",
     effect: "hypnoDisc",
@@ -361,6 +363,7 @@ export const POWERUPS = {
     bladeKnockback: 260,
     dismemberScale: 2,
     discRadius: 22,
+    bladeScale: 0.5,
     swirlRadius: 70,
     icon: "/sprites/icon-powerup-hypno.png",
     weight: 1,

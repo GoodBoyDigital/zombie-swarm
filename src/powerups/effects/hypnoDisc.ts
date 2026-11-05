@@ -14,8 +14,6 @@ const STEEL_LIGHT = 0xe4eaec;
 const RED = 0xd63a35;
 const CREAM = 0xf6eccb;
 const TAU = Math.PI * 2;
-/** Blade body radius in world px; also how far its sweep reaches past a zombie's circle. */
-const BLADE_RADIUS = 8;
 /** Blade spin in flight, radians per second. */
 const BLADE_SPIN = 28;
 /** A blade that reaches a wall sticks in it this long, the last FADE of it fading out. */
@@ -32,39 +30,15 @@ const SHING_GAP = 0.07;
 const SLICE_GAP = 0.06;
 
 /**
- * Shared vector art, built once; every blade and disc draws from the same geometry. Blades are
- * hooked four-point throwing stars in steel with a highlight edge and a dark hub.
+ * Shared vector art, built once and drawn at unit radius: every disc and blade uses the same
+ * geometry, scaled. Faint speed streak trailing each blade along its flight line, so the spiral
+ * arms read as lines.
  */
-const BLADE = (() => {
-  const points: number[] = [];
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * TAU;
-    for (const [da, r] of [
-      [0, BLADE_RADIUS + 0.5],
-      [0.5, 3.4],
-      [1.15, 2.4],
-    ])
-      points.push(Math.cos(a + da) * r, Math.sin(a + da) * r);
-  }
-  const g = new GraphicsContext()
-    .poly(points)
-    .fill(STEEL)
-    .stroke({ width: 1.4, color: INK, join: "round" });
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * TAU;
-    g.moveTo(Math.cos(a + 0.9) * 2.6, Math.sin(a + 0.9) * 2.6)
-      .lineTo(Math.cos(a + 0.12) * 6, Math.sin(a + 0.12) * 6)
-      .stroke({ width: 1.1, color: STEEL_LIGHT, cap: "round" });
-  }
-  return g.circle(0, 0, 1.6).fill(0x2a2f2a).stroke({ width: 0.8, color: INK });
-})();
-
-/** Faint speed streak trailing each blade along its flight line, so the spiral arms read as lines. */
 const STREAK = new GraphicsContext()
-  .poly([0, -BLADE_RADIUS * 0.7, -BLADE_RADIUS * 2.6, 0, 0, BLADE_RADIUS * 0.7])
+  .poly([0, -0.7, -2.6, 0, 0, 0.7])
   .fill({ color: STEEL_LIGHT, alpha: 0.3 });
 
-/** Unit-radius saw disc, like the icon: hooked steel teeth round a red and cream spiral, a dark hub. */
+/** Saw disc, like the icon, also thrown as the blades: hooked steel teeth round a red and cream spiral, a dark hub. */
 const DISC = (() => {
   const TEETH = 16;
   const teeth: number[] = [];
@@ -130,8 +104,10 @@ function spiralArms(
 
 interface Blade {
   view: Container;
-  /** Spins in flight; the streak behind it holds the flight direction. */
-  star: Graphics;
+  /** A small copy of the disc, spinning in flight; the streak behind it holds the flight direction. */
+  saw: Graphics;
+  /** World px; also how far its sweep reaches past a zombie's circle. */
+  radius: number;
   streak: Graphics;
   dx: number;
   dy: number;
@@ -304,7 +280,10 @@ function launch(
   b.view.alpha = 1;
   b.streak.visible = true;
   b.streak.rotation = angle;
-  b.star.rotation = rand(0, TAU);
+  b.radius = def.discRadius * def.bladeScale;
+  b.saw.scale.set(b.radius);
+  b.streak.scale.set(b.radius);
+  b.saw.rotation = rand(0, TAU);
   const r = def.discRadius * 0.8;
   b.view.position.set(st.x + b.dx * r, st.y + b.dy * r);
   st.root.addChild(b.view);
@@ -316,11 +295,12 @@ function launch(
 function newBlade(): Blade {
   const view = new Container({ label: "hypnoBlade" });
   const streak = view.addChild(new Graphics({ context: STREAK }));
-  const star = view.addChild(new Graphics({ context: BLADE }));
+  const saw = view.addChild(new Graphics({ context: DISC }));
   return {
     view,
-    star,
+    saw,
     streak,
+    radius: 0,
     dx: 0,
     dy: 0,
     left: 0,
@@ -342,7 +322,7 @@ function fly(
   const wall = wallHit(x, y, b.dx, b.dy);
   const step = Math.min(def.bladeSpeed * dt, b.left);
   const reach = wall
-    ? Math.min(step, Math.max(0, wall.t - BLADE_RADIUS * 0.5))
+    ? Math.min(step, Math.max(0, wall.t - b.radius * 0.5))
     : step;
   let travel = reach;
   for (const hit of raycastZombies(
@@ -353,7 +333,7 @@ function fly(
     b.dy,
     reach,
     Infinity,
-    BLADE_RADIUS,
+    b.radius,
   )) {
     if (b.hit.includes(hit.zombie)) continue;
     b.hit.push(hit.zombie);
@@ -372,7 +352,7 @@ function fly(
     break;
   }
   b.view.position.set(x + b.dx * travel, y + b.dy * travel);
-  b.star.rotation += BLADE_SPIN * dt;
+  b.saw.rotation += BLADE_SPIN * dt;
   b.left -= travel;
   if (b.pierce <= 0) {
     ctx.fx.sparkle(b.view.x, b.view.y, STEEL_LIGHT, 3);

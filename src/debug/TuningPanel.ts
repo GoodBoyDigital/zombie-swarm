@@ -146,6 +146,7 @@ const POWERUP_RANGES: Ranges = {
   bladeKnockback: { min: 0, max: 1200, step: 10 },
   dismemberScale: { min: 0, max: 4, step: 0.1 },
   discRadius: { min: 6, max: 60, step: 1 },
+  bladeScale: { min: 0.1, max: 1.5, step: 0.05 },
   swirlRadius: { min: 0, max: 200, step: 2 },
 };
 

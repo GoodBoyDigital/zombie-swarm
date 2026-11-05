@@ -215,7 +215,7 @@ export const ZOMBIES = {
       anchor: { x: 0.4, y: 0.5 },
     },
     radius: 20,
-    speed: 40,
+    speed: 24,
     speedVariance: 8,
     health: 15,
     knockbackScale: 0.25,

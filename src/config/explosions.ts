@@ -71,8 +71,8 @@ export const EXPLOSIONS = {
     pitch: 1,
   },
   rocket: {
-    radius: 90,
-    damage: 8,
+    radius: 108,
+    damage: 24,
     knockback: 650,
     falloff: 0.85,
     flash: 0.75,

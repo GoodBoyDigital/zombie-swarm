@@ -253,12 +253,12 @@ export const MAX_ZOMBIE_RADIUS = Math.max(
 export const SPAWN = {
   curve: [
     { at: 0, rate: 0.6 },
-    { at: 0.35, rate: 1.2 },
-    { at: 0.7, rate: 2.2 },
-    { at: 1, rate: 3.5 },
+    { at: 0.36, rate: 0.8 },
+    { at: 0.71, rate: 1.5 },
+    { at: 1, rate: 3 },
   ],
-  inboundRate: 6,
-  landedRate: 14,
+  inboundRate: 4.5,
+  landedRate: 5,
   maxAlive: 600,
 };
 

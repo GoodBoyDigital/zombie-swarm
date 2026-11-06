@@ -4,7 +4,9 @@ import {
   GlProgram,
   Texture,
   UniformGroup,
+  type FilterSystem,
   type Renderer,
+  type RenderSurface,
   type WebGLRenderer,
 } from "pixi.js";
 
@@ -22,27 +24,29 @@ uniform sampler2D uTexture;
 uniform sampler2D uBackTexture;
 uniform sampler2D uNoise;
 uniform highp vec4 uInputSize;
+uniform highp vec4 uOutputFrame;
 uniform vec4 uInputClamp;
 
-uniform float uEdge;
+uniform vec2 uBackScale;
+uniform float uRadius;
 uniform float uStrength;
 uniform float uNoiseScale;
 uniform float uTime;
 
 void main() {
-    // -1..1 across the filter bounds, which are centred on the dome.
-    vec2 rel = vTextureCoord / uInputClamp.zw * 2.0 - 1.0;
-    float r = length(rel) / uEdge;
+    // Screen px from the middle of the filter bounds, which are centred on the dome.
+    vec2 px = vTextureCoord * uInputSize.xy - uOutputFrame.zw * 0.5;
+    float r = length(px) / uRadius;
     // Strongest in a band inside the rim; the middle, where the player stands, stays clean.
     float inside = smoothstep(0.15, 0.6, r) * (1.0 - smoothstep(0.85, 1.0, r));
-    vec2 p = rel * uNoiseScale;
+    vec2 p = px * uNoiseScale;
     vec2 n = texture(uNoise, p + vec2(uTime * 0.11, uTime * 0.07)).rg
            + texture(uNoise, p * 1.9 - vec2(uTime * 0.05, uTime * 0.16)).rg - 1.0;
     vec2 offset = n * uStrength * inside * uInputSize.zw;
     // A slight colour split sells it as energy rather than water.
-    vec4 back = texture(uBackTexture, clamp(vTextureCoord + offset, uInputClamp.xy, uInputClamp.zw));
-    back.r = texture(uBackTexture, clamp(vTextureCoord + offset * 1.35, uInputClamp.xy, uInputClamp.zw)).r;
-    back.b = texture(uBackTexture, clamp(vTextureCoord + offset * 0.65, uInputClamp.xy, uInputClamp.zw)).b;
+    vec4 back = texture(uBackTexture, clamp(vTextureCoord + offset, uInputClamp.xy, uInputClamp.zw) * uBackScale);
+    back.r = texture(uBackTexture, clamp(vTextureCoord + offset * 1.35, uInputClamp.xy, uInputClamp.zw) * uBackScale).r;
+    back.b = texture(uBackTexture, clamp(vTextureCoord + offset * 0.65, uInputClamp.xy, uInputClamp.zw) * uBackScale).b;
     vec4 front = texture(uTexture, vTextureCoord);
     finalColor = front + back * (1.0 - front.a);
 }
@@ -69,7 +73,8 @@ export class DomeFilter extends Filter {
       clipToViewport: false,
       resources: {
         domeUniforms: new UniformGroup({
-          uEdge: { value: 1, type: "f32" },
+          uBackScale: { value: new Float32Array([1, 1]), type: "vec2<f32>" },
+          uRadius: { value: 1, type: "f32" },
           uStrength: { value: 0, type: "f32" },
           uNoiseScale: { value: 1, type: "f32" },
           uTime: { value: 0, type: "f32" },
@@ -84,8 +89,11 @@ export class DomeFilter extends Filter {
   }
 
   get uniforms(): {
-    uEdge: number;
+    uBackScale: Float32Array;
+    /** Dome radius, screen px. */
+    uRadius: number;
     uStrength: number;
+    /** Ripple features per screen px. */
     uNoiseScale: number;
     uTime: number;
   } {
@@ -103,8 +111,31 @@ export class DomeFilter extends Filter {
     if (!bb) return;
     this.enabled = this.primed;
     this.primed = true;
+    // Pixi resolves the whole back buffer once for every filter that reads it. Multisampled, that is
+    // about 4 ms a dome on a phone at 3x, whatever the dome's size, so the back buffer goes without.
+    if (backBuffer !== bb) bb.init({ antialias: false });
     bb.useBackBuffer = true;
     backBuffer = bb;
+  }
+
+  /**
+   * The backdrop is copied at the renderer's resolution into a pooled texture of its own, while the
+   * input is at the filter's. The two only share a UV scale by luck (at 1x and 2x, not at 3x), so
+   * the backdrop gets its own.
+   */
+  override apply(
+    filterManager: FilterSystem,
+    input: Texture,
+    output: RenderSurface,
+    clearMode: boolean,
+  ): void {
+    const back = filterManager.activeBackTexture;
+    if (back) {
+      const scale = this.uniforms.uBackScale;
+      scale[0] = input.source.width / back.source.width;
+      scale[1] = input.source.height / back.source.height;
+    }
+    filterManager.applyFilter(this, input, output, clearMode);
   }
 
   override destroy(): void {

@@ -8,6 +8,7 @@ import { ICE } from "../config/ice";
 import { LOOT, LOOT_RULES } from "../config/loot";
 import { PLAYER } from "../config/player";
 import { CAMERA } from "../config/camera";
+import { CONTROLS } from "../config/controls";
 import { LEVELS, RUN } from "../config/run";
 import {
   POWERUP_CATEGORIES,
@@ -80,6 +81,23 @@ const CAMERA_RANGES: Ranges = {
   viewHeight: { min: 200, max: 720, step: 10 },
   followRate: { min: 0.5, max: 20, step: 0.5 },
   edgeReveal: { min: 0, max: 120, step: 2 },
+};
+
+const CONTROLS_RANGES: Ranges = {
+  stickRadius: { min: 30, max: 120, step: 1 },
+  knobRadius: { min: 10, max: 80, step: 1 },
+  stickAlpha: { min: 0.1, max: 1, step: 0.05 },
+  moveDeadzone: { min: 0, max: 0.6, step: 0.01 },
+  aimDeadzone: { min: 0, max: 0.8, step: 0.01 },
+  gamepadDeadzone: { min: 0, max: 0.6, step: 0.01 },
+  triggerThreshold: { min: 0.05, max: 0.95, step: 0.05 },
+  aimDistance: { min: 40, max: 400, step: 5 },
+  aimLine: { min: 0, max: 1, step: 0.05 },
+  aimLineAlpha: { min: 0, max: 1, step: 0.05 },
+  lockOnCone: { min: 0.05, max: 1.2, step: 0.01 },
+  lockOnRange: { min: 50, max: 900, step: 10 },
+  lockOnHold: { min: 0, max: 1, step: 0.05 },
+  touchEdgeReveal: { min: 0, max: 1, step: 0.05 },
 };
 
 const ZOMBIE_AI_RANGES: Ranges = {
@@ -492,5 +510,6 @@ export function setupTuning(): TuningPanel {
   panel.add("ICE", null, ICE, ICE_RANGES);
   panel.add("CASINGS", "CasingDef", CASINGS, CASING_RANGES);
   panel.add("CAMERA", null, CAMERA, CAMERA_RANGES);
+  panel.add("CONTROLS", null, CONTROLS, CONTROLS_RANGES);
   return panel;
 }

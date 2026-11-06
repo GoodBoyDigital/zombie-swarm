@@ -1,4 +1,5 @@
 import { Container, Graphics, Text, type Application } from "pixi.js";
+import type { InputDevice } from "../core/Input";
 import { UI_FONT } from "./font";
 import { formatTime } from "./RunHud";
 
@@ -14,6 +15,12 @@ const BUTTON_EDGE = 0x0d0b09;
 const BUTTON_W = 220;
 const BUTTON_H = 52;
 const BUTTON_GAP = 24;
+
+const HINTS: Record<InputDevice, { next: string; retry: string }> = {
+  mouse: { next: "N next level · R retry", retry: "press R to retry" },
+  gamepad: { next: "A next level · X retry", retry: "press A to retry" },
+  touch: { next: "", retry: "" },
+};
 
 export interface RunResult {
   extracted: boolean;
@@ -89,7 +96,8 @@ export class Results {
     return this.view.visible && this.next.visible;
   }
 
-  show(r: RunResult): void {
+  /** `device` picks the hint: keys, gamepad buttons, or none for touch, where the buttons are the way. */
+  show(r: RunResult, device: InputDevice): void {
     const level = r.level.toUpperCase();
     this.title.text = r.extracted ? `${level} COMPLETE` : "YOU DIED";
     this.title.style.fill = r.extracted ? WON : DIED;
@@ -103,8 +111,8 @@ export class Results {
     this.best.text = `BEST ON ${level}: ${formatTime(r.bestSeconds)}`;
     this.next.visible = r.extracted && r.hasNext;
     this.hint.text = this.next.visible
-      ? "N next level · R retry"
-      : "press R to retry";
+      ? HINTS[device].next
+      : HINTS[device].retry;
     this.layout();
     this.view.visible = true;
   }

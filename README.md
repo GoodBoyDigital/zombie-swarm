@@ -39,9 +39,26 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 
 ## Controls
 
+Keyboard and mouse, touch, or a gamepad: whichever was used last is in charge, and the game switches as
+soon as another is touched. It all goes through `src/core/Input.ts`; stick sizes, deadzones, the aim
+marker, lock-on and the touch camera are in `src/config/controls.ts`.
+
 - Arrow keys or WASD: move
 - Mouse: aim
 - Left mouse button: fire (auto-fire while held)
+- Touch: twin floating sticks. A thumb on the left half of the screen gets the move stick where it lands,
+  one on the right half the aim stick, which fires for as long as it is pushed. Lift and the stick is gone.
+- Gamepad: left stick moves, right stick aims and fires (right trigger fires too), X reloads; on the
+  results card A or Start is the main button and X retries.
+- With a stick there is no cursor, so a small marker out along the barrel shows where the gun points.
+  Stick aim locks on (`src/combat/LockOn.ts`): shots snap to the zombie best matching the stick inside a
+  cone, and red brackets mark it. Nothing in the cone, and shots go exactly where the stick points.
+- On touch the camera follows past the arena edge (`touchEdgeReveal`), so the player stays near the middle
+  of the screen instead of ending up under a thumb.
+- Render size (`src/config/render.ts`, applied by `src/core/renderFit.ts`): the canvas is CSS-sized to the
+  window, and its backing store is capped at 2x and at 2400 device px either way, with the browser scaling
+  it up. Antialiasing (MSAA) is on for desktop and off on phones and tablets. `?dpr=3` in the URL forces a
+  resolution and `?aa=1` / `?aa=0` forces antialiasing, to compare on a device; the HUD shows the backing size.
 - R: reload, or retry the level from the results card; N: next level after extracting
 - Hold out until the countdown hits zero, then get to the chopper's landing pad (follow the H arrow) and
   stand on it to board. Extracting unlocks the next level; dying retries the same one. Coins bank either way.

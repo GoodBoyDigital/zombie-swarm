@@ -19,6 +19,11 @@ export class Camera {
   private halfViewW = 0;
   private halfViewH = 0;
   private fittedViewHeight = 0;
+  /**
+   * Lets the camera follow further past the arena edge than `CAMERA.edgeReveal`, as a share of the
+   * half-screen: 1 keeps the target dead centre even in a corner. The game raises it in touch mode.
+   */
+  revealShare = 0;
 
   constructor(
     private readonly app: Application,
@@ -106,14 +111,20 @@ export class Camera {
   }
 
   private clampX(x: number): number {
-    const reveal = CAMERA.edgeReveal;
-    const min = this.halfViewW - reveal;
+    const min = this.halfViewW - this.reveal(this.halfViewW);
     return Math.min(ARENA.width - min, Math.max(min, x));
   }
 
   private clampY(y: number): number {
-    const reveal = CAMERA.edgeReveal;
-    const min = this.halfViewH - reveal;
+    const min = this.halfViewH - this.reveal(this.halfViewH);
     return Math.min(ARENA.height - min, Math.max(min, y));
+  }
+
+  /** How far past the arena edge the view may go along an axis with this half-view, world px. */
+  private reveal(halfView: number): number {
+    return Math.max(
+      CAMERA.edgeReveal,
+      halfView * Math.min(1, this.revealShare),
+    );
   }
 }

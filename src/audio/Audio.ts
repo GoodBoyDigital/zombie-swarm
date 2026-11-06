@@ -112,14 +112,16 @@ export class Audio {
     this.musicBus.gain.value = MUSIC_VOLUME;
     this.sfxBus.connect(this.ctx.destination);
     this.musicBus.connect(this.ctx.destination);
-    // Browsers keep the context suspended until the page gets a real user gesture.
+    // Browsers keep the context suspended until the page gets a real user gesture. A touch only
+    // counts as one when it lifts, so keep trying until the context is actually running.
+    const gestures = ["pointerdown", "pointerup", "touchend", "keydown"];
     const unlock = () => {
-      void this.ctx.resume();
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
+      void this.ctx.resume().then(() => {
+        if (this.ctx.state !== "running") return;
+        for (const type of gestures) window.removeEventListener(type, unlock);
+      });
     };
-    window.addEventListener("pointerdown", unlock);
-    window.addEventListener("keydown", unlock);
+    for (const type of gestures) window.addEventListener(type, unlock);
   }
 
   get currentMusic(): MusicName | null {

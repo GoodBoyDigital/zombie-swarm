@@ -1,10 +1,14 @@
-import { Container, Graphics, Sprite } from "pixi.js";
+import { Container, Graphics, Sprite, type Point } from "pixi.js";
+import { LockOn } from "../combat/LockOn";
+import { CONTROLS } from "../config/controls";
 import { PLAYER } from "../config/player";
 import type { WeaponDef } from "../config/weapons";
 import type { Input } from "../core/Input";
 import type { Arena } from "../world/Arena";
 import type { Camera } from "../fx/Camera";
 import type { GameTextures } from "../fx/textures";
+import type { Horde } from "./Horde";
+import type { Zombie } from "./Zombie";
 
 const MOVE_SPEED = 151;
 const ACCEL = 14;
@@ -52,9 +56,10 @@ export class Player {
   /** Recoil velocity, kept apart from movement so it kicks and settles instead of becoming drift. */
   private rx = 0;
   private ry = 0;
-  /** Facing angle in radians, toward the pointer. */
+  /** Facing angle in radians, toward the pointer or along the aim stick. */
   aim = 0;
   private gunKick = 0;
+  private readonly lockOn = new LockOn();
   /** Torso sprite; power-up visuals copy its texture and anchor. */
   readonly body: Sprite;
   private readonly gun = new Sprite();
@@ -119,6 +124,24 @@ export class Player {
     return this.gunPoint(this.ejectX, this.ejectY);
   }
 
+  /**
+   * Where a point `distance` world px down the barrel from the muzzle sits on screen, camera shake
+   * included: the stick-mode reticle and its aim line.
+   */
+  barrelToScreen(distance: number, out: Point): Point {
+    return this.view.toGlobal(
+      { x: this.muzzleX + distance, y: this.muzzleY },
+      out,
+    );
+  }
+
+  /** The zombie stick aiming has locked on to, if any: where the shots are going. */
+  get lock(): Zombie | null {
+    const target = this.lockOn.target;
+    // It may have died to this frame's shots, after the lock was chosen.
+    return target && !target.dead ? target : null;
+  }
+
   /** A gun-local point to world space, following the kick and the aim. */
   private gunPoint(localX: number, localY: number): { x: number; y: number } {
     const d = localX - this.gunKick;
@@ -171,7 +194,13 @@ export class Player {
     this.gun.x = this.handX - this.gunKick;
   }
 
-  update(dt: number, input: Input, camera: Camera, arena: Arena): void {
+  update(
+    dt: number,
+    input: Input,
+    camera: Camera,
+    arena: Arena,
+    horde: Horde,
+  ): void {
     this.invuln -= dt;
     this.sinceHit += dt;
     if (PLAYER.regenPerSecond > 0 && this.sinceHit > PLAYER.regenDelay)
@@ -203,16 +232,43 @@ export class Player {
       Math.max(b.minY + this.radius, this.y),
     );
 
-    const target = camera.screenToWorld(input.pointer.x, input.pointer.y);
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
-    // The barrel sits beside the torso, so rotate a touch less than the centre-to-cursor angle
-    // to make the barrel line itself pass through the cursor.
-    const dist = Math.hypot(dx, dy);
-    const side = Math.abs(this.muzzleY);
-    const sideways =
-      dist > side ? Math.asin(side / dist) * Math.sign(this.muzzleY) : 0;
-    this.aim = Math.atan2(dy, dx) - sideways;
+    const aim = input.aim;
+    const stick = aim.kind === "direction" && (aim.x !== 0 || aim.y !== 0);
+    // No lock without a stick pointing somewhere, and a stick at rest leaves him facing the way he was.
+    if (!stick) this.lockOn.clear();
+    if (aim.kind === "point" || stick) {
+      let dx: number;
+      let dy: number;
+      if (aim.kind === "point") {
+        const target = camera.screenToWorld(aim.x, aim.y);
+        dx = target.x - this.x;
+        dy = target.y - this.y;
+      } else {
+        const angle = Math.atan2(aim.y, aim.x);
+        const locks =
+          input.device === "touch"
+            ? CONTROLS.lockOnTouch
+            : CONTROLS.lockOnGamepad;
+        if (!locks) this.lockOn.clear();
+        const target = locks
+          ? this.lockOn.update(dt, horde, this.x, this.y, angle)
+          : null;
+        // Straight at the locked zombie; with none, a stick has no cursor, so at a spot a fixed way out along it.
+        dx = target
+          ? target.x - this.x
+          : Math.cos(angle) * CONTROLS.aimDistance;
+        dy = target
+          ? target.y - this.y
+          : Math.sin(angle) * CONTROLS.aimDistance;
+      }
+      // The barrel sits beside the torso, so rotate a touch less than the centre-to-target angle
+      // to make the barrel line itself pass through the target.
+      const dist = Math.hypot(dx, dy);
+      const side = Math.abs(this.muzzleY);
+      const sideways =
+        dist > side ? Math.asin(side / dist) * Math.sign(this.muzzleY) : 0;
+      this.aim = Math.atan2(dy, dx) - sideways;
+    }
 
     this.gunKick *= Math.exp(-dt * 18);
     this.gun.x = this.handX - this.gunKick;

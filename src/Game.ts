@@ -1,6 +1,7 @@
 import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
+import { CONTROLS } from "./config/controls";
 import { GRADES } from "./config/grade";
 import { PLAYER } from "./config/player";
 import { POWERUP_DEFS, type PowerupDef } from "./config/powerups";
@@ -28,6 +29,7 @@ import { PowerupPills } from "./ui/PowerupPills";
 import { Results } from "./ui/Results";
 import { Reticle } from "./ui/Reticle";
 import { RunHud } from "./ui/RunHud";
+import { SAFE_AREA } from "./ui/safeArea";
 import { Vignette } from "./ui/Vignette";
 import { UI_FONT } from "./ui/font";
 import { PowerupContext } from "./powerups/PowerupContext";
@@ -241,13 +243,9 @@ export class Game {
         },
       },
     });
-    this.hud.position.set(HUD_LEFT, HUD_TOP + HEALTH_BAR_HEIGHT + 6);
-    this.healthBar.view.position.set(HUD_LEFT, HUD_TOP);
     this.pills = new PowerupPills(tex);
-    this.pills.view.position.set(
-      HUD_LEFT + HEALTH_BAR_WIDTH + PILLS_GAP,
-      HUD_TOP + HEALTH_BAR_HEIGHT / 2 + 1,
-    );
+    this.layoutHud();
+    app.renderer.on("resize", this.layoutHud);
     this.vignette = new Vignette(app);
     this.results = new Results(
       app,
@@ -264,6 +262,7 @@ export class Game {
       this.pills.view,
       this.hud,
       this.runHud.view,
+      this.input.sticks.view,
       this.results.view,
       this.reticle.view,
     );
@@ -278,6 +277,7 @@ export class Game {
   destroy(): void {
     this.app.ticker.remove(this.tick);
     this.app.ticker.remove(this.endRender);
+    this.app.renderer.off("resize", this.layoutHud);
     window.removeEventListener("keydown", this.onKeyDown);
     this.powerups.endAll();
     this.weapon.silence();
@@ -293,11 +293,24 @@ export class Game {
       this.pills.view,
       this.hud,
       this.runHud.view,
+      this.input.sticks.view,
       this.results.view,
       this.reticle.view,
     ])
       child.destroy({ children: true });
   }
+
+  /** Top-left HUD, clear of a phone's notch and rounded corners. Rerun when the screen turns. */
+  private readonly layoutHud = (): void => {
+    const left = HUD_LEFT + SAFE_AREA.left;
+    const top = HUD_TOP + SAFE_AREA.top;
+    this.healthBar.view.position.set(left, top);
+    this.hud.position.set(left, top + HEALTH_BAR_HEIGHT + 6);
+    this.pills.view.position.set(
+      left + HEALTH_BAR_WIDTH + PILLS_GAP,
+      top + HEALTH_BAR_HEIGHT / 2 + 1,
+    );
+  };
 
   /** Pickups call this; number keys use it for testing. */
   equip(id: WeaponId): void {
@@ -307,10 +320,7 @@ export class Game {
   private hotkey(e: KeyboardEvent): void {
     if (isTyping(e)) return;
     const level = this.run.levelIndex;
-    if (e.code === "KeyR") {
-      if (this.results.visible) this.onRestart(level);
-      else if (this.player.alive && !this.run.aboard) this.weapon.reload();
-    }
+    if (e.code === "KeyR") this.retryOrReload();
     if (e.code === "KeyN" && this.results.offersNext) this.onRestart(level + 1);
     if (e.code === "KeyX" && import.meta.env.DEV)
       this.run.devSkip(SKIP_TO_SECONDS);
@@ -323,6 +333,29 @@ export class Game {
     const weapon = WEAPON_IDS[WEAPON_KEYS.indexOf(e.code)];
     if (weapon) this.equip(weapon);
     if (e.code.startsWith("F") && e.code.length <= 3) e.preventDefault();
+  }
+
+  /** R, or X on a gamepad: retry from the end card, otherwise reload. True if it restarted the game. */
+  private retryOrReload(): boolean {
+    if (this.results.visible) {
+      this.onRestart(this.run.levelIndex);
+      return true;
+    }
+    if (this.player.alive && !this.run.aboard) this.weapon.reload();
+    return false;
+  }
+
+  /**
+   * Gamepad buttons doing a key's job: A or Start presses the end card's main button, X is R.
+   * True if one restarted the game, which tears this one down mid-frame.
+   */
+  private padButtons(): boolean {
+    if (this.input.confirmPressed && this.results.visible) {
+      const next = this.results.offersNext ? 1 : 0;
+      this.onRestart(this.run.levelIndex + next);
+      return true;
+    }
+    return this.input.reloadPressed && this.retryOrReload();
   }
 
   /** An orb just ahead of the player, so every power-up can be tried on demand (P key, tuning panel). */
@@ -340,6 +373,8 @@ export class Game {
    * off it: the world (horde, gore, loot, projectiles) and, by less, the player and his gun.
    */
   private step(dt: number): void {
+    this.input.update();
+    if (this.padButtons()) return;
     profiler.beginFrame();
     this.grade.begin();
     if (this.player.alive) this.powerups.update(dt);
@@ -358,7 +393,9 @@ export class Game {
     const p = this.player;
     // Aboard the chopper the player is out of the fight: no moving, shooting, pickups or bites.
     const playing = p.alive && !this.run.aboard;
-    if (playing) p.update(playerDt, this.input, this.camera, this.arena);
+    this.input.sticks.enabled = playing;
+    if (playing)
+      p.update(playerDt, this.input, this.camera, this.arena, this.horde);
     this.run.update(dt, worldDt, p);
     this.horde.progress = this.run.progress;
     this.horde.phase = this.run.phase;
@@ -378,6 +415,9 @@ export class Game {
     profiler.lap("fx");
     this.casings.update(worldDt);
     profiler.lap("casings");
+    // Thumbs cover the screen's lower corners, so on touch the camera keeps him near the middle.
+    this.camera.revealShare =
+      this.input.device === "touch" ? CONTROLS.touchEdgeReveal : 0;
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.grade.add(GRADES.lowHealth, this.vignette.lowHealth);
@@ -393,7 +433,7 @@ export class Game {
     this.grade.apply(this.colorMask);
     this.healthBar.update(p.health, PLAYER.maxHealth);
     this.pills.update(this.powerups.active);
-    this.reticle.update(dt, this.weapon);
+    this.reticle.update(dt, this.weapon, p);
     this.runHud.update(dt, this.run, this.camera);
     this.groan(worldDt);
     profiler.lap("misc");
@@ -415,10 +455,14 @@ export class Game {
         : w.def.fuel
           ? `fuel ${w.rounds.toFixed(1)}/${w.def.magazine}s`
           : `${w.rounds}/${w.def.magazine}`) + spare;
+    // Key hints and the profiler numbers are no use on a phone, where the readout has to stay short.
+    const touch = this.input.device === "touch";
+    const keys = touch ? "" : "   [1-9, 0, - weapon, R reload]";
+    const debug = touch ? "" : `${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
     this.hud.text =
-      `${w.def.name.toUpperCase()} ${ammo}   [1-9, 0, - weapon, R reload]\n` +
+      `${w.def.name.toUpperCase()} ${ammo}${keys}\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
-      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${step}   music [F1-F3, F4 off]: ${theme}${ai}`;
+      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   ${this.app.canvas.width}x${this.app.canvas.height}${debug}`;
   }
 
   /**
@@ -471,16 +515,19 @@ export class Game {
       LEVELS.length,
     );
     this.audio.duckMusic(DEATH_MUSIC_DUCK);
-    this.results.show({
-      extracted,
-      level: run.level.name,
-      seconds: run.elapsed,
-      kills: this.horde.kills,
-      coins,
-      bankTotal: save.coins,
-      bestSeconds: save.bestSeconds[run.levelIndex],
-      hasNext: run.levelIndex + 1 < LEVELS.length,
-    });
+    this.results.show(
+      {
+        extracted,
+        level: run.level.name,
+        seconds: run.elapsed,
+        kills: this.horde.kills,
+        coins,
+        bankTotal: save.coins,
+        bestSeconds: save.bestSeconds[run.levelIndex],
+        hasNext: run.levelIndex + 1 < LEVELS.length,
+      },
+      this.input.device,
+    );
   }
 
   /** A random nearby zombie moans every so often, louder the closer it is. */

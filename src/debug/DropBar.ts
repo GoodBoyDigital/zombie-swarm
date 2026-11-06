@@ -3,6 +3,7 @@ import {
   POWERUP_DEFS,
   type PowerupDef,
 } from "../config/powerups";
+import { IS_MOBILE } from "../core/device";
 import { isTyping } from "../Game";
 
 /**
@@ -43,8 +44,12 @@ export function setupDropBar(drop: (def: PowerupDef) => void): void {
     button.addEventListener("click", () => drop(def));
     bar.appendChild(button);
   }
+  // The bar's own `display` beats the `hidden` attribute, so hiding has to go through the style.
+  const show = (on: boolean) => (bar.style.display = on ? "flex" : "none");
   window.addEventListener("keydown", (e) => {
-    if (e.code === "KeyO" && !isTyping(e)) bar.hidden = !bar.hidden;
+    if (e.code === "KeyO" && !isTyping(e)) show(bar.style.display === "none");
   });
+  // On a phone it would sit under the thumbs, and there is no O key to bring it back.
+  show(!IS_MOBILE);
   document.body.appendChild(bar);
 }

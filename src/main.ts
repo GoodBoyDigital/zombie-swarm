@@ -15,7 +15,9 @@ import { loadSave } from "./meta/save";
   const dpr = Number(new URLSearchParams(location.search).get("dpr"));
   const app = new Application();
   await app.init({
-    background: "#141210",
+    // The floor's own black beyond the walls, so the two join without a seam when the touch camera
+    // looks out past the arena's margin.
+    background: "#000000",
     resizeTo: window,
     antialias: true,
     resolution: dpr || window.devicePixelRatio,

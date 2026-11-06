@@ -41,7 +41,7 @@ against the perf-labeled development server. This opens an isolated headed Chrom
 
 Keyboard and mouse, touch, or a gamepad: whichever was used last is in charge, and the game switches as
 soon as another is touched. It all goes through `src/core/Input.ts`; stick sizes, deadzones, the aim
-marker and the (off by default) aim assist are in `src/config/controls.ts`.
+marker, lock-on and the touch camera are in `src/config/controls.ts`.
 
 - Arrow keys or WASD: move
 - Mouse: aim
@@ -51,6 +51,10 @@ marker and the (off by default) aim assist are in `src/config/controls.ts`.
 - Gamepad: left stick moves, right stick aims and fires (right trigger fires too), X reloads; on the
   results card A or Start is the main button and X retries.
 - With a stick there is no cursor, so a small marker out along the barrel shows where the gun points.
+  Stick aim locks on (`src/combat/LockOn.ts`): shots snap to the zombie best matching the stick inside a
+  cone, and red brackets mark it. Nothing in the cone, and shots go exactly where the stick points.
+- On touch the camera follows past the arena edge (`touchEdgeReveal`), so the player stays near the middle
+  of the screen instead of ending up under a thumb.
 - `?dpr=2` in the URL renders at that resolution instead of the screen's own, to compare frame rates on a phone.
 - R: reload, or retry the level from the results card; N: next level after extracting
 - Hold out until the countdown hits zero, then get to the chopper's landing pad (follow the H arrow) and

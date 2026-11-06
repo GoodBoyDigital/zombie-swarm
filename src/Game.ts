@@ -1,6 +1,7 @@
 import { Application, Container, Text, UPDATE_PRIORITY } from "pixi.js";
 import type { Audio, MusicName } from "./audio/Audio";
 import { ARENA } from "./config/arena";
+import { CONTROLS } from "./config/controls";
 import { GRADES } from "./config/grade";
 import { PLAYER } from "./config/player";
 import { POWERUP_DEFS, type PowerupDef } from "./config/powerups";
@@ -414,6 +415,9 @@ export class Game {
     profiler.lap("fx");
     this.casings.update(worldDt);
     profiler.lap("casings");
+    // Thumbs cover the screen's lower corners, so on touch the camera keeps him near the middle.
+    this.camera.revealShare =
+      this.input.device === "touch" ? CONTROLS.touchEdgeReveal : 0;
     this.camera.update(dt, this.player.x, this.player.y);
     this.vignette.update(dt, p.health / PLAYER.maxHealth);
     this.grade.add(GRADES.lowHealth, this.vignette.lowHealth);

@@ -85,7 +85,7 @@ const CAMERA_RANGES: Ranges = {
 
 const CONTROLS_RANGES: Ranges = {
   stickRadius: { min: 30, max: 120, step: 1 },
-  knobRadius: { min: 10, max: 60, step: 1 },
+  knobRadius: { min: 10, max: 80, step: 1 },
   stickAlpha: { min: 0.1, max: 1, step: 0.05 },
   moveDeadzone: { min: 0, max: 0.6, step: 0.01 },
   aimDeadzone: { min: 0, max: 0.8, step: 0.01 },
@@ -94,9 +94,10 @@ const CONTROLS_RANGES: Ranges = {
   aimDistance: { min: 40, max: 400, step: 5 },
   aimLine: { min: 0, max: 1, step: 0.05 },
   aimLineAlpha: { min: 0, max: 1, step: 0.05 },
-  aimAssistStrength: { min: 0, max: 1, step: 0.05 },
-  aimAssistCone: { min: 0.05, max: 1, step: 0.01 },
-  aimAssistRange: { min: 50, max: 800, step: 10 },
+  lockOnCone: { min: 0.05, max: 1.2, step: 0.01 },
+  lockOnRange: { min: 50, max: 900, step: 10 },
+  lockOnHold: { min: 0, max: 1, step: 0.05 },
+  touchEdgeReveal: { min: 0, max: 1, step: 0.05 },
 };
 
 const ZOMBIE_AI_RANGES: Ranges = {

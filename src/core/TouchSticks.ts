@@ -30,7 +30,8 @@ class Stick {
     this.x = 0;
     this.y = 0;
     this.view.position.set(x, y);
-    this.view.alpha = CONTROLS.stickAlpha;
+    // Only the ring is see-through: a solid knob stays one flat colour wherever it sits over the ring.
+    this.base.alpha = CONTROLS.stickAlpha;
     this.view.visible = true;
     this.draw(CREAM);
   }

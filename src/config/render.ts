@@ -8,15 +8,16 @@ export const RENDER = {
   maxResolution: 2,
   /**
    * The backing store is never wider or taller than this, in device px: past it the resolution drops
-   * so the canvas still fits. This is what reins in a big desktop monitor.
+   * so the canvas still fits. This is what reins in a big desktop monitor. 3600 keeps a 16" MacBook
+   * (1728 CSS px wide) at a full 2x.
    */
-  maxPixelWidth: 2400,
+  maxPixelWidth: 3600,
   maxPixelHeight: 2400,
   /**
-   * MSAA on the back buffer, read once at startup. Off on phones and tablets: the sprites are baked
-   * with their own soft edges, so at 2x it mostly costs fill rate. Only vector HUD edges show it.
+   * MSAA on the back buffer, read once at startup. Off everywhere: the sprites are baked with their
+   * own soft edges, and on an iPhone 15 it made no measurable difference at 2x, only vector HUD edges.
    */
-  antialiasDesktop: true,
+  antialiasDesktop: false,
   antialiasMobile: false,
 };
 

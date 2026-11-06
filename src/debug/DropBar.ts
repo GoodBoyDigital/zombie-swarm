@@ -3,6 +3,7 @@ import {
   POWERUP_DEFS,
   type PowerupDef,
 } from "../config/powerups";
+import { IS_MOBILE } from "../core/device";
 import { isTyping } from "../Game";
 
 /**
@@ -49,6 +50,6 @@ export function setupDropBar(drop: (def: PowerupDef) => void): void {
     if (e.code === "KeyO" && !isTyping(e)) show(bar.style.display === "none");
   });
   // On a phone it would sit under the thumbs, and there is no O key to bring it back.
-  show(!matchMedia("(pointer: coarse)").matches);
+  show(!IS_MOBILE);
   document.body.appendChild(bar);
 }

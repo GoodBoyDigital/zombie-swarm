@@ -1,6 +1,7 @@
 import { Point, type Application, type FederatedPointerEvent } from "pixi.js";
 import { CONTROLS } from "../config/controls";
 import { isTyping } from "../Game";
+import { IS_MOBILE } from "./device";
 import { TouchSticks } from "./TouchSticks";
 
 const MOVE_KEYS: Record<string, [number, number]> = {
@@ -33,9 +34,7 @@ export type Aim =
  * The last device used wins. Kept outside the class so it outlives a restart's fresh Input, and
  * phones start on touch so no mouse crosshair shows before the first tap.
  */
-let device: InputDevice = matchMedia("(pointer: coarse)").matches
-  ? "touch"
-  : "mouse";
+let device: InputDevice = IS_MOBILE ? "touch" : "mouse";
 
 /**
  * Radial deadzone: zero inside it, then the length rescaled to run 0..1 from its edge to full tilt,

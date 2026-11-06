@@ -4,26 +4,29 @@ import { applyBuildLabel } from "./debug/buildLabel";
 import { setupDropBar } from "./debug/DropBar";
 import { setupTuning } from "./debug/TuningPanel";
 import { LEVELS } from "./config/run";
+import {
+  fitRenderer,
+  renderAntialias,
+  renderResolution,
+} from "./core/renderFit";
 import { createTextures } from "./fx/textures";
 import { Game } from "./Game";
 import { loadSave } from "./meta/save";
 
 (async () => {
   applyBuildLabel();
-  // `?dpr=2` renders at that resolution instead of the screen's own (3 on most phones), to see on a
-  // device what the extra pixels cost.
-  const dpr = Number(new URLSearchParams(location.search).get("dpr"));
   const app = new Application();
   await app.init({
     // The floor's own black beyond the walls, so the two join without a seam when the touch camera
     // looks out past the arena's margin.
     background: "#000000",
-    resizeTo: window,
-    antialias: true,
-    resolution: dpr || window.devicePixelRatio,
-    autoDensity: true,
+    width: window.innerWidth,
+    height: window.innerHeight,
+    antialias: renderAntialias(),
+    resolution: renderResolution(window.innerWidth, window.innerHeight),
   });
   document.getElementById("pixi-container")!.appendChild(app.canvas);
+  fitRenderer(app);
   // Phones: no double-tap zoom or text loupe over the game, and no pinch zoom of the page (Safari).
   app.canvas.addEventListener("touchstart", (e) => e.preventDefault(), {
     passive: false,

@@ -462,7 +462,7 @@ export class Game {
     this.hud.text =
       `${w.def.name.toUpperCase()} ${ammo}${keys}\n` +
       `coins ${this.loot.counters.coins}   gems ${this.loot.counters.gems}   on floor ${this.loot.count}\n` +
-      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}${debug}`;
+      `hp ${Math.ceil(this.player.health)}/${PLAYER.maxHealth}   kills ${this.horde.kills}   horde ${this.horde.alive.length}   fps ${Math.round(this.app.ticker.FPS)}   ${this.app.canvas.width}x${this.app.canvas.height}${debug}`;
   }
 
   /**

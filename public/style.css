@@ -39,6 +39,14 @@ canvas {
     cursor: none;
 }
 
+/* The canvas always fills the window. How many pixels it actually holds is capped in
+   src/config/render.ts, and the browser scales those up to this box. */
+#pixi-container,
+canvas {
+    width: 100%;
+    height: 100%;
+}
+
 canvas {
     display: block;
     touch-action: none;

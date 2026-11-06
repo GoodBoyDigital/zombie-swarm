@@ -55,7 +55,10 @@ marker, lock-on and the touch camera are in `src/config/controls.ts`.
   cone, and red brackets mark it. Nothing in the cone, and shots go exactly where the stick points.
 - On touch the camera follows past the arena edge (`touchEdgeReveal`), so the player stays near the middle
   of the screen instead of ending up under a thumb.
-- `?dpr=2` in the URL renders at that resolution instead of the screen's own, to compare frame rates on a phone.
+- Render size (`src/config/render.ts`, applied by `src/core/renderFit.ts`): the canvas is CSS-sized to the
+  window, and its backing store is capped at 2x and at 2400 device px either way, with the browser scaling
+  it up. Antialiasing (MSAA) is on for desktop and off on phones and tablets. `?dpr=3` in the URL forces a
+  resolution and `?aa=1` / `?aa=0` forces antialiasing, to compare on a device; the HUD shows the backing size.
 - R: reload, or retry the level from the results card; N: next level after extracting
 - Hold out until the countdown hits zero, then get to the chopper's landing pad (follow the H arrow) and
   stand on it to board. Extracting unlocks the next level; dying retries the same one. Coins bank either way.

@@ -21,8 +21,7 @@ only. `PERF_LABEL=candidate` saves separate results. `PERF_URL` overrides
 
 ## Workload
 
-- Fresh game per variant, random seed 14731, 600 spawns/second, cap 600 then
-  1000. Wait for 98% of the cap and ten further seconds before recording.
+- Fresh game per variant, random seed 14731, 600 spawns/second, cap 600 then 1000. Wait for 98% of the cap and ten further seconds before recording.
 - Minigun for fifteen seconds, shotgun for fifteen. Hold fire, sweep aim, and
   move in a repeated WASD loop. Magazine size, cadence, reload, damage and
   visuals keep their shipped values.
@@ -98,3 +97,20 @@ durations describe Chrome GPU-service-thread work, not hardware shader time.
 The `Document-Policy: js-profiling` header is dev-only and gated by
 `VITE_BUILD_LABEL=perf`. Production builds emit no such header. The game never
 imports the fixture. There are no gameplay or visual changes.
+
+## On a phone
+
+`perf/phone.js` is a lighter fixture for a real device, where nothing can be read back except the
+screen. With the dev server reachable from the phone, run this in the page (WebDriver execute, or a
+remote console):
+
+```js
+import("/perf/phone.js").then((m) => m.run({ cap: 600, seconds: 40 }));
+```
+
+It fills the arena to `cap` zombies, makes the player invulnerable with a minigun that never runs dry,
+holds the trigger while sweeping the aim and walking a circle, and after a twelve-second warm-up
+records `seconds` of frame intervals. A box in the bottom-right corner shows the canvas backing size,
+resolution and antialiasing, then the average, median, 95th percentile and share of frames over 20 ms,
+and `DONE` when it has finished. `?dpr=` and `?aa=` on the page URL pick the variant to compare
+(src/core/renderFit.ts). Only compare runs from the same session on the same phone.

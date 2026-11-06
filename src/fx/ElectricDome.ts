@@ -71,11 +71,13 @@ export class ElectricDome {
     if (this.radius !== this.drawnRadius) this.drawBody();
     this.body.alpha = this.visibility;
     this.arcs.alpha = this.visibility;
-    const half = this.radius + RIM_WIDTH / 2 + FILTER_PADDING;
+    // The filter works in screen px; the camera's zoom is read off the last render.
+    const world = this.view.worldTransform;
+    const zoom = Math.hypot(world.a, world.b) || 1;
     const u = this.filter.uniforms;
-    u.uEdge = this.radius / half;
+    u.uRadius = Math.max(1, this.radius * zoom);
     u.uStrength = this.ripple * this.visibility;
-    u.uNoiseScale = half * NOISE_PER_PX;
+    u.uNoiseScale = NOISE_PER_PX / zoom;
     u.uTime = this.time;
     this.arcTimer -= dt;
     if (this.arcTimer > 0) return;

@@ -21,6 +21,10 @@ export default defineConfig(({ command }) => {
     ],
     // GitHub Pages serves the game under /<repo>/; the deploy workflow sets BASE_PATH.
     base: process.env.BASE_PATH ?? "/",
+    // The game, plus the dome lab (dome-lab.html): the electric dome alone over a test grid.
+    build: {
+      rollupOptions: { input: ["index.html", "dome-lab.html"] },
+    },
     server: {
       port: 8080,
       open: true,
